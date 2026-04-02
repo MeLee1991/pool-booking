@@ -6,65 +6,96 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. PREMIUM MOBILE UI (Swipeable & Centered)
+# 0. PREMIUM MOBILE UI (Dark Theme & Fixed Inputs)
 # ==========================================
 st.markdown("""
 <style>
     /* Global App Theme */
-    .stApp {
-        background-color: #0a0e14 !important; /* Pitch dark premium background */
+    .stApp, .stApp > header {
+        background-color: #0a0e14 !important; 
         color: #ffffff !important;
     }
     
-    h1 {
+    /* Force Sidebar Background to match */
+    [data-testid="stSidebar"] {
+        background-color: #111827 !important;
+    }
+    
+    h1, h2 {
         text-align: center;
         font-weight: 800 !important;
         letter-spacing: 2px;
         margin-bottom: 5px !important;
+        color: #ffffff !important;
     }
     
+    /* ---------------------------------------------------
+       FIXED TEXT INPUTS (Stops white backgrounds on phones)
+       --------------------------------------------------- */
+    div[data-baseweb="input"] > div {
+        background-color: #111827 !important;
+        border: 1px solid #374151 !important;
+        border-radius: 6px !important;
+    }
+    div[data-baseweb="input"] input {
+        color: #ffffff !important;
+    }
+    .stTextInput label, .stRadio label {
+        color: #9ca3af !important;
+    }
+
+    /* ---------------------------------------------------
+       MAIN UI BUTTONS (Login, Save, Create)
+       --------------------------------------------------- */
+    .stButton > button {
+        background-color: #10b981 !important;
+        color: #000000 !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        border: none !important;
+        transition: all 0.2s ease;
+        min-height: 45px;
+    }
+    .stButton > button:hover {
+        background-color: #059669 !important;
+    }
+
     /* ---------------------------------------------------
        SWIPEABLE DATE RIBBON (Horizontal Scroll)
        --------------------------------------------------- */
     [data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
-        flex-wrap: nowrap !important; /* FORCE single line */
-        overflow-x: auto !important; /* ENABLE horizontal scrolling */
+        flex-wrap: nowrap !important; 
+        overflow-x: auto !important; 
         justify-content: flex-start !important;
         gap: 12px !important;
         padding: 15px 5px !important;
         border-bottom: 1px solid #1f2937;
         margin-bottom: 15px !important;
-        -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
-        scrollbar-width: none; /* Hide scrollbar Firefox */
+        -webkit-overflow-scrolling: touch; 
+        scrollbar-width: none; 
     }
-    
-    /* Hide scrollbar Chrome/Safari */
     [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
         display: none;
     }
     
-    /* Style the Date Cards */
     [data-testid="stRadio"] label {
         background-color: #111827 !important;
         border: 1px solid #374151 !important;
         border-radius: 8px !important;
         padding: 10px 20px !important;
-        min-width: max-content; /* Prevent text wrapping */
+        min-width: max-content; 
         cursor: pointer;
         transition: all 0.2s ease;
+        color: #ffffff !important;
     }
-    
-    /* Style the SELECTED Date Card (Emerald Glow) */
     [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #10b981 !important;
         border-color: #10b981 !important;
         color: #000000 !important;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); /* Glow effect */
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); 
         font-weight: bold !important;
     }
-    
-    /* Hide the default radio circle */
     [data-testid="stRadio"] label span[data-baseweb="radio"] {
         display: none !important;
     }
@@ -72,12 +103,11 @@ st.markdown("""
     /* ---------------------------------------------------
        CENTERED GRID & MOBILE COLUMNS
        --------------------------------------------------- */
-    /* Force 3 columns on mobile */
     @media (max-width: 768px) {
         [data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 6px !important; /* Small gap between tables */
+            gap: 6px !important; 
         }
         [data-testid="column"] {
             width: 33.33% !important;
@@ -87,7 +117,6 @@ st.markdown("""
         }
     }
     
-    /* Centered Table Headers */
     .table-header {
         text-align: center !important;
         font-size: 16px !important;
@@ -101,40 +130,35 @@ st.markdown("""
         border-bottom: none;
     }
     
-    /* Grid Buttons (Frames) */
-    .stButton > button {
+    /* OVERRIDE BUTTONS IN THE GRID (To make them spreadsheet frames) */
+    [data-testid="column"] .stButton > button {
         width: 100%;
         border-radius: 0px !important; 
         border: 1px solid #1f2937 !important; 
         background-color: #111827 !important; 
         color: #e5e7eb !important; 
         padding: 6px 2px !important; 
-        min-height: 48px !important; /* Touch-friendly height */
+        min-height: 48px !important; 
         margin-bottom: -1px !important; 
         font-size: 11px !important; 
         line-height: 1.3 !important;
         font-weight: 500 !important;
-        text-align: center !important; /* Center button text */
+        text-align: center !important; 
     }
-    
-    /* Hover effect for Free Slots */
-    .stButton > button:hover {
+    [data-testid="column"] .stButton > button:hover {
         border-color: #10b981 !important;
         color: #10b981 !important;
     }
-    
-    /* Primary buttons (Cancel - Red) */
-    button[kind="primary"] {
+    [data-testid="column"] button[kind="primary"] {
         background-color: #3f1416 !important; 
         border: 1px solid #ef4444 !important; 
         color: #fca5a5 !important; 
     }
-    button[kind="primary"]:hover {
+    [data-testid="column"] button[kind="primary"]:hover {
         background-color: #ef4444 !important;
         color: #ffffff !important;
     }
     
-    /* Reduce top padding */
     .block-container {
         padding-top: 2rem !important;
         padding-left: 0.5rem !important;
@@ -185,7 +209,7 @@ def log_action(action, performed_by, target_user, details):
     pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
 
 # ==========================================
-# 2. AUTHENTICATION & LOGIN SYSTEM
+# 2. AUTHENTICATION & LOGIN SYSTEM (Moved to Main Screen)
 # ==========================================
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
@@ -194,50 +218,57 @@ if 'logged_in_name' not in st.session_state:
 if 'user_role' not in st.session_state:
     st.session_state.user_role = None
 
-st.sidebar.title("🔐 Login / Register")
-
+# If not logged in, show the login form right in the middle of the screen
 if st.session_state.logged_in_user is None:
-    auth_mode = st.sidebar.radio("Choose Action", ["Login", "Register"])
-    email_input = st.sidebar.text_input("Email Address").strip().lower()
+    st.markdown("<h2>🎱 POOLHALL LOGIN</h2>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    if auth_mode == "Register":
-        display_name = st.sidebar.text_input("Display Name (e.g. Tomi)").strip()
+    # Use columns to center the login box
+    col1, col2, col3 = st.columns([1, 10, 1])
+    with col2:
+        auth_mode = st.radio("Choose Action", ["Login", "Register"], horizontal=True)
+        email_input = st.text_input("Email Address").strip().lower()
         
-    password = st.sidebar.text_input("Password", type="password")
-    
-    if auth_mode == "Register":
-        if st.sidebar.button("Create Account"):
-            users = load_users()
-            if email_input in users['Email'].values:
-                st.sidebar.error("Email already exists!")
-            elif len(email_input) < 5 or "@" not in email_input:
-                st.sidebar.error("Valid email required.")
-            elif len(display_name) < 2:
-                st.sidebar.error("Display name required.")
-            else:
-                role = 'admin' if email_input == OWNER_EMAIL else 'pending'
-                new_user = pd.DataFrame([[email_input, display_name, password, role]], columns=['Email', 'Name', 'Password', 'Role'])
-                save_users(pd.concat([users, new_user], ignore_index=True))
-                st.sidebar.success("Account created! Switch to Login.")
-                
-    elif auth_mode == "Login":
-        if st.sidebar.button("Login"):
-            users = load_users()
-            user_match = users[(users['Email'] == email_input) & (users['Password'] == password)]
+        if auth_mode == "Register":
+            display_name = st.text_input("Display Name (e.g. Tomi)").strip()
             
-            if not user_match.empty:
-                role = user_match.iloc[0]['Role']
-                if role == 'pending':
-                    st.sidebar.error("Awaiting Admin approval.")
+        password = st.text_input("Password", type="password")
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        if auth_mode == "Register":
+            if st.button("Create Account", use_container_width=True):
+                users = load_users()
+                if email_input in users['Email'].values:
+                    st.error("Email already exists!")
+                elif len(email_input) < 5 or "@" not in email_input:
+                    st.error("Valid email required.")
+                elif len(display_name) < 2:
+                    st.error("Display name required.")
                 else:
-                    st.session_state.logged_in_user = email_input
-                    st.session_state.logged_in_name = user_match.iloc[0]['Name']
-                    st.session_state.user_role = role
-                    st.rerun()
-            else:
-                st.sidebar.error("Incorrect email/password.")
-    st.stop()
+                    role = 'admin' if email_input == OWNER_EMAIL else 'pending'
+                    new_user = pd.DataFrame([[email_input, display_name, password, role]], columns=['Email', 'Name', 'Password', 'Role'])
+                    save_users(pd.concat([users, new_user], ignore_index=True))
+                    st.success("Account created! Switch to Login.")
+                    
+        elif auth_mode == "Login":
+            if st.button("Login", use_container_width=True):
+                users = load_users()
+                user_match = users[(users['Email'] == email_input) & (users['Password'] == password)]
+                
+                if not user_match.empty:
+                    role = user_match.iloc[0]['Role']
+                    if role == 'pending':
+                        st.error("Awaiting Admin approval.")
+                    else:
+                        st.session_state.logged_in_user = email_input
+                        st.session_state.logged_in_name = user_match.iloc[0]['Name']
+                        st.session_state.user_role = role
+                        st.rerun()
+                else:
+                    st.error("Incorrect email/password.")
+    st.stop() # Stop rendering the app here until they log in
 
+# --- Sidebar (Only visible AFTER login) ---
 st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in_user = None
@@ -270,7 +301,7 @@ if view_mode == "⚙️ Admin Dashboard":
             },
             hide_index=True, use_container_width=True
         )
-        if st.button("💾 Save User Changes", type="primary"):
+        if st.button("💾 Save User Changes", use_container_width=True):
             save_users(edited_users)
             if st.session_state.logged_in_user in edited_users['Email'].values:
                 updated_name = edited_users[edited_users['Email'] == st.session_state.logged_in_user].iloc[0]['Name']
@@ -290,7 +321,7 @@ if view_mode == "⚙️ Admin Dashboard":
     st.stop()
 
 # ==========================================
-# 4. THE BOOKING SYSTEM (STYLISH UI)
+# 4. THE BOOKING SYSTEM
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
 
@@ -302,11 +333,11 @@ upcoming_dates = [today + timedelta(days=i) for i in range(14)]
 def get_date_label(d):
     if d == today: return "Today"
     if d == today + timedelta(days=1): return "Tomorrow"
-    return d.strftime("%a %d") # Shorter format for a cleaner ribbon (e.g. "Fri 04")
+    return d.strftime("%a %d") 
 
 date_labels = [get_date_label(d) for d in upcoming_dates]
 
-# The Date Selector (Now rendered as a swipeable row via CSS)
+# The Date Selector
 selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
@@ -327,7 +358,6 @@ cols = st.columns(3)
 
 for i, col in enumerate(cols):
     t_name = f"Tbl {i+1}"
-    # Use perfectly centered HTML headers with CSS styling
     col.markdown(f"<div class='table-header'>{t_name}</div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
