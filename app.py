@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. CLEAN STRUCTURAL CSS (No more color fighting)
+# 1. CLEAN STRUCTURAL CSS (With 2-Row Date Grid)
 # ==========================================
 st.markdown("""
 <style>
@@ -43,29 +43,73 @@ st.markdown("""
     }
 
     /* ---------------------------------------------------
-       MAIN AREA: SWIPEABLE DATE RIBBON
+       MAIN AREA: 2-ROW DATE RIBBON (CSS Grid)
        --------------------------------------------------- */
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
-        display: flex !important;
-        flex-wrap: nowrap !important; 
-        overflow-x: auto !important; 
-        gap: 10px !important;
-        padding: 10px 0 !important;
+        display: grid !important;
+        grid-template-columns: max-content repeat(7, max-content) !important;
+        grid-template-rows: auto auto !important;
+        gap: 12px 8px !important; /* vertical and horizontal gap */
+        padding: 10px 5px 15px 5px !important;
         border-bottom: 1px solid #dee2e6; 
         margin-bottom: 15px !important;
+        overflow-x: auto !important; 
         -webkit-overflow-scrolling: touch; 
         scrollbar-width: none; 
+        align-items: center;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
         display: none;
     }
+    
+    /* Inject Row Labels */
+    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::before {
+        content: "This week:";
+        grid-column: 1;
+        grid-row: 1;
+        font-weight: 500;
+        color: #495057;
+        font-size: 14px;
+        padding-right: 5px;
+    }
+    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::after {
+        content: "Next week:";
+        grid-column: 1;
+        grid-row: 2;
+        font-weight: 500;
+        color: #495057;
+        font-size: 14px;
+        padding-right: 5px;
+    }
+    
+    /* Place the 14 buttons perfectly into the 2 rows */
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(4)  { grid-column: 5; grid-row: 1; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
+    
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(11) { grid-column: 5; grid-row: 2; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(12) { grid-column: 6; grid-row: 2; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
+    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
+
+    /* Format the Date Buttons */
     section[data-testid="stMain"] [data-testid="stRadio"] label {
+        background-color: #ffffff !important;
         border: 1px solid #ced4da !important;
         border-radius: 4px !important;
-        padding: 8px 16px !important;
+        padding: 6px 12px !important;
         min-width: max-content; 
         cursor: pointer;
+        margin: 0 !important; /* Fix spacing for grid */
     }
+    
     /* Selected Date */
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #007bff !important; 
