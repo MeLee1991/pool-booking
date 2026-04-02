@@ -6,51 +6,78 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. MOBILE GRID "FRAME" CSS (Dark Mode Proof)
+# 0. PREMIUM MOBILE UI (Swipeable & Centered)
 # ==========================================
 st.markdown("""
 <style>
-    /* Force main app background to deep dark gray */
+    /* Global App Theme */
     .stApp {
-        background-color: #0d1117 !important;
+        background-color: #0a0e14 !important; /* Pitch dark premium background */
         color: #ffffff !important;
     }
     
     h1 {
         text-align: center;
         font-weight: 800 !important;
-        letter-spacing: 1px;
-        margin-bottom: 15px !important;
+        letter-spacing: 2px;
+        margin-bottom: 5px !important;
     }
     
-    /* Modern Date Selector */
+    /* ---------------------------------------------------
+       SWIPEABLE DATE RIBBON (Horizontal Scroll)
+       --------------------------------------------------- */
     [data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
-        flex-wrap: wrap !important;
-        justify-content: center !important;
-        gap: 4px !important;
-        width: 100% !important;
-        border-bottom: 1px solid #30363d;
-        padding-bottom: 10px !important;
-        margin-bottom: 10px !important;
+        flex-wrap: nowrap !important; /* FORCE single line */
+        overflow-x: auto !important; /* ENABLE horizontal scrolling */
+        justify-content: flex-start !important;
+        gap: 12px !important;
+        padding: 15px 5px !important;
+        border-bottom: 1px solid #1f2937;
+        margin-bottom: 15px !important;
+        -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+        scrollbar-width: none; /* Hide scrollbar Firefox */
     }
     
-    /* Table Headers (Tbl 1, Tbl 2...) */
-    h3 {
-        text-align: center !important;
-        font-size: 16px !important;
+    /* Hide scrollbar Chrome/Safari */
+    [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Style the Date Cards */
+    [data-testid="stRadio"] label {
+        background-color: #111827 !important;
+        border: 1px solid #374151 !important;
+        border-radius: 8px !important;
+        padding: 10px 20px !important;
+        min-width: max-content; /* Prevent text wrapping */
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    /* Style the SELECTED Date Card (Emerald Glow) */
+    [data-testid="stRadio"] label[data-checked="true"] {
+        background-color: #10b981 !important;
+        border-color: #10b981 !important;
+        color: #000000 !important;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); /* Glow effect */
         font-weight: bold !important;
-        color: #10b981 !important; /* Emerald */
-        margin-bottom: 5px !important;
-        padding-bottom: 0 !important;
+    }
+    
+    /* Hide the default radio circle */
+    [data-testid="stRadio"] label span[data-baseweb="radio"] {
+        display: none !important;
     }
 
-    /* 1. Force 3 strict columns on mobile with a clear gap */
+    /* ---------------------------------------------------
+       CENTERED GRID & MOBILE COLUMNS
+       --------------------------------------------------- */
+    /* Force 3 columns on mobile */
     @media (max-width: 768px) {
         [data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 4px !important; /* Clear visual gap between the 3 columns */
+            gap: 6px !important; /* Small gap between tables */
         }
         [data-testid="column"] {
             width: 33.33% !important;
@@ -60,32 +87,58 @@ st.markdown("""
         }
     }
     
-    /* 2. Turn Buttons into Flat "Frames/Cells" */
+    /* Centered Table Headers */
+    .table-header {
+        text-align: center !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        color: #10b981 !important;
+        background-color: #111827;
+        padding: 8px 0;
+        border-radius: 6px 6px 0 0;
+        margin-bottom: 0 !important;
+        border: 1px solid #1f2937;
+        border-bottom: none;
+    }
+    
+    /* Grid Buttons (Frames) */
     .stButton > button {
         width: 100%;
-        border-radius: 0px !important; /* Square spreadsheet corners */
-        border: 1px solid #30363d !important; /* Subtle gray frame border */
-        background-color: #161b22 !important; /* Flat dark background */
-        color: #ffffff !important; /* Force stark white text for visibility */
-        padding: 4px 2px !important; 
-        min-height: 44px !important; /* Uniform height for ALL slots */
-        margin-bottom: -1px !important; /* Overlap borders to create a continuous grid */
+        border-radius: 0px !important; 
+        border: 1px solid #1f2937 !important; 
+        background-color: #111827 !important; 
+        color: #e5e7eb !important; 
+        padding: 6px 2px !important; 
+        min-height: 48px !important; /* Touch-friendly height */
+        margin-bottom: -1px !important; 
         font-size: 11px !important; 
-        line-height: 1.2 !important;
+        line-height: 1.3 !important;
         font-weight: 500 !important;
+        text-align: center !important; /* Center button text */
     }
     
-    /* Styling for slots that YOU booked (Primary Action) */
+    /* Hover effect for Free Slots */
+    .stButton > button:hover {
+        border-color: #10b981 !important;
+        color: #10b981 !important;
+    }
+    
+    /* Primary buttons (Cancel - Red) */
     button[kind="primary"] {
-        background-color: #4a191b !important; /* Faint red background */
-        border: 1px solid #f85149 !important; /* Bright red frame */
-        color: #ff7b72 !important; /* Bright red text */
+        background-color: #3f1416 !important; 
+        border: 1px solid #ef4444 !important; 
+        color: #fca5a5 !important; 
+    }
+    button[kind="primary"]:hover {
+        background-color: #ef4444 !important;
+        color: #ffffff !important;
     }
     
+    /* Reduce top padding */
     .block-container {
-        padding-top: 1rem !important;
-        padding-left: 0.2rem !important;
-        padding-right: 0.2rem !important;
+        padding-top: 2rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -141,7 +194,7 @@ if 'logged_in_name' not in st.session_state:
 if 'user_role' not in st.session_state:
     st.session_state.user_role = None
 
-st.sidebar.title("🔐 Login")
+st.sidebar.title("🔐 Login / Register")
 
 if st.session_state.logged_in_user is None:
     auth_mode = st.sidebar.radio("Choose Action", ["Login", "Register"])
@@ -237,21 +290,23 @@ if view_mode == "⚙️ Admin Dashboard":
     st.stop()
 
 # ==========================================
-# 4. THE BOOKING SYSTEM (GRID UI)
+# 4. THE BOOKING SYSTEM (STYLISH UI)
 # ==========================================
-st.markdown("<h1>RESERVE YOUR <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
+st.markdown("<h1>RESERVE <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
 
-# ALL HOURS EQUAL SIZE
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 
+# Generate 14 days
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(14)]
 def get_date_label(d):
     if d == today: return "Today"
     if d == today + timedelta(days=1): return "Tomorrow"
-    return d.strftime("%a, %b %d")
+    return d.strftime("%a %d") # Shorter format for a cleaner ribbon (e.g. "Fri 04")
 
 date_labels = [get_date_label(d) for d in upcoming_dates]
+
+# The Date Selector (Now rendered as a swipeable row via CSS)
 selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
@@ -262,7 +317,7 @@ relevant_bookings = bookings_df[bookings_df['Date'] == str(view_date)]
 user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_state.logged_in_user]['Duration'].sum()
 
 if st.session_state.user_role != 'admin':
-    st.caption(f"**Your time today:** {user_today_hours} / 3.0h")
+    st.caption(f"<div style='text-align:center;'>**Your booked time:** {user_today_hours} / 3.0h</div>", unsafe_allow_html=True)
 
 users_df = load_users()
 name_lookup = dict(zip(users_df['Email'], users_df['Name']))
@@ -271,8 +326,9 @@ name_lookup = dict(zip(users_df['Email'], users_df['Name']))
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
-    t_name = f"Tbl {i+1}" # Changed to Tbl to save horizontal space
-    col.markdown(f"### {t_name}")
+    t_name = f"Tbl {i+1}"
+    # Use perfectly centered HTML headers with CSS styling
+    col.markdown(f"<div class='table-header'>{t_name}</div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
         booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
@@ -282,7 +338,6 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
             
-            # Formatted exactly the same for all hours
             if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
                 btn_label = f"{time_str}\n❌ {short_name}"
                 if col.button(btn_label, key=f"del_{button_key}", type="primary"):
