@@ -11,11 +11,10 @@ st.set_page_config(page_title="Pool Club - 9ft Tables", layout="wide")
 USERS_FILE = 'users.csv'
 BOOKINGS_FILE = 'bookings.csv'
 AUDIT_FILE = 'audit.csv'
-OWNER_EMAIL = "tomazbratina@gmail.com" # <--- The Ultimate Boss
+OWNER_EMAIL = "tomazbratina@gmail.com" 
 
-# Initialize Files
 if not os.path.exists(USERS_FILE):
-    pd.DataFrame(columns=['Email', 'Password', 'Role']).to_csv(USERS_FILE, index=False)
+    pd.DataFrame(columns=['Email', 'Name', 'Password', 'Role']).to_csv(USERS_FILE, index=False)
 if not os.path.exists(BOOKINGS_FILE):
     pd.DataFrame(columns=['User', 'Date', 'Table', 'Time', 'Duration']).to_csv(BOOKINGS_FILE, index=False)
 if not os.path.exists(AUDIT_FILE):
@@ -24,19 +23,25 @@ if not os.path.exists(AUDIT_FILE):
 def load_users(): 
     try:
         df = pd.read_csv(USERS_FILE)
-        # --- AUTO-REPAIR OLD DATABASE ---
+        changed = False
+        # Auto-repair old databases
         if 'Username' in df.columns:
             df = df.rename(columns={'Username': 'Email'})
-            df.to_csv(USERS_FILE, index=False) # Save the repaired file
+            changed = True
+        if 'Name' not in df.columns:
+            # If Name is missing, extract it from the email (e.g., tomazbratina@... -> tomazbratina)
+            df.insert(1, 'Name', df['Email'].apply(lambda x: str(x).split('@')[0]))
+            changed = True
+        if changed:
+            df.to_csv(USERS_FILE, index=False)
         return df
     except:
-        return pd.DataFrame(columns=['Email', 'Password', 'Role'])
+        return pd.DataFrame(columns=['Email', 'Name', 'Password', 'Role'])
 
 def save_users(df): df.to_csv(USERS_FILE, index=False)
 def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
 def save_bookings(df): df.to_csv(BOOKINGS_FILE, index=False)
 
-# Master Log Function
 def log_action(action, performed_by, target_user, details):
     audit_df = pd.read_csv(AUDIT_FILE)
     new_log = pd.DataFrame([[datetime.now().strftime("%Y-%m-%d %H:%M:%S"), action, performed_by, target_user, details]], 
@@ -49,6 +54,8 @@ def log_action(action, performed_by, target_user, details):
 # ==========================================
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
+if 'logged_in_name' not in st.session_state:
+    st.session_state.logged_in_name = None
 if 'user_role' not in st.session_state:
     st.session_state.user_role = None
 
@@ -59,6 +66,10 @@ if st.session_state.logged_in_user is None:
     auth_mode = st.sidebar.radio("Choose Action", ["Login", "Register"])
     
     email_input = st.sidebar.text_input("Email Address").strip().lower()
+    
+    if auth_mode == "Register":
+        display_name = st.sidebar.text_input("Display Name (e.g. Tomi)").strip()
+        
     password = st.sidebar.text_input("Password", type="password")
     
     if auth_mode == "Register":
@@ -68,10 +79,11 @@ if st.session_state.logged_in_user is None:
                 st.sidebar.error("Email already exists!")
             elif len(email_input) < 5 or "@" not in email_input:
                 st.sidebar.error("Please enter a valid email address.")
+            elif len(display_name) < 2:
+                st.sidebar.error("Please enter a display name.")
             else:
-                # Auto-admin for the owner, pending for everyone else
                 role = 'admin' if email_input == OWNER_EMAIL else 'pending'
-                new_user = pd.DataFrame([[email_input, password, role]], columns=['Email', 'Password', 'Role'])
+                new_user = pd.DataFrame([[email_input, display_name, password, role]], columns=['Email', 'Name', 'Password', 'Role'])
                 save_users(pd.concat([users, new_user], ignore_index=True))
                 st.sidebar.success("Account created! Please switch to Login above.")
                 
@@ -86,6 +98,7 @@ if st.session_state.logged_in_user is None:
                     st.sidebar.error("Your account is waiting for Admin approval.")
                 else:
                     st.session_state.logged_in_user = email_input
+                    st.session_state.logged_in_name = user_match.iloc[0]['Name']
                     st.session_state.user_role = role
                     st.rerun()
             else:
@@ -93,13 +106,13 @@ if st.session_state.logged_in_user is None:
     st.stop()
 
 # Logged IN View Sidebar
-st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_user}**")
+st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in_user = None
+    st.session_state.logged_in_name = None
     st.session_state.user_role = None
     st.rerun()
 
-# --- NAVIGATION MENU (Only visible to Admins) ---
 view_mode = "📅 Schedule"
 if st.session_state.user_role == 'admin':
     st.sidebar.markdown("---")
@@ -107,24 +120,22 @@ if st.session_state.user_role == 'admin':
 
 
 # ==========================================
-# 3. ADMIN DASHBOARD (Nicer & Owner-Protected)
+# 3. ADMIN DASHBOARD
 # ==========================================
 if view_mode == "⚙️ Admin Dashboard":
     st.title("⚙️ Club Administration")
     
     tab1, tab2, tab3 = st.tabs(["👥 User Management", "📊 Raw Database", "🕵️‍♂️ Security Audit Log"])
     
-    # --- TAB 1: Nice User Editor ---
     with tab1:
-        st.write("### Manage Permissions")
-        st.write("Double-click the **Role** column to change a user's permissions, then click Save.")
+        st.write("### Manage Users & Permissions")
         users_df = load_users()
         
-        # Interactive Grid
         edited_users = st.data_editor(
             users_df,
             column_config={
                 "Role": st.column_config.SelectboxColumn("User Role", options=["pending", "user", "admin"], required=True),
+                "Name": st.column_config.TextColumn("Display Name"), 
                 "Email": st.column_config.TextColumn("Email Address", disabled=True), 
                 "Password": st.column_config.TextColumn("Password", disabled=True)
             },
@@ -134,22 +145,24 @@ if view_mode == "⚙️ Admin Dashboard":
         
         if st.button("💾 Save User Changes", type="primary"):
             save_users(edited_users)
+            
+            # Update current session name if the admin changed their own name
+            if st.session_state.logged_in_user in edited_users['Email'].values:
+                updated_name = edited_users[edited_users['Email'] == st.session_state.logged_in_user].iloc[0]['Name']
+                st.session_state.logged_in_name = updated_name
+                
             st.success("Database updated successfully!")
 
-    # --- TAB 2: Bookings ---
     with tab2:
         st.write("### All Active Bookings")
         st.dataframe(load_bookings(), use_container_width=True)
 
-    # --- TAB 3: Secret Audit Log ---
     with tab3:
         st.write("### Master Action Log")
         if st.session_state.logged_in_user == OWNER_EMAIL:
-            st.info("🔓 Owner Access Granted. Viewing all system actions.")
             st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
         else:
             st.error("⛔ Access Denied. Only the Club Owner can view the security logs.")
-            
     st.stop()
 
 
@@ -176,6 +189,10 @@ user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_sta
 if st.session_state.user_role != 'admin':
     st.write(f"**Your booked time today:** {user_today_hours} / 3.0 hours")
 
+# Create a dictionary to quickly look up short names based on emails
+users_df = load_users()
+name_lookup = dict(zip(users_df['Email'], users_df['Name']))
+
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
@@ -184,7 +201,8 @@ for i, col in enumerate(cols):
     
     for time_str in HOURS:
         hour_int = int(time_str.split(":")[0])
-        time_icon = "🌙" if hour_int < 8 else "☀️" if hour_int < 16 else "🌆"
+        # CHANGED: Sun stays until 20:00 (less than 20)
+        time_icon = "🌙" if hour_int < 8 else "☀️" if hour_int < 20 else "🌆" 
         
         booked = relevant_bookings[(relevant_bookings['Table'] == t_name) & (relevant_bookings['Time'] == time_str)]
         
@@ -193,10 +211,13 @@ for i, col in enumerate(cols):
         button_key = f"{t_name}_{time_str}_{view_date}"
         
         if not booked.empty:
-            booked_user = booked.iloc[0]['User']
-            if st.session_state.user_role == 'admin' or booked_user == st.session_state.logged_in_user:
-                if c2.button(f"❌ Cancel ({booked_user})", key=f"del_{button_key}", type="primary"):
-                    log_action("CANCELLED", st.session_state.logged_in_user, booked_user, f"{t_name} | {view_date} | {time_str}")
+            booked_user_email = booked.iloc[0]['User']
+            # Look up the short display name (fallback to email prefix if not found)
+            short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
+            
+            if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
+                if c2.button(f"❌ Cancel ({short_name})", key=f"del_{button_key}", type="primary"):
+                    log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"{t_name} | {view_date} | {time_str}")
                     bookings_df = bookings_df[~((bookings_df['Table'] == t_name) & 
                                                 (bookings_df['Time'] == time_str) & 
                                                 (bookings_df['Date'] == str(view_date)))]
