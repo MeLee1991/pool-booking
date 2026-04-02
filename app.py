@@ -6,31 +6,54 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. PREMIUM LIGHT UI (Properly Scoped CSS)
+# 0. CLEAN STANDARD UI (Roboto Light)
 # ==========================================
 st.markdown("""
 <style>
-    /* Force ENTIRE App (Main and Sidebar) to Light Theme */
-    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
-        background-color: #f8fafc !important;
+    /* Import Roboto Font */
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
+
+    /* Global Font & Standard Light Theme */
+    html, body, .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
+        background-color: #f8f9fa !important; /* Standard off-white */
+        font-family: 'Roboto', sans-serif !important;
+        font-weight: 300 !important; /* Roboto Light */
+        color: #212529 !important; /* Standard dark text */
     }
     
-    /* Force all base text to dark slate */
-    h1, h2, h3, p, span, label, div {
-        color: #0f172a !important;
+    p, span, div, label, li {
+        font-family: 'Roboto', sans-serif !important;
+        font-weight: 300 !important;
+        color: #212529 !important;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Roboto', sans-serif !important;
+        font-weight: 400 !important; /* Slightly bolder for headings, but still clean */
+        color: #212529 !important;
     }
     
     h1 {
         text-align: center;
-        font-weight: 800 !important;
-        letter-spacing: 2px;
-        margin-bottom: 5px !important;
+        margin-bottom: 10px !important;
     }
 
     /* ---------------------------------------------------
-       SIDEBAR STYLING (Fixing the ugly white boxes)
+       STANDARD LOGIN INPUTS (Fixes the black boxes)
        --------------------------------------------------- */
-    /* Remove the weird white backgrounds from the Radio buttons */
+    div[data-baseweb="input"] > div {
+        background-color: #ffffff !important; /* Strictly white background */
+        border: 1px solid #ced4da !important; /* Standard gray border */
+        border-radius: 4px !important;
+    }
+    div[data-baseweb="input"] input {
+        color: #495057 !important; /* Standard gray text */
+        font-family: 'Roboto', sans-serif !important;
+        font-weight: 300 !important;
+        background-color: transparent !important;
+    }
+    
+    /* Standardize Sidebar Radio Buttons */
     [data-testid="stSidebar"] [data-testid="stRadio"] label {
         background-color: transparent !important;
         border: none !important;
@@ -38,80 +61,66 @@ st.markdown("""
         padding: 0 !important;
     }
     
-    /* Make sidebar login button look like a normal modern button */
+    /* Standard Login Button */
     [data-testid="stSidebar"] .stButton > button {
-        background-color: #10b981 !important;
+        background-color: #28a745 !important; /* Standard Success Green */
         color: #ffffff !important;
-        border-radius: 6px !important;
+        border-radius: 4px !important;
         border: none !important;
-        min-height: 42px !important;
+        font-weight: 400 !important;
         width: 100%;
-        font-weight: bold !important;
-        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
-    }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #059669 !important;
+        min-height: 40px;
     }
     [data-testid="stSidebar"] .stButton > button p {
         color: #ffffff !important;
     }
 
     /* ---------------------------------------------------
-       MAIN SCREEN: SWIPEABLE DATE RIBBON
+       MAIN AREA: CLEAN DATE RIBBON
        --------------------------------------------------- */
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
         flex-wrap: nowrap !important; 
         overflow-x: auto !important; 
-        justify-content: flex-start !important;
-        gap: 12px !important;
-        padding: 15px 5px !important;
-        border-bottom: 1px solid #e2e8f0; 
+        gap: 10px !important;
+        padding: 10px 0 !important;
+        border-bottom: 1px solid #dee2e6; 
         margin-bottom: 15px !important;
         -webkit-overflow-scrolling: touch; 
         scrollbar-width: none; 
     }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
         display: none;
     }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] label {
         background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 6px !important;
-        padding: 10px 20px !important;
-        color: #475569 !important;
+        border: 1px solid #ced4da !important;
+        border-radius: 4px !important;
+        padding: 8px 16px !important;
         min-width: max-content; 
         cursor: pointer;
-        transition: all 0.2s ease;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
     }
-    
+    /* Selected Date (Clean Blue) */
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] {
-        background-color: #10b981 !important;
-        border-color: #10b981 !important;
+        background-color: #007bff !important; 
+        border-color: #007bff !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); 
-        font-weight: bold !important;
     }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p {
-         color: #ffffff !important;
+        color: #ffffff !important;
     }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] label span[data-baseweb="radio"] {
         display: none !important;
     }
 
     /* ---------------------------------------------------
-       MAIN SCREEN: CENTERED GRID & RECTANGULAR FRAMES
+       MAIN AREA: CLEAN SCHEDULE GRID
        --------------------------------------------------- */
     @media (max-width: 768px) {
         [data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 6px !important; 
+            gap: 4px !important; 
         }
         [data-testid="column"] {
             width: 33.33% !important;
@@ -120,59 +129,57 @@ st.markdown("""
             padding: 0 !important; 
         }
     }
-    
+
     .table-header {
         text-align: center !important;
-        font-size: 16px !important;
-        font-weight: 800 !important;
-        color: #0f172a !important; 
-        background-color: #e2e8f0; 
-        padding: 10px 0;
-        border: 1px solid #cbd5e1;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        color: #495057 !important; 
+        background-color: #e9ecef; /* Light gray header */
+        padding: 8px 0;
+        border: 1px solid #ced4da;
         border-bottom: none;
         margin-bottom: 0 !important;
     }
-    
-    /* ONLY target buttons inside the columns for the Grid Frames */
+
     [data-testid="column"] .stButton > button {
         width: 100%;
-        border-radius: 0px !important; /* STRICTLY RECTANGULAR */
-        border: 1px solid #cbd5e1 !important; /* Crisp gray frame border */
-        background-color: #ffffff !important; /* Pure white cells */
-        color: #334155 !important; 
-        padding: 6px 2px !important; 
-        min-height: 48px !important; 
-        margin-bottom: -1px !important; /* Seamless grid */
-        font-size: 11px !important; 
-        line-height: 1.3 !important;
-        font-weight: 600 !important;
+        border-radius: 0px !important; 
+        border: 1px solid #ced4da !important; 
+        background-color: #ffffff !important; 
+        color: #495057 !important; 
+        padding: 4px 2px !important; 
+        min-height: 44px !important; 
+        margin-bottom: -1px !important; 
+        font-size: 12px !important; 
+        line-height: 1.2 !important;
+        font-weight: 300 !important; /* Roboto Light for grid text */
         text-align: center !important; 
     }
-    
-    [data-testid="column"] .stButton > button p {
-        color: inherit !important;
-    }
-    
     [data-testid="column"] .stButton > button:hover {
-        background-color: #f0fdf4 !important; 
-        border-color: #10b981 !important;
-        color: #047857 !important;
+        background-color: #f8f9fa !important; 
+        border-color: #adb5bd !important;
         z-index: 2; 
     }
     
+    /* Cancel Buttons (Clean Red) */
     [data-testid="column"] button[kind="primary"] {
-        background-color: #fef2f2 !important; 
-        border: 1px solid #ef4444 !important; 
-        color: #b91c1c !important; 
+        background-color: #fff3f3 !important; 
+        border: 1px solid #dc3545 !important; 
+        color: #dc3545 !important; 
     }
-    [data-testid="column"] button[kind="primary"]:hover {
-        background-color: #fee2e2 !important;
+    [data-testid="column"] button[kind="primary"] p {
+        color: #dc3545 !important; 
     }
-
+    
+    /* Taken Buttons (Grayed out) */
     [data-testid="column"] button:disabled {
-        background-color: #f1f5f9 !important; 
-        color: #94a3b8 !important; 
-        border: 1px solid #e2e8f0 !important;
+        background-color: #e9ecef !important; 
+        color: #6c757d !important; 
+        border: 1px solid #ced4da !important;
+    }
+    [data-testid="column"] button:disabled p {
+        color: #6c757d !important; 
     }
     
     .block-container {
@@ -225,7 +232,7 @@ def log_action(action, performed_by, target_user, details):
     pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
 
 # ==========================================
-# 2. AUTHENTICATION & LOGIN SYSTEM
+# 2. AUTHENTICATION (Standard Clean Sidebar)
 # ==========================================
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
@@ -234,7 +241,7 @@ if 'logged_in_name' not in st.session_state:
 if 'user_role' not in st.session_state:
     st.session_state.user_role = None
 
-st.sidebar.title("🔐 Login / Register")
+st.sidebar.markdown("<h2>🔐 Login / Register</h2>", unsafe_allow_html=True)
 
 if st.session_state.logged_in_user is None:
     auth_mode = st.sidebar.radio("Choose Action", ["Login", "Register"])
@@ -276,8 +283,12 @@ if st.session_state.logged_in_user is None:
                     st.rerun()
             else:
                 st.sidebar.error("Incorrect email/password.")
+                
+    st.markdown("<h1>RESERVE TABLE</h1>", unsafe_allow_html=True)
+    st.info("👈 Please use the sidebar menu to log in or register to view the schedule.")
     st.stop()
 
+# --- Everything below this line only happens if logged in ---
 st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in_user = None
@@ -330,13 +341,12 @@ if view_mode == "⚙️ Admin Dashboard":
     st.stop()
 
 # ==========================================
-# 4. THE BOOKING SYSTEM (STYLISH LIGHT UI)
+# 4. THE BOOKING SYSTEM
 # ==========================================
-st.markdown("<h1>RESERVE <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
+st.markdown("<h1>RESERVE TABLE</h1>", unsafe_allow_html=True)
 
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 
-# Generate 14 days
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(14)]
 def get_date_label(d):
@@ -346,7 +356,6 @@ def get_date_label(d):
 
 date_labels = [get_date_label(d) for d in upcoming_dates]
 
-# Swipeable Date Ribbon
 selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
@@ -362,7 +371,6 @@ if st.session_state.user_role != 'admin':
 users_df = load_users()
 name_lookup = dict(zip(users_df['Email'], users_df['Name']))
 
-# 3 Columns for the tables 
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
