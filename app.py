@@ -6,14 +6,14 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. PREMIUM LIGHT UI (Rectangular Frames)
+# 0. PREMIUM MOBILE UI (Swipeable & Centered)
 # ==========================================
 st.markdown("""
 <style>
-    /* Global App Theme - Premium Light Slate */
+    /* Global App Theme */
     .stApp {
-        background-color: #f8fafc !important; /* Very soft, clean off-white */
-        color: #0f172a !important; /* Deep slate text */
+        background-color: #0a0e14 !important; /* Pitch dark premium background */
+        color: #ffffff !important;
     }
     
     h1 {
@@ -21,11 +21,10 @@ st.markdown("""
         font-weight: 800 !important;
         letter-spacing: 2px;
         margin-bottom: 5px !important;
-        color: #0f172a !important;
     }
     
     /* ---------------------------------------------------
-       SWIPEABLE DATE RIBBON (Light Theme)
+       SWIPEABLE DATE RIBBON (Horizontal Scroll)
        --------------------------------------------------- */
     [data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
@@ -34,50 +33,51 @@ st.markdown("""
         justify-content: flex-start !important;
         gap: 12px !important;
         padding: 15px 5px !important;
-        border-bottom: 1px solid #e2e8f0; /* Soft gray divider */
+        border-bottom: 1px solid #1f2937;
         margin-bottom: 15px !important;
-        -webkit-overflow-scrolling: touch; 
-        scrollbar-width: none; 
+        -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+        scrollbar-width: none; /* Hide scrollbar Firefox */
     }
     
+    /* Hide scrollbar Chrome/Safari */
     [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
         display: none;
     }
     
-    /* Style the Date Cards (Light Mode) */
+    /* Style the Date Cards */
     [data-testid="stRadio"] label {
-        background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 6px !important;
+        background-color: #111827 !important;
+        border: 1px solid #374151 !important;
+        border-radius: 8px !important;
         padding: 10px 20px !important;
-        color: #475569 !important;
-        min-width: max-content; 
+        min-width: max-content; /* Prevent text wrapping */
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Very subtle shadow */
     }
     
     /* Style the SELECTED Date Card (Emerald Glow) */
     [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #10b981 !important;
         border-color: #10b981 !important;
-        color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); 
+        color: #000000 !important;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); /* Glow effect */
         font-weight: bold !important;
     }
     
+    /* Hide the default radio circle */
     [data-testid="stRadio"] label span[data-baseweb="radio"] {
         display: none !important;
     }
 
     /* ---------------------------------------------------
-       CENTERED GRID & RECTANGULAR FRAMES
+       CENTERED GRID & MOBILE COLUMNS
        --------------------------------------------------- */
+    /* Force 3 columns on mobile */
     @media (max-width: 768px) {
         [data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 6px !important; 
+            gap: 6px !important; /* Small gap between tables */
         }
         [data-testid="column"] {
             width: 33.33% !important;
@@ -87,60 +87,54 @@ st.markdown("""
         }
     }
     
-    /* Centered Table Headers - Light Mode */
+    /* Centered Table Headers */
     .table-header {
         text-align: center !important;
         font-size: 16px !important;
-        font-weight: 800 !important;
-        color: #0f172a !important; /* Dark text for contrast */
-        background-color: #e2e8f0; /* Soft gray cap */
-        padding: 10px 0;
-        border: 1px solid #cbd5e1;
-        border-bottom: none;
+        font-weight: bold !important;
+        color: #10b981 !important;
+        background-color: #111827;
+        padding: 8px 0;
+        border-radius: 6px 6px 0 0;
         margin-bottom: 0 !important;
+        border: 1px solid #1f2937;
+        border-bottom: none;
     }
     
-    /* Grid Frames (NO Rounded Corners, Sharp Edges) */
+    /* Grid Buttons (Frames) */
     .stButton > button {
         width: 100%;
-        border-radius: 0px !important; /* STRICTLY RECTANGULAR */
-        border: 1px solid #cbd5e1 !important; /* Crisp gray frame border */
-        background-color: #ffffff !important; /* Pure white cells */
-        color: #334155 !important; 
+        border-radius: 0px !important; 
+        border: 1px solid #1f2937 !important; 
+        background-color: #111827 !important; 
+        color: #e5e7eb !important; 
         padding: 6px 2px !important; 
-        min-height: 48px !important; 
-        margin-bottom: -1px !important; /* Overlaps borders for a seamless spreadsheet look */
+        min-height: 48px !important; /* Touch-friendly height */
+        margin-bottom: -1px !important; 
         font-size: 11px !important; 
         line-height: 1.3 !important;
-        font-weight: 600 !important;
-        text-align: center !important; 
+        font-weight: 500 !important;
+        text-align: center !important; /* Center button text */
     }
     
     /* Hover effect for Free Slots */
     .stButton > button:hover {
-        background-color: #f0fdf4 !important; /* Very faint green tint on hover */
         border-color: #10b981 !important;
-        color: #047857 !important;
-        z-index: 2; /* Brings border to front on hover */
+        color: #10b981 !important;
     }
     
-    /* Primary frames (Cancel - Red) */
+    /* Primary buttons (Cancel - Red) */
     button[kind="primary"] {
-        background-color: #fef2f2 !important; /* Light red tint */
-        border: 1px solid #ef4444 !important; /* Sharp red frame */
-        color: #b91c1c !important; /* Dark red text */
+        background-color: #3f1416 !important; 
+        border: 1px solid #ef4444 !important; 
+        color: #fca5a5 !important; 
     }
     button[kind="primary"]:hover {
-        background-color: #fee2e2 !important;
-    }
-
-    /* Disabled frames (Someone else's booking) */
-    button:disabled {
-        background-color: #f1f5f9 !important; /* Light gray */
-        color: #94a3b8 !important; /* Faded text */
-        border: 1px solid #e2e8f0 !important;
+        background-color: #ef4444 !important;
+        color: #ffffff !important;
     }
     
+    /* Reduce top padding */
     .block-container {
         padding-top: 2rem !important;
         padding-left: 0.5rem !important;
@@ -296,7 +290,7 @@ if view_mode == "⚙️ Admin Dashboard":
     st.stop()
 
 # ==========================================
-# 4. THE BOOKING SYSTEM (STYLISH LIGHT UI)
+# 4. THE BOOKING SYSTEM (STYLISH UI)
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
 
@@ -308,11 +302,11 @@ upcoming_dates = [today + timedelta(days=i) for i in range(14)]
 def get_date_label(d):
     if d == today: return "Today"
     if d == today + timedelta(days=1): return "Tomorrow"
-    return d.strftime("%a %d") 
+    return d.strftime("%a %d") # Shorter format for a cleaner ribbon (e.g. "Fri 04")
 
 date_labels = [get_date_label(d) for d in upcoming_dates]
 
-# Swipeable Date Ribbon
+# The Date Selector (Now rendered as a swipeable row via CSS)
 selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
@@ -333,6 +327,7 @@ cols = st.columns(3)
 
 for i, col in enumerate(cols):
     t_name = f"Tbl {i+1}"
+    # Use perfectly centered HTML headers with CSS styling
     col.markdown(f"<div class='table-header'>{t_name}</div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
