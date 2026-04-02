@@ -2,7 +2,6 @@ import os
 
 # ==========================================
 # 0. THE "KILL DARK MODE" SCRIPT
-# This automatically forces the server into Native Light Mode
 # ==========================================
 if not os.path.exists('.streamlit'):
     os.makedirs('.streamlit')
@@ -24,13 +23,12 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. CLEAN STRUCTURAL CSS (With 2-Row Date Grid)
+# 1. CLEAN STRUCTURAL CSS 
 # ==========================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
 
-    /* Apply Roboto font everywhere */
     html, body, [class*="css"] {
         font-family: 'Roboto', sans-serif !important;
         font-weight: 300 !important;
@@ -43,16 +41,16 @@ st.markdown("""
     }
 
     /* ---------------------------------------------------
-       MAIN AREA: 2-ROW DATE RIBBON (CSS Grid)
+       MAIN AREA: SWIPEABLE DATE RIBBON
        --------------------------------------------------- */
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
         grid-template-rows: auto auto !important;
-        gap: 12px 8px !important; /* vertical and horizontal gap */
+        gap: 12px 8px !important; 
         padding: 10px 5px 15px 5px !important;
         border-bottom: 1px solid #dee2e6; 
-        margin-bottom: 15px !important;
+        margin-bottom: 25px !important;
         overflow-x: auto !important; 
         -webkit-overflow-scrolling: touch; 
         scrollbar-width: none; 
@@ -62,27 +60,17 @@ st.markdown("""
         display: none;
     }
     
-    /* Inject Row Labels */
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::before {
         content: "This week:";
-        grid-column: 1;
-        grid-row: 1;
-        font-weight: 500;
-        color: #495057;
-        font-size: 14px;
-        padding-right: 5px;
+        grid-column: 1; grid-row: 1;
+        font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::after {
         content: "Next week:";
-        grid-column: 1;
-        grid-row: 2;
-        font-weight: 500;
-        color: #495057;
-        font-size: 14px;
-        padding-right: 5px;
+        grid-column: 1; grid-row: 2;
+        font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px;
     }
     
-    /* Place the 14 buttons perfectly into the 2 rows */
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
@@ -99,18 +87,16 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
 
-    /* Format the Date Buttons */
     section[data-testid="stMain"] [data-testid="stRadio"] label {
         background-color: #ffffff !important;
         border: 1px solid #ced4da !important;
-        border-radius: 4px !important;
+        border-radius: 6px !important;
         padding: 6px 12px !important;
         min-width: max-content; 
         cursor: pointer;
-        margin: 0 !important; /* Fix spacing for grid */
+        margin: 0 !important; 
     }
     
-    /* Selected Date */
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #007bff !important; 
         border-color: #007bff !important;
@@ -118,26 +104,34 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p {
         color: #ffffff !important;
     }
-    /* Hide the radio circle dots */
-    [data-testid="stRadio"] label span[data-baseweb="radio"] {
+    
+    /* Kill the native radio circles dead */
+    div[role="radiogroup"] div[role="radio"] > div:first-child {
         display: none !important;
     }
 
     /* ---------------------------------------------------
-       MAIN AREA: CLEAN SCHEDULE GRID
+       MAIN AREA: RESTRICTED COLUMNS & SYNCED BUTTONS
        --------------------------------------------------- */
-    @media (max-width: 768px) {
-        [data-testid="stHorizontalBlock"] {
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 4px !important; 
-        }
-        [data-testid="column"] {
-            width: 33.33% !important;
-            flex: 1 1 33.33% !important;
-            min-width: 30% !important;
-            padding: 0 !important; 
-        }
+    /* Pull columns closer together on PC */
+    [data-testid="stHorizontalBlock"] {
+        justify-content: center !important;
+        gap: 15px !important; 
+    }
+
+    /* Constrain the max width of the columns so they don't stretch */
+    [data-testid="column"] {
+        flex: 0 1 180px !important; /* Max width of 180px per column on PC */
+        min-width: 100px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important; /* Center the contents */
+        padding: 0 !important; 
+    }
+
+    /* Make Headers and Buttons the EXACT same width */
+    .table-header, [data-testid="column"] .stButton {
+        width: 100% !important; 
     }
 
     .table-header {
@@ -147,24 +141,23 @@ st.markdown("""
         background-color: #e9ecef; 
         padding: 8px 0;
         border: 1px solid #ced4da;
-        border-bottom: none;
-        margin-bottom: 0 !important;
+        border-radius: 6px !important;
+        margin-bottom: 15px !important; /* Gap below header */
     }
 
-    /* Make grid buttons look like spreadsheet frames */
+    /* The Buttons */
     [data-testid="column"] .stButton > button {
-        width: 100%;
-        border-radius: 0px !important; 
+        width: 100% !important;
+        border-radius: 6px !important; 
         border: 1px solid #ced4da !important; 
-        padding: 4px 2px !important; 
+        padding: 6px 2px !important; 
         min-height: 44px !important; 
-        margin-bottom: -1px !important; /* overlaps frames */
-        font-size: 12px !important; 
+        margin-bottom: 8px !important; /* Nice gap between rows */
+        font-size: 13px !important; 
         line-height: 1.2 !important;
         text-align: center !important; 
     }
     
-    /* Cancel Buttons (Red) */
     [data-testid="column"] button[kind="primary"] {
         background-color: #fff3f3 !important; 
         border: 1px solid #dc3545 !important; 
@@ -173,7 +166,6 @@ st.markdown("""
         color: #dc3545 !important; 
     }
     
-    /* Reduce page padding */
     .block-container {
         padding-top: 2rem !important;
         padding-left: 0.5rem !important;
@@ -378,8 +370,9 @@ for i, col in enumerate(cols):
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
             
             if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
-                btn_label = f"{time_str}\n❌ {short_name}"
-                if col.button(btn_label, key=f"del_{button_key}", type="primary"):
+                btn_label = f"{time_str} ❌ {short_name}"
+                # Added use_container_width=True to force Python buttons to perfectly match the column
+                if col.button(btn_label, key=f"del_{button_key}", type="primary", use_container_width=True):
                     log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"Table {i+1} | {view_date} | {time_str}")
                     bookings_df = bookings_df[~((bookings_df['Table'] == f"Table {i+1}") & 
                                                 (bookings_df['Time'] == time_str) & 
@@ -387,12 +380,12 @@ for i, col in enumerate(cols):
                     save_bookings(bookings_df)
                     st.rerun()
             else:
-                btn_label = f"{time_str}\n🔒 {short_name}"
-                col.button(btn_label, key=f"dis_{button_key}", disabled=True)
+                btn_label = f"{time_str} 🔒 {short_name}"
+                col.button(btn_label, key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
-            btn_label = f"{time_str}\n🟢 FREE"
-            if col.button(btn_label, key=f"add_{button_key}"):
+            btn_label = f"{time_str} 🟢 FREE"
+            if col.button(btn_label, key=f"add_{button_key}", use_container_width=True):
                 if user_today_hours + 0.5 > 3.0 and st.session_state.user_role != 'admin':
                     st.error("Limit reached! (3h/day)")
                 else:
