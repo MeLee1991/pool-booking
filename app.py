@@ -23,11 +23,11 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. CLEAN STRUCTURAL CSS 
+# 1. CLEAN STRUCTURAL CSS (With Smart Width & Banding)
 # ==========================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 
     html, body, [class*="css"] {
         font-family: 'Roboto', sans-serif !important;
@@ -38,6 +38,17 @@ st.markdown("""
         font-family: 'Roboto', sans-serif !important;
         font-weight: 500 !important;
         text-align: center;
+    }
+
+    /* ---------------------------------------------------
+       GLOBAL LAYOUT: MATCH COLUMNS TO DATE RIBBON
+       --------------------------------------------------- */
+    .block-container {
+        max-width: 750px !important; /* Locks the app width so tables don't stretch */
+        margin: 0 auto !important;
+        padding-top: 2rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
 
     /* ---------------------------------------------------
@@ -55,6 +66,7 @@ st.markdown("""
         -webkit-overflow-scrolling: touch; 
         scrollbar-width: none; 
         align-items: center;
+        justify-content: center !important; /* Center the ribbon */
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
         display: none;
@@ -105,59 +117,69 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    /* Kill the native radio circles dead */
     div[role="radiogroup"] div[role="radio"] > div:first-child {
         display: none !important;
     }
 
     /* ---------------------------------------------------
-       MAIN AREA: RESTRICTED COLUMNS & SYNCED BUTTONS
+       MAIN AREA: TABLES & HOUR BANDING
        --------------------------------------------------- */
-    /* Pull columns closer together on PC */
     [data-testid="stHorizontalBlock"] {
-        justify-content: center !important;
         gap: 15px !important; 
+        justify-content: center !important;
     }
 
-    /* Constrain the max width of the columns so they don't stretch */
     [data-testid="column"] {
-        flex: 0 1 180px !important; /* Max width of 180px per column on PC */
-        min-width: 100px !important;
         display: flex !important;
         flex-direction: column !important;
-        align-items: center !important; /* Center the contents */
         padding: 0 !important; 
     }
 
-    /* Make Headers and Buttons the EXACT same width */
-    .table-header, [data-testid="column"] .stButton {
-        width: 100% !important; 
-    }
-
+    /* True Header Styling */
     .table-header {
         text-align: center !important;
         font-size: 15px !important;
-        font-weight: 500 !important;
-        background-color: #e9ecef; 
-        padding: 8px 0;
-        border: 1px solid #ced4da;
+        font-weight: 700 !important;
+        letter-spacing: 1px !important;
+        text-transform: uppercase !important;
+        color: #ffffff !important; 
+        background-color: #495057 !important; /* Dark Slate to make it pop */
+        padding: 10px 0;
         border-radius: 6px !important;
-        margin-bottom: 15px !important; /* Gap below header */
+        margin-bottom: 12px !important; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* The Buttons */
+    /* Base Grid Button Style */
     [data-testid="column"] .stButton > button {
         width: 100% !important;
-        border-radius: 6px !important; 
-        border: 1px solid #ced4da !important; 
+        border-radius: 4px !important; 
+        border: 1px solid #dee2e6 !important; 
         padding: 6px 2px !important; 
         min-height: 44px !important; 
-        margin-bottom: 8px !important; /* Nice gap between rows */
+        margin-bottom: 4px !important; /* Small gap between rows */
         font-size: 13px !important; 
         line-height: 1.2 !important;
         text-align: center !important; 
+        background-color: #ffffff !important; /* Base color: White */
+        transition: all 0.1s ease;
     }
     
+    /* Alternating Stripes! Groups of 2 buttons (1 hour) share the same background */
+    /* Children 4&5 (09:00), 8&9 (11:00), 12&13 (13:00) get the gray background */
+    [data-testid="column"] > div:nth-child(4n) button,
+    [data-testid="column"] > div:nth-child(4n+1) button {
+        background-color: #f1f3f5 !important; /* Soft light gray */
+        border-color: #e2e6ea !important;
+    }
+
+    /* Hover effect for Free Slots */
+    [data-testid="column"] .stButton > button:hover {
+        background-color: #e6f4ea !important; 
+        border-color: #28a745 !important;
+    }
+    
+    /* Cancel Buttons (Red Override) */
     [data-testid="column"] button[kind="primary"] {
         background-color: #fff3f3 !important; 
         border: 1px solid #dc3545 !important; 
@@ -166,10 +188,10 @@ st.markdown("""
         color: #dc3545 !important; 
     }
     
-    .block-container {
-        padding-top: 2rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+    /* Taken Buttons (Gray Override) */
+    [data-testid="column"] button:disabled {
+        background-color: #e9ecef !important; 
+        border: 1px solid #ced4da !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -371,7 +393,6 @@ for i, col in enumerate(cols):
             
             if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
                 btn_label = f"{time_str} ❌ {short_name}"
-                # Added use_container_width=True to force Python buttons to perfectly match the column
                 if col.button(btn_label, key=f"del_{button_key}", type="primary", use_container_width=True):
                     log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"Table {i+1} | {view_date} | {time_str}")
                     bookings_df = bookings_df[~((bookings_df['Table'] == f"Table {i+1}") & 
