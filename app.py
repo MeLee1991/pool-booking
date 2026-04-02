@@ -112,19 +112,9 @@ for i, col in enumerate(cols):
         else:
             status = "<span style='color: #22c55e;'>🟢 FREE</span>"
             
-        # Create the HTML card for this time slot
-        card_html = f"""
-        <div style="border-left: 6px solid {border_color}; 
-                    padding: 8px 12px; 
-                    border-radius: 4px; 
-                    background-color: rgba(128, 128, 128, 0.1); 
-                    font-family: sans-serif;
-                    display: flex;
-                    justify-content: space-between;">
-            <strong style="width: 60px;">{time_str}</strong>
-            <span style="flex-grow: 1; text-align: left; padding-left: 15px;">{status}</span>
-        </div>
-        """
+        # FIX: The HTML is now on a single line to prevent Streamlit from turning it into a markdown code block
+        card_html = f"<div style='border-left: 6px solid {border_color}; padding: 8px 12px; border-radius: 4px; background-color: rgba(128, 128, 128, 0.1); font-family: sans-serif; display: flex; justify-content: space-between;'><strong style='width: 60px;'>{time_str}</strong><span style='flex-grow: 1; text-align: left; padding-left: 15px;'>{status}</span></div>"
+        
         html_content += card_html
         
     html_content += "</div>"
