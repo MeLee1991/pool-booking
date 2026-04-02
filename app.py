@@ -4,21 +4,19 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Pool Club - 9ft Tables", layout="wide")
 
-# Title and Info
-st.title("🎱 Table Reservations")
-st.info("Limit: 3 hours per person per day. Slots are 30 minutes.")
+st.title("🎱 Interactive Table Reservations")
 
 # --- DATA STORAGE ---
 if 'bookings' not in st.session_state:
     st.session_state.bookings = pd.DataFrame(columns=['User', 'Date', 'Table', 'Time', 'Duration'])
 
-# --- GENERATE TIME SLOTS (00:00 to 23:30) ---
+# --- GENERATE TIME SLOTS ---
 HOURS = []
 for h in range(24):
     HOURS.append(f"{h:02d}:00")
     HOURS.append(f"{h:02d}:30")
 
-# --- DATE GENERATION (Next 7 Days) ---
+# --- DATE GENERATION ---
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(7)]
 
@@ -29,101 +27,99 @@ def get_date_label(d):
 
 date_labels = [get_date_label(d) for d in upcoming_dates]
 
-# --- SIDEBAR: BOOKING FORM ---
-st.sidebar.header("Reserve a Table")
-name = st.sidebar.text_input("Your Name")
+# --- SIDEBAR: USER LOGIN ---
+st.sidebar.header("👤 Who are you?")
+current_user = st.sidebar.text_input("Enter your name to interact:")
 
-selected_date_label_sidebar = st.sidebar.radio("Select Date", date_labels)
-date = upcoming_dates[date_labels.index(selected_date_label_sidebar)]
-
-table = st.sidebar.selectbox("Select Table", ["Table 1", "Table 2", "Table 3"])
-time_slot = st.sidebar.selectbox("Start Time", HOURS)
-
-# Changed to 0.5 hour increments
-hrs = st.sidebar.number_input("Duration (Hours)", min_value=0.5, max_value=3.0, step=0.5)
-
-if st.sidebar.button("Confirm Booking"):
-    if name:
-        # Check 3-hour limit
-        user_today = st.session_state.bookings[
-            (st.session_state.bookings['User'] == name) & 
-            (st.session_state.bookings['Date'] == date)
-        ]['Duration'].sum()
-        
-        if user_today + hrs > 3.0:
-            st.sidebar.error(f"Cannot book. You already have {user_today}h booked for this day.")
-        else:
-            # Create a separate 0.5h row for EVERY half hour booked
-            start_dt = datetime.strptime(time_slot, "%H:%M")
-            slots_needed = int(hrs / 0.5)
-            new_rows = []
-            
-            for i in range(slots_needed):
-                current_slot = start_dt + timedelta(minutes=30 * i)
-                
-                # Prevent bookings from spilling past midnight into the next day
-                if current_slot.day != start_dt.day: 
-                    break 
-                
-                booking_time_str = current_slot.strftime("%H:%M")
-                new_rows.append([name, date, table, booking_time_str, 0.5])
-            
-            new_data = pd.DataFrame(new_rows, columns=['User', 'Date', 'Table', 'Time', 'Duration'])
-            st.session_state.bookings = pd.concat([st.session_state.bookings, new_data], ignore_index=True)
-            st.sidebar.success("Booked successfully!")
+# Admin System (Hidden until you type 'admin')
+is_admin = False
+if current_user.strip().lower() == "admin":
+    pwd = st.sidebar.text_input("Admin Password", type="password")
+    if pwd == "1234": # Change this password to whatever you want
+        is_admin = True
+        st.sidebar.success("Logged in as Admin. You can delete any booking.")
     else:
-        st.sidebar.warning("Please enter a name.")
+        st.sidebar.warning("Awaiting admin password...")
+
+if current_user and current_user.lower() != "admin":
+    # Show user how many hours they have booked today
+    st.sidebar.success(f"Playing as: {current_user}")
+
+st.sidebar.info("Limit: 3 hours per person per day. Click directly on the schedule to book or cancel 30-min slots.")
 
 # --- MAIN DISPLAY: THE SCHEDULE ---
-st.subheader("Schedule")
-
 selected_date_label_main = st.radio("View Schedule for:", date_labels, horizontal=True)
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
 relevant_bookings = st.session_state.bookings[st.session_state.bookings['Date'] == view_date]
 
-# Create 3 columns for 3 tables
+# Calculate hours used by current user on selected day
+if current_user:
+    user_today_hours = relevant_bookings[relevant_bookings['User'] == current_user]['Duration'].sum()
+else:
+    user_today_hours = 0.0
+
+if current_user and not is_admin:
+    st.write(f"**Your booked time today:** {user_today_hours} / 3.0 hours")
+
 cols = st.columns(3)
 
+# Build the interactive grid
 for i, col in enumerate(cols):
     t_name = f"Table {i+1}"
     col.subheader(t_name)
     
-    # We build a custom HTML block for each column to control the borders
-    html_content = "<div style='display:flex; flex-direction:column; gap:6px;'>"
-    
     for time_str in HOURS:
         hour_int = int(time_str.split(":")[0])
         
-        # Determine the color of the cell border based on the time
-        if hour_int < 8:
-            border_color = "#1E3A8A" # Night -> Deep Blue
-        elif hour_int < 16:
-            border_color = "#F59E0B" # Day -> Yellow/Amber
-        else:
-            border_color = "#9333EA" # Evening -> Purple
+        # Time of day indicators instead of HTML borders
+        if hour_int < 8: time_icon = "🌙" # Night
+        elif hour_int < 16: time_icon = "☀️" # Day
+        else: time_icon = "🌆" # Evening
 
         # Check if this specific slot is booked
         booked = relevant_bookings[(relevant_bookings['Table'] == t_name) & (relevant_bookings['Time'] == time_str)]
         
+        # Layout: Time on the left, Button on the right
+        c1, c2 = col.columns([1, 2])
+        c1.write(f"{time_icon} {time_str}")
+        
+        button_key = f"{t_name}_{time_str}_{view_date}"
+        
         if not booked.empty:
-            user_name = booked.iloc[0]['User']
-            status = f"<span style='color: #ef4444; font-weight: bold;'>🔴 {user_name}</span>"
-        else:
-            status = "<span style='color: #22c55e;'>🟢 FREE</span>"
+            # SLOT IS TAKEN
+            booked_user = booked.iloc[0]['User']
             
-        # FIX: The HTML is now on a single line to prevent Streamlit from turning it into a markdown code block
-        card_html = f"<div style='border-left: 6px solid {border_color}; padding: 8px 12px; border-radius: 4px; background-color: rgba(128, 128, 128, 0.1); font-family: sans-serif; display: flex; justify-content: space-between;'><strong style='width: 60px;'>{time_str}</strong><span style='flex-grow: 1; text-align: left; padding-left: 15px;'>{status}</span></div>"
-        
-        html_content += card_html
-        
-    html_content += "</div>"
-    
-    # Render the custom HTML
-    col.markdown(html_content, unsafe_allow_html=True)
+            # Can this person delete it? (Are they the owner, or the Admin?)
+            if is_admin or (current_user and booked_user == current_user):
+                if c2.button(f"❌ Cancel ({booked_user})", key=f"del_{button_key}", type="primary"):
+                    # Delete Logic
+                    st.session_state.bookings = st.session_state.bookings[
+                        ~((st.session_state.bookings['Table'] == t_name) & 
+                          (st.session_state.bookings['Time'] == time_str) & 
+                          (st.session_state.bookings['Date'] == view_date))
+                    ]
+                    st.rerun() # Refresh the page instantly
+            else:
+                # Someone else's booking, disabled button
+                c2.button(f"🔴 {booked_user}", key=f"dis_{button_key}", disabled=True)
+                
+        else:
+            # SLOT IS FREE
+            if c2.button("🟢 FREE", key=f"add_{button_key}"):
+                if not current_user:
+                    st.error("Please enter your name in the sidebar first!")
+                elif current_user.lower() == "admin" and not is_admin:
+                    st.error("Please enter the admin password first.")
+                elif user_today_hours + 0.5 > 3.0 and not is_admin:
+                    st.error("Booking limit reached! You can only book 3 hours per day.")
+                else:
+                    # Add Logic
+                    new_row = pd.DataFrame([[current_user, view_date, t_name, time_str, 0.5]], 
+                                           columns=['User', 'Date', 'Table', 'Time', 'Duration'])
+                    st.session_state.bookings = pd.concat([st.session_state.bookings, new_row], ignore_index=True)
+                    st.rerun() # Refresh the page instantly
 
-# Add a little legend at the bottom to explain the colors
+# Legend
 st.markdown("---")
-st.markdown("""
-**Color Legend:** 🟦 **Night** (00:00 - 08:00) | 🟨 **Day** (08:00 - 16:00) | 🟪 **Evening** (16:00 - 24:00)
-""")
+st.markdown("**Legend:** 🌙 Night (00:00-08:00) | ☀️ Day (08:00-16:00) | 🌆 Evening (16:00-24:00)")
