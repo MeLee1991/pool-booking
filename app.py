@@ -97,10 +97,43 @@ for i, col in enumerate(cols):
         
         # Determine the color of the cell border based on the time
         if hour_int < 8:
-            # 00:00 - 08:00 (Night) -> Deep Blue Border
-            border_color = "#1E3A8A" 
+            border_color = "#1E3A8A" # Night -> Deep Blue
         elif hour_int < 16:
-            # 08:00 - 16:00 (Day) -> Yellow/Amber Border
-            border_color = "#F59E0B" 
+            border_color = "#F59E0B" # Day -> Yellow/Amber
         else:
-            # 16:00 - 24:0
+            border_color = "#9333EA" # Evening -> Purple
+
+        # Check if this specific slot is booked
+        booked = relevant_bookings[(relevant_bookings['Table'] == t_name) & (relevant_bookings['Time'] == time_str)]
+        
+        if not booked.empty:
+            user_name = booked.iloc[0]['User']
+            status = f"<span style='color: #ef4444; font-weight: bold;'>🔴 {user_name}</span>"
+        else:
+            status = "<span style='color: #22c55e;'>🟢 FREE</span>"
+            
+        # Create the HTML card for this time slot
+        card_html = f"""
+        <div style="border-left: 6px solid {border_color}; 
+                    padding: 8px 12px; 
+                    border-radius: 4px; 
+                    background-color: rgba(128, 128, 128, 0.1); 
+                    font-family: sans-serif;
+                    display: flex;
+                    justify-content: space-between;">
+            <strong style="width: 60px;">{time_str}</strong>
+            <span style="flex-grow: 1; text-align: left; padding-left: 15px;">{status}</span>
+        </div>
+        """
+        html_content += card_html
+        
+    html_content += "</div>"
+    
+    # Render the custom HTML
+    col.markdown(html_content, unsafe_allow_html=True)
+
+# Add a little legend at the bottom to explain the colors
+st.markdown("---")
+st.markdown("""
+**Color Legend:** 🟦 **Night** (00:00 - 08:00) | 🟨 **Day** (08:00 - 16:00) | 🟪 **Evening** (16:00 - 24:00)
+""")
