@@ -6,84 +6,82 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. MODERN DESIGN CSS (Based on your mockup)
+# 0. MOBILE GRID "FRAME" CSS (Dark Mode Proof)
 # ==========================================
 st.markdown("""
 <style>
-    /* Global App Background & Text */
+    /* Force main app background to deep dark gray */
     .stApp {
-        background-color: #0d1117 !important; /* Deep modern dark theme */
+        background-color: #0d1117 !important;
         color: #ffffff !important;
     }
     
-    /* Center and style the main title */
     h1 {
         text-align: center;
         font-weight: 800 !important;
         letter-spacing: 1px;
-        text-transform: uppercase;
-        margin-bottom: 20px !important;
+        margin-bottom: 15px !important;
     }
     
-    /* Style the Date Selector to be full-width and modern */
+    /* Modern Date Selector */
     [data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
         flex-wrap: wrap !important;
         justify-content: center !important;
-        gap: 6px !important;
+        gap: 4px !important;
         width: 100% !important;
-        padding: 10px 0 !important;
-        border-bottom: 1px solid #2d333b;
-        margin-bottom: 15px !important;
+        border-bottom: 1px solid #30363d;
+        padding-bottom: 10px !important;
+        margin-bottom: 10px !important;
     }
     
-    /* Make the Table Headers modern */
+    /* Table Headers (Tbl 1, Tbl 2...) */
     h3 {
         text-align: center !important;
-        font-size: 15px !important;
+        font-size: 16px !important;
         font-weight: bold !important;
-        color: #10b981 !important; /* Emerald Green */
-        text-transform: uppercase;
-        background-color: #161b22;
-        padding: 8px 0;
-        border-radius: 4px;
+        color: #10b981 !important; /* Emerald */
+        margin-bottom: 5px !important;
+        padding-bottom: 0 !important;
     }
 
-    /* 1. Force columns to stay side-by-side on mobile */
+    /* 1. Force 3 strict columns on mobile with a clear gap */
     @media (max-width: 768px) {
         [data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: nowrap !important;
+            gap: 4px !important; /* Clear visual gap between the 3 columns */
         }
         [data-testid="column"] {
             width: 33.33% !important;
             flex: 1 1 33.33% !important;
-            min-width: 32% !important;
-            padding: 0 1px !important; /* ULTRA TIGHT GAP for mobile */
+            min-width: 30% !important;
+            padding: 0 !important; 
         }
     }
     
-    /* 2. Squish buttons to be narrower and continuous */
+    /* 2. Turn Buttons into Flat "Frames/Cells" */
     .stButton > button {
         width: 100%;
-        border-radius: 3px !important; 
-        padding: 2px !important; 
-        min-height: 32px !important;
-        margin-bottom: -8px !important; /* Seamless stacking */
+        border-radius: 0px !important; /* Square spreadsheet corners */
+        border: 1px solid #30363d !important; /* Subtle gray frame border */
+        background-color: #161b22 !important; /* Flat dark background */
+        color: #ffffff !important; /* Force stark white text for visibility */
+        padding: 4px 2px !important; 
+        min-height: 44px !important; /* Uniform height for ALL slots */
+        margin-bottom: -1px !important; /* Overlap borders to create a continuous grid */
         font-size: 11px !important; 
-        line-height: 1.1 !important;
-        font-weight: 600 !important;
-        border: none !important;
+        line-height: 1.2 !important;
+        font-weight: 500 !important;
     }
     
-    /* Custom button colors to match your mockup */
-    /* Primary buttons (Cancel) */
+    /* Styling for slots that YOU booked (Primary Action) */
     button[kind="primary"] {
-        background-color: #ef4444 !important; 
-        color: white !important;
+        background-color: #4a191b !important; /* Faint red background */
+        border: 1px solid #f85149 !important; /* Bright red frame */
+        color: #ff7b72 !important; /* Bright red text */
     }
     
-    /* Hide extra padding to save screen space */
     .block-container {
         padding-top: 1rem !important;
         padding-left: 0.2rem !important;
@@ -133,7 +131,6 @@ def log_action(action, performed_by, target_user, details):
                            columns=['Timestamp', 'Action', 'Performed_By', 'Target_User', 'Details'])
     pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
 
-
 # ==========================================
 # 2. AUTHENTICATION & LOGIN SYSTEM
 # ==========================================
@@ -144,7 +141,7 @@ if 'logged_in_name' not in st.session_state:
 if 'user_role' not in st.session_state:
     st.session_state.user_role = None
 
-st.sidebar.title("🔐 Login / Register")
+st.sidebar.title("🔐 Login")
 
 if st.session_state.logged_in_user is None:
     auth_mode = st.sidebar.radio("Choose Action", ["Login", "Register"])
@@ -161,14 +158,14 @@ if st.session_state.logged_in_user is None:
             if email_input in users['Email'].values:
                 st.sidebar.error("Email already exists!")
             elif len(email_input) < 5 or "@" not in email_input:
-                st.sidebar.error("Please enter a valid email address.")
+                st.sidebar.error("Valid email required.")
             elif len(display_name) < 2:
-                st.sidebar.error("Please enter a display name.")
+                st.sidebar.error("Display name required.")
             else:
                 role = 'admin' if email_input == OWNER_EMAIL else 'pending'
                 new_user = pd.DataFrame([[email_input, display_name, password, role]], columns=['Email', 'Name', 'Password', 'Role'])
                 save_users(pd.concat([users, new_user], ignore_index=True))
-                st.sidebar.success("Account created! Please switch to Login above.")
+                st.sidebar.success("Account created! Switch to Login.")
                 
     elif auth_mode == "Login":
         if st.sidebar.button("Login"):
@@ -178,14 +175,14 @@ if st.session_state.logged_in_user is None:
             if not user_match.empty:
                 role = user_match.iloc[0]['Role']
                 if role == 'pending':
-                    st.sidebar.error("Your account is waiting for Admin approval.")
+                    st.sidebar.error("Awaiting Admin approval.")
                 else:
                     st.session_state.logged_in_user = email_input
                     st.session_state.logged_in_name = user_match.iloc[0]['Name']
                     st.session_state.user_role = role
                     st.rerun()
             else:
-                st.sidebar.error("Incorrect email or password.")
+                st.sidebar.error("Incorrect email/password.")
     st.stop()
 
 st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
@@ -199,7 +196,6 @@ view_mode = "📅 Schedule"
 if st.session_state.user_role == 'admin':
     st.sidebar.markdown("---")
     view_mode = st.sidebar.radio("Navigation", ["📅 Schedule", "⚙️ Admin Dashboard"])
-
 
 # ==========================================
 # 3. ADMIN DASHBOARD
@@ -240,16 +236,14 @@ if view_mode == "⚙️ Admin Dashboard":
             st.error("⛔ Access Denied.")
     st.stop()
 
-
 # ==========================================
-# 4. THE BOOKING SYSTEM (Modern Optimized)
+# 4. THE BOOKING SYSTEM (GRID UI)
 # ==========================================
-# Use a custom HTML header for the modern title
 st.markdown("<h1>RESERVE YOUR <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
 
+# ALL HOURS EQUAL SIZE
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 
-# EXPANDED TO 14 DAYS
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(14)]
 def get_date_label(d):
@@ -258,7 +252,6 @@ def get_date_label(d):
     return d.strftime("%a, %b %d")
 
 date_labels = [get_date_label(d) for d in upcoming_dates]
-
 selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
@@ -274,51 +267,43 @@ if st.session_state.user_role != 'admin':
 users_df = load_users()
 name_lookup = dict(zip(users_df['Email'], users_df['Name']))
 
-# 3 Columns for the tables (CSS forces these side-by-side on mobile)
+# 3 Columns for the tables 
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
-    t_name = f"Table {i+1}"
+    t_name = f"Tbl {i+1}" # Changed to Tbl to save horizontal space
     col.markdown(f"### {t_name}")
     
     for time_str in HOURS:
-        hour_int = int(time_str.split(":")[0])
-        is_off_peak = hour_int < 10 or hour_int >= 22
-        
-        booked = relevant_bookings[(relevant_bookings['Table'] == t_name) & (relevant_bookings['Time'] == time_str)]
-        button_key = f"{t_name}_{time_str}_{view_date}"
+        booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
+        button_key = f"T{i+1}_{time_str}_{view_date}"
         
         if not booked.empty:
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
             
-            # Formatting for taken slots
-            if is_off_peak:
-                btn_label = f"x {short_name.lower()}" if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user else f"- {short_name.lower()}"
-            else:
-                btn_label = f"{time_str}\n❌ {short_name}" if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user else f"{time_str}\n🔒 {short_name}"
-            
+            # Formatted exactly the same for all hours
             if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
+                btn_label = f"{time_str}\n❌ {short_name}"
                 if col.button(btn_label, key=f"del_{button_key}", type="primary"):
-                    log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"{t_name} | {view_date} | {time_str}")
-                    bookings_df = bookings_df[~((bookings_df['Table'] == t_name) & 
+                    log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"Table {i+1} | {view_date} | {time_str}")
+                    bookings_df = bookings_df[~((bookings_df['Table'] == f"Table {i+1}") & 
                                                 (bookings_df['Time'] == time_str) & 
                                                 (bookings_df['Date'] == str(view_date)))]
                     save_bookings(bookings_df)
                     st.rerun()
             else:
+                btn_label = f"{time_str}\n🔒 {short_name}"
                 col.button(btn_label, key=f"dis_{button_key}", disabled=True)
                 
         else:
-            # Formatting for FREE slots (Now styled green via Python injection to ensure it bypasses themes)
-            btn_label = f"{time_str} free" if is_off_peak else f"{time_str}\n🟢 FREE"
-            
+            btn_label = f"{time_str}\n🟢 FREE"
             if col.button(btn_label, key=f"add_{button_key}"):
                 if user_today_hours + 0.5 > 3.0 and st.session_state.user_role != 'admin':
                     st.error("Limit reached! (3h/day)")
                 else:
-                    log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"{t_name} | {view_date} | {time_str}")
-                    new_row = pd.DataFrame([[st.session_state.logged_in_user, str(view_date), t_name, time_str, 0.5]], 
+                    log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
+                    new_row = pd.DataFrame([[st.session_state.logged_in_user, str(view_date), f"Table {i+1}", time_str, 0.5]], 
                                            columns=['User', 'Date', 'Table', 'Time', 'Duration'])
                     bookings_df = pd.concat([bookings_df, new_row], ignore_index=True)
                     save_bookings(bookings_df)
