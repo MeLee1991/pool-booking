@@ -1,70 +1,49 @@
+import os
+
+# ==========================================
+# 0. THE "KILL DARK MODE" SCRIPT
+# This automatically forces the server into Native Light Mode
+# ==========================================
+if not os.path.exists('.streamlit'):
+    os.makedirs('.streamlit')
+with open('.streamlit/config.toml', 'w') as f:
+    f.write('''
+[theme]
+base="light"
+primaryColor="#28a745"
+backgroundColor="#f8f9fa"
+secondaryBackgroundColor="#e9ecef"
+textColor="#212529"
+font="sans serif"
+''')
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-import os
 
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. CLEAN STANDARD UI (Dark-Mode Override Fixes)
+# 1. CLEAN STRUCTURAL CSS (No more color fighting)
 # ==========================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
 
-    /* Backgrounds */
-    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
-        background-color: #f8f9fa !important; 
-    }
-    
-    /* Typography: Safely apply Roboto WITHOUT breaking Material Icons */
-    html, body, p, label, li, input, button {
+    /* Apply Roboto font everywhere */
+    html, body, [class*="css"] {
         font-family: 'Roboto', sans-serif !important;
         font-weight: 300 !important;
-        color: #212529 !important;
     }
     
-    h1, h2, h3, h4, h5, h6 {
+    h1, h2, h3, h4 {
         font-family: 'Roboto', sans-serif !important;
-        font-weight: 400 !important; 
-        color: #212529 !important;
+        font-weight: 500 !important;
         text-align: center;
     }
-    
-    h1 { margin-bottom: 10px !important; }
 
     /* ---------------------------------------------------
-       STANDARD LOGIN INPUTS
-       --------------------------------------------------- */
-    div[data-baseweb="input"] > div {
-        background-color: #ffffff !important; 
-        border: 1px solid #ced4da !important; 
-        border-radius: 4px !important;
-    }
-    div[data-baseweb="input"] input {
-        background-color: transparent !important;
-        color: #212529 !important;
-    }
-    div[data-baseweb="input"] button {
-        background-color: transparent !important; 
-    }
-    
-    /* Standard Login Button */
-    [data-testid="stSidebar"] .stButton > button {
-        background-color: #28a745 !important; 
-        color: #ffffff !important;
-        border-radius: 4px !important;
-        border: none !important;
-        font-weight: 400 !important;
-        width: 100%;
-        min-height: 40px;
-    }
-    [data-testid="stSidebar"] .stButton > button p {
-        color: #ffffff !important;
-    }
-
-    /* ---------------------------------------------------
-       MAIN AREA: CLEAN DATE RIBBON
+       MAIN AREA: SWIPEABLE DATE RIBBON
        --------------------------------------------------- */
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
@@ -81,22 +60,22 @@ st.markdown("""
         display: none;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] label {
-        background-color: #ffffff !important;
         border: 1px solid #ced4da !important;
         border-radius: 4px !important;
         padding: 8px 16px !important;
         min-width: max-content; 
         cursor: pointer;
     }
+    /* Selected Date */
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #007bff !important; 
         border-color: #007bff !important;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p {
         color: #ffffff !important;
-        font-weight: 400 !important;
     }
-    section[data-testid="stMain"] [data-testid="stRadio"] label span[data-baseweb="radio"] {
+    /* Hide the radio circle dots */
+    [data-testid="stRadio"] label span[data-baseweb="radio"] {
         display: none !important;
     }
 
@@ -120,65 +99,37 @@ st.markdown("""
     .table-header {
         text-align: center !important;
         font-size: 15px !important;
-        font-weight: 600 !important;
-        color: #000000 !important; /* Force black text to fix invisible header */
-        background-color: #e9ecef !important; 
+        font-weight: 500 !important;
+        background-color: #e9ecef; 
         padding: 8px 0;
-        border: 1px solid #ced4da !important;
-        border-bottom: none !important;
+        border: 1px solid #ced4da;
+        border-bottom: none;
         margin-bottom: 0 !important;
     }
 
-    /* Force FREE buttons to have white backgrounds and dark text */
-    section[data-testid="stMain"] .stButton > button {
-        width: 100% !important;
+    /* Make grid buttons look like spreadsheet frames */
+    [data-testid="column"] .stButton > button {
+        width: 100%;
         border-radius: 0px !important; 
         border: 1px solid #ced4da !important; 
-        background-color: #ffffff !important; /* Forces white background */
-        color: #212529 !important; /* Forces dark text */
         padding: 4px 2px !important; 
         min-height: 44px !important; 
-        margin-bottom: -1px !important; 
+        margin-bottom: -1px !important; /* overlaps frames */
         font-size: 12px !important; 
         line-height: 1.2 !important;
         text-align: center !important; 
     }
     
-    /* Ensure inner paragraph tags also get the dark text color */
-    section[data-testid="stMain"] .stButton > button p {
-        color: #212529 !important;
-    }
-    
-    /* Hover state for FREE buttons */
-    section[data-testid="stMain"] .stButton > button:hover {
-        background-color: #f8f9fa !important; 
-        border-color: #adb5bd !important;
-        z-index: 2; 
-    }
-    
     /* Cancel Buttons (Red) */
-    section[data-testid="stMain"] .stButton > button[kind="primary"] {
+    [data-testid="column"] button[kind="primary"] {
         background-color: #fff3f3 !important; 
         border: 1px solid #dc3545 !important; 
-        color: #dc3545 !important;
     }
-    section[data-testid="stMain"] .stButton > button[kind="primary"] p {
+    [data-testid="column"] button[kind="primary"] p {
         color: #dc3545 !important; 
     }
-    section[data-testid="stMain"] .stButton > button[kind="primary"]:hover {
-        background-color: #ffe5e5 !important; 
-    }
     
-    /* Taken Buttons (Grayed out) */
-    section[data-testid="stMain"] .stButton > button:disabled {
-        background-color: #e9ecef !important; 
-        border: 1px solid #ced4da !important;
-        color: #6c757d !important;
-    }
-    section[data-testid="stMain"] .stButton > button:disabled p {
-        color: #6c757d !important; 
-    }
-    
+    /* Reduce page padding */
     .block-container {
         padding-top: 2rem !important;
         padding-left: 0.5rem !important;
@@ -188,7 +139,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 1. DATABASE & LOGGING SETUP
+# 2. DATABASE & LOGGING SETUP
 # ==========================================
 USERS_FILE = 'users.csv'
 BOOKINGS_FILE = 'bookings.csv'
@@ -229,7 +180,7 @@ def log_action(action, performed_by, target_user, details):
     pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
 
 # ==========================================
-# 2. AUTHENTICATION
+# 3. AUTHENTICATION
 # ==========================================
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
@@ -250,7 +201,7 @@ if st.session_state.logged_in_user is None:
     password = st.sidebar.text_input("Password", type="password")
     
     if auth_mode == "Register":
-        if st.sidebar.button("Create Account"):
+        if st.sidebar.button("Create Account", type="primary"):
             users = load_users()
             if email_input in users['Email'].values:
                 st.sidebar.error("Email already exists!")
@@ -265,7 +216,7 @@ if st.session_state.logged_in_user is None:
                 st.sidebar.success("Account created! Switch to Login.")
                 
     elif auth_mode == "Login":
-        if st.sidebar.button("Login"):
+        if st.sidebar.button("Login", type="primary"):
             users = load_users()
             user_match = users[(users['Email'] == email_input) & (users['Password'] == password)]
             
@@ -299,7 +250,7 @@ if st.session_state.user_role == 'admin':
     view_mode = st.sidebar.radio("Navigation", ["📅 Schedule", "⚙️ Admin Dashboard"])
 
 # ==========================================
-# 3. ADMIN DASHBOARD
+# 4. ADMIN DASHBOARD
 # ==========================================
 if view_mode == "⚙️ Admin Dashboard":
     st.title("⚙️ Club Administration")
@@ -338,7 +289,7 @@ if view_mode == "⚙️ Admin Dashboard":
     st.stop()
 
 # ==========================================
-# 4. THE BOOKING SYSTEM
+# 5. THE BOOKING SYSTEM
 # ==========================================
 st.markdown("<h1>RESERVE TABLE</h1>", unsafe_allow_html=True)
 
