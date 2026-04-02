@@ -21,7 +21,17 @@ if not os.path.exists(BOOKINGS_FILE):
 if not os.path.exists(AUDIT_FILE):
     pd.DataFrame(columns=['Timestamp', 'Action', 'Performed_By', 'Target_User', 'Details']).to_csv(AUDIT_FILE, index=False)
 
-def load_users(): return pd.read_csv(USERS_FILE)
+def load_users(): 
+    try:
+        df = pd.read_csv(USERS_FILE)
+        # --- AUTO-REPAIR OLD DATABASE ---
+        if 'Username' in df.columns:
+            df = df.rename(columns={'Username': 'Email'})
+            df.to_csv(USERS_FILE, index=False) # Save the repaired file
+        return df
+    except:
+        return pd.DataFrame(columns=['Email', 'Password', 'Role'])
+
 def save_users(df): df.to_csv(USERS_FILE, index=False)
 def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
 def save_bookings(df): df.to_csv(BOOKINGS_FILE, index=False)
@@ -63,7 +73,7 @@ if st.session_state.logged_in_user is None:
                 role = 'admin' if email_input == OWNER_EMAIL else 'pending'
                 new_user = pd.DataFrame([[email_input, password, role]], columns=['Email', 'Password', 'Role'])
                 save_users(pd.concat([users, new_user], ignore_index=True))
-                st.sidebar.success("Account created! Please log in.")
+                st.sidebar.success("Account created! Please switch to Login above.")
                 
     elif auth_mode == "Login":
         if st.sidebar.button("Login"):
@@ -115,7 +125,7 @@ if view_mode == "⚙️ Admin Dashboard":
             users_df,
             column_config={
                 "Role": st.column_config.SelectboxColumn("User Role", options=["pending", "user", "admin"], required=True),
-                "Email": st.column_config.TextColumn("Email Address", disabled=True), # Lock emails from accidental edits
+                "Email": st.column_config.TextColumn("Email Address", disabled=True), 
                 "Password": st.column_config.TextColumn("Password", disabled=True)
             },
             hide_index=True,
@@ -140,7 +150,7 @@ if view_mode == "⚙️ Admin Dashboard":
         else:
             st.error("⛔ Access Denied. Only the Club Owner can view the security logs.")
             
-    st.stop() # Stops the rest of the page (the schedule) from drawing if we are in the dashboard
+    st.stop()
 
 
 # ==========================================
@@ -186,9 +196,7 @@ for i, col in enumerate(cols):
             booked_user = booked.iloc[0]['User']
             if st.session_state.user_role == 'admin' or booked_user == st.session_state.logged_in_user:
                 if c2.button(f"❌ Cancel ({booked_user})", key=f"del_{button_key}", type="primary"):
-                    # LOG THE ACTION
                     log_action("CANCELLED", st.session_state.logged_in_user, booked_user, f"{t_name} | {view_date} | {time_str}")
-                    
                     bookings_df = bookings_df[~((bookings_df['Table'] == t_name) & 
                                                 (bookings_df['Time'] == time_str) & 
                                                 (bookings_df['Date'] == str(view_date)))]
@@ -202,9 +210,7 @@ for i, col in enumerate(cols):
                 if user_today_hours + 0.5 > 3.0 and st.session_state.user_role != 'admin':
                     st.error("Booking limit reached! You can only book 3 hours per day.")
                 else:
-                    # LOG THE ACTION
                     log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"{t_name} | {view_date} | {time_str}")
-                    
                     new_row = pd.DataFrame([[st.session_state.logged_in_user, str(view_date), t_name, time_str, 0.5]], 
                                            columns=['User', 'Date', 'Table', 'Time', 'Duration'])
                     bookings_df = pd.concat([bookings_df, new_row], ignore_index=True)
