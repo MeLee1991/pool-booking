@@ -6,7 +6,7 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. CLEAN STANDARD UI (Glitch-Free)
+# 0. CLEAN STANDARD UI (Dark-Mode Override Fixes)
 # ==========================================
 st.markdown("""
 <style>
@@ -17,7 +17,7 @@ st.markdown("""
         background-color: #f8f9fa !important; 
     }
     
-    /* Typography: Safely apply Roboto WITHOUT breaking Material Icons (spans) */
+    /* Typography: Safely apply Roboto WITHOUT breaking Material Icons */
     html, body, p, label, li, input, button {
         font-family: 'Roboto', sans-serif !important;
         font-weight: 300 !important;
@@ -43,9 +43,10 @@ st.markdown("""
     }
     div[data-baseweb="input"] input {
         background-color: transparent !important;
+        color: #212529 !important;
     }
     div[data-baseweb="input"] button {
-        background-color: transparent !important; /* Protects the eye icon */
+        background-color: transparent !important; 
     }
     
     /* Standard Login Button */
@@ -119,19 +120,22 @@ st.markdown("""
     .table-header {
         text-align: center !important;
         font-size: 15px !important;
-        font-weight: 500 !important;
-        background-color: #e9ecef; 
+        font-weight: 600 !important;
+        color: #000000 !important; /* Force black text to fix invisible header */
+        background-color: #e9ecef !important; 
         padding: 8px 0;
-        border: 1px solid #ced4da;
-        border-bottom: none;
+        border: 1px solid #ced4da !important;
+        border-bottom: none !important;
         margin-bottom: 0 !important;
     }
 
-    [data-testid="column"] .stButton > button {
-        width: 100%;
+    /* Force FREE buttons to have white backgrounds and dark text */
+    section[data-testid="stMain"] .stButton > button {
+        width: 100% !important;
         border-radius: 0px !important; 
         border: 1px solid #ced4da !important; 
-        background-color: #ffffff !important; 
+        background-color: #ffffff !important; /* Forces white background */
+        color: #212529 !important; /* Forces dark text */
         padding: 4px 2px !important; 
         min-height: 44px !important; 
         margin-bottom: -1px !important; 
@@ -139,25 +143,39 @@ st.markdown("""
         line-height: 1.2 !important;
         text-align: center !important; 
     }
-    [data-testid="column"] .stButton > button:hover {
+    
+    /* Ensure inner paragraph tags also get the dark text color */
+    section[data-testid="stMain"] .stButton > button p {
+        color: #212529 !important;
+    }
+    
+    /* Hover state for FREE buttons */
+    section[data-testid="stMain"] .stButton > button:hover {
         background-color: #f8f9fa !important; 
         border-color: #adb5bd !important;
         z-index: 2; 
     }
     
-    [data-testid="column"] button[kind="primary"] {
+    /* Cancel Buttons (Red) */
+    section[data-testid="stMain"] .stButton > button[kind="primary"] {
         background-color: #fff3f3 !important; 
         border: 1px solid #dc3545 !important; 
+        color: #dc3545 !important;
     }
-    [data-testid="column"] button[kind="primary"] p {
+    section[data-testid="stMain"] .stButton > button[kind="primary"] p {
         color: #dc3545 !important; 
     }
+    section[data-testid="stMain"] .stButton > button[kind="primary"]:hover {
+        background-color: #ffe5e5 !important; 
+    }
     
-    [data-testid="column"] button:disabled {
+    /* Taken Buttons (Grayed out) */
+    section[data-testid="stMain"] .stButton > button:disabled {
         background-color: #e9ecef !important; 
         border: 1px solid #ced4da !important;
+        color: #6c757d !important;
     }
-    [data-testid="column"] button:disabled p {
+    section[data-testid="stMain"] .stButton > button:disabled p {
         color: #6c757d !important; 
     }
     
