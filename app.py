@@ -6,6 +6,37 @@ import os
 st.set_page_config(page_title="Pool Club - 9ft Tables", layout="wide")
 
 # ==========================================
+# 0. MAGIC CSS FOR MOBILE UI
+# ==========================================
+st.markdown("""
+<style>
+    /* 1. Force 3 columns side-by-side on mobile phones */
+    [data-testid="column"] {
+        width: 33.33% !important;
+        flex: 1 1 calc(33.33% - 1rem) !important;
+        min-width: 33% !important;
+        padding: 0 3px !important;
+    }
+    
+    /* 2. Squish buttons into solid Calendar "Blocks" */
+    .stButton > button {
+        width: 100%;
+        border-radius: 2px !important; /* Square edges */
+        padding: 4px 2px !important;
+        min-height: 45px !important;
+        margin-bottom: -12px !important; /* Removes gap between buttons */
+        font-size: 11px !important; /* Smaller text to fit phone screens */
+        line-height: 1.2 !important;
+    }
+    
+    /* Hide some extra padding at the top to save phone space */
+    .block-container {
+        padding-top: 2rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ==========================================
 # 1. DATABASE & LOGGING SETUP
 # ==========================================
 USERS_FILE = 'users.csv'
@@ -24,12 +55,10 @@ def load_users():
     try:
         df = pd.read_csv(USERS_FILE)
         changed = False
-        # Auto-repair old databases
         if 'Username' in df.columns:
             df = df.rename(columns={'Username': 'Email'})
             changed = True
         if 'Name' not in df.columns:
-            # If Name is missing, extract it from the email (e.g., tomazbratina@... -> tomazbratina)
             df.insert(1, 'Name', df['Email'].apply(lambda x: str(x).split('@')[0]))
             changed = True
         if changed:
@@ -61,10 +90,8 @@ if 'user_role' not in st.session_state:
 
 st.sidebar.title("🔐 Login / Register")
 
-# Logged OUT View
 if st.session_state.logged_in_user is None:
     auth_mode = st.sidebar.radio("Choose Action", ["Login", "Register"])
-    
     email_input = st.sidebar.text_input("Email Address").strip().lower()
     
     if auth_mode == "Register":
@@ -105,7 +132,6 @@ if st.session_state.logged_in_user is None:
                 st.sidebar.error("Incorrect email or password.")
     st.stop()
 
-# Logged IN View Sidebar
 st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in_user = None
@@ -124,13 +150,11 @@ if st.session_state.user_role == 'admin':
 # ==========================================
 if view_mode == "⚙️ Admin Dashboard":
     st.title("⚙️ Club Administration")
-    
     tab1, tab2, tab3 = st.tabs(["👥 User Management", "📊 Raw Database", "🕵️‍♂️ Security Audit Log"])
     
     with tab1:
-        st.write("### Manage Users & Permissions")
+        st.write("### Manage Users")
         users_df = load_users()
-        
         edited_users = st.data_editor(
             users_df,
             column_config={
@@ -139,18 +163,13 @@ if view_mode == "⚙️ Admin Dashboard":
                 "Email": st.column_config.TextColumn("Email Address", disabled=True), 
                 "Password": st.column_config.TextColumn("Password", disabled=True)
             },
-            hide_index=True,
-            use_container_width=True
+            hide_index=True, use_container_width=True
         )
-        
         if st.button("💾 Save User Changes", type="primary"):
             save_users(edited_users)
-            
-            # Update current session name if the admin changed their own name
             if st.session_state.logged_in_user in edited_users['Email'].values:
                 updated_name = edited_users[edited_users['Email'] == st.session_state.logged_in_user].iloc[0]['Name']
                 st.session_state.logged_in_name = updated_name
-                
             st.success("Database updated successfully!")
 
     with tab2:
@@ -162,22 +181,21 @@ if view_mode == "⚙️ Admin Dashboard":
         if st.session_state.logged_in_user == OWNER_EMAIL:
             st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
         else:
-            st.error("⛔ Access Denied. Only the Club Owner can view the security logs.")
+            st.error("⛔ Access Denied.")
     st.stop()
 
 
 # ==========================================
-# 4. THE BOOKING SYSTEM (Schedule)
+# 4. THE BOOKING SYSTEM (Mobile Friendly)
 # ==========================================
-st.title("🎱 Interactive Table Reservations")
-st.info("Limit: 3 hours per person per day. Click directly on the schedule to book or cancel.")
+st.title("🎱 Table Reservations")
 
-HOURS = [f"{h:02d}:{m}" for h in range(24) for m in ("00", "30")]
+HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] # Shrunk the day from 08:00 to 24:00 to save scrolling
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(7)]
 date_labels = ["Today" if d == today else "Tomorrow" if d == today + timedelta(days=1) else d.strftime("%a, %b %d") for d in upcoming_dates]
 
-selected_date_label_main = st.radio("View Schedule for:", date_labels, horizontal=True)
+selected_date_label_main = st.radio("Date:", date_labels, horizontal=True)
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
 bookings_df = load_bookings()
@@ -187,36 +205,29 @@ relevant_bookings = bookings_df[bookings_df['Date'] == str(view_date)]
 user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_state.logged_in_user]['Duration'].sum()
 
 if st.session_state.user_role != 'admin':
-    st.write(f"**Your booked time today:** {user_today_hours} / 3.0 hours")
+    st.caption(f"**Your time today:** {user_today_hours} / 3.0h")
 
-# Create a dictionary to quickly look up short names based on emails
 users_df = load_users()
 name_lookup = dict(zip(users_df['Email'], users_df['Name']))
 
+# 3 Columns for the tables
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
     t_name = f"Table {i+1}"
-    col.subheader(t_name)
+    col.markdown(f"**{t_name}**")
     
     for time_str in HOURS:
-        hour_int = int(time_str.split(":")[0])
-        # CHANGED: Sun stays until 20:00 (less than 20)
-        time_icon = "🌙" if hour_int < 8 else "☀️" if hour_int < 20 else "🌆" 
-        
         booked = relevant_bookings[(relevant_bookings['Table'] == t_name) & (relevant_bookings['Time'] == time_str)]
-        
-        c1, c2 = col.columns([1, 2])
-        c1.write(f"{time_icon} {time_str}")
         button_key = f"{t_name}_{time_str}_{view_date}"
         
         if not booked.empty:
             booked_user_email = booked.iloc[0]['User']
-            # Look up the short display name (fallback to email prefix if not found)
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
             
+            # If it's MY booking (or Admin), show RED block to delete
             if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
-                if c2.button(f"❌ Cancel ({short_name})", key=f"del_{button_key}", type="primary"):
+                if col.button(f"{time_str}\n❌ {short_name}", key=f"del_{button_key}", type="primary"):
                     log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"{t_name} | {view_date} | {time_str}")
                     bookings_df = bookings_df[~((bookings_df['Table'] == t_name) & 
                                                 (bookings_df['Time'] == time_str) & 
@@ -224,12 +235,14 @@ for i, col in enumerate(cols):
                     save_bookings(bookings_df)
                     st.rerun()
             else:
-                c2.button(f"🔴 Taken", key=f"dis_{button_key}", disabled=True)
+                # Someone else's booking, disabled grey block
+                col.button(f"{time_str}\n🔒 {short_name}", key=f"dis_{button_key}", disabled=True)
                 
         else:
-            if c2.button("🟢 FREE", key=f"add_{button_key}"):
+            # FREE slot
+            if col.button(f"{time_str}\n🟢 FREE", key=f"add_{button_key}"):
                 if user_today_hours + 0.5 > 3.0 and st.session_state.user_role != 'admin':
-                    st.error("Booking limit reached! You can only book 3 hours per day.")
+                    st.error("Limit reached! (3h/day)")
                 else:
                     log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"{t_name} | {view_date} | {time_str}")
                     new_row = pd.DataFrame([[st.session_state.logged_in_user, str(view_date), t_name, time_str, 0.5]], 
