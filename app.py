@@ -6,14 +6,18 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. PREMIUM LIGHT UI (Rectangular Frames)
+# 0. PREMIUM LIGHT UI (Properly Scoped CSS)
 # ==========================================
 st.markdown("""
 <style>
-    /* Global App Theme - Premium Light Slate */
-    .stApp {
-        background-color: #f8fafc !important; 
-        color: #0f172a !important; 
+    /* Force ENTIRE App (Main and Sidebar) to Light Theme */
+    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
+        background-color: #f8fafc !important;
+    }
+    
+    /* Force all base text to dark slate */
+    h1, h2, h3, p, span, label, div {
+        color: #0f172a !important;
     }
     
     h1 {
@@ -21,13 +25,41 @@ st.markdown("""
         font-weight: 800 !important;
         letter-spacing: 2px;
         margin-bottom: 5px !important;
-        color: #0f172a !important;
+    }
+
+    /* ---------------------------------------------------
+       SIDEBAR STYLING (Fixing the ugly white boxes)
+       --------------------------------------------------- */
+    /* Remove the weird white backgrounds from the Radio buttons */
+    [data-testid="stSidebar"] [data-testid="stRadio"] label {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
     }
     
+    /* Make sidebar login button look like a normal modern button */
+    [data-testid="stSidebar"] .stButton > button {
+        background-color: #10b981 !important;
+        color: #ffffff !important;
+        border-radius: 6px !important;
+        border: none !important;
+        min-height: 42px !important;
+        width: 100%;
+        font-weight: bold !important;
+        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #059669 !important;
+    }
+    [data-testid="stSidebar"] .stButton > button p {
+        color: #ffffff !important;
+    }
+
     /* ---------------------------------------------------
-       SWIPEABLE DATE RIBBON (Light Theme)
+       MAIN SCREEN: SWIPEABLE DATE RIBBON
        --------------------------------------------------- */
-    [data-testid="stRadio"] > div[role="radiogroup"] {
+    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
         display: flex !important;
         flex-wrap: nowrap !important; 
         overflow-x: auto !important; 
@@ -40,11 +72,11 @@ st.markdown("""
         scrollbar-width: none; 
     }
     
-    [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
+    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
         display: none;
     }
     
-    [data-testid="stRadio"] label {
+    section[data-testid="stMain"] [data-testid="stRadio"] label {
         background-color: #ffffff !important;
         border: 1px solid #cbd5e1 !important;
         border-radius: 6px !important;
@@ -56,7 +88,7 @@ st.markdown("""
         box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
     }
     
-    [data-testid="stRadio"] label[data-checked="true"] {
+    section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #10b981 !important;
         border-color: #10b981 !important;
         color: #ffffff !important;
@@ -64,12 +96,16 @@ st.markdown("""
         font-weight: bold !important;
     }
     
-    [data-testid="stRadio"] label span[data-baseweb="radio"] {
+    section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p {
+         color: #ffffff !important;
+    }
+    
+    section[data-testid="stMain"] [data-testid="stRadio"] label span[data-baseweb="radio"] {
         display: none !important;
     }
 
     /* ---------------------------------------------------
-       CENTERED GRID & RECTANGULAR FRAMES
+       MAIN SCREEN: CENTERED GRID & RECTANGULAR FRAMES
        --------------------------------------------------- */
     @media (max-width: 768px) {
         [data-testid="stHorizontalBlock"] {
@@ -97,38 +133,43 @@ st.markdown("""
         margin-bottom: 0 !important;
     }
     
-    .stButton > button {
+    /* ONLY target buttons inside the columns for the Grid Frames */
+    [data-testid="column"] .stButton > button {
         width: 100%;
-        border-radius: 0px !important; 
-        border: 1px solid #cbd5e1 !important; 
-        background-color: #ffffff !important; 
+        border-radius: 0px !important; /* STRICTLY RECTANGULAR */
+        border: 1px solid #cbd5e1 !important; /* Crisp gray frame border */
+        background-color: #ffffff !important; /* Pure white cells */
         color: #334155 !important; 
         padding: 6px 2px !important; 
         min-height: 48px !important; 
-        margin-bottom: -1px !important; 
+        margin-bottom: -1px !important; /* Seamless grid */
         font-size: 11px !important; 
         line-height: 1.3 !important;
         font-weight: 600 !important;
         text-align: center !important; 
     }
     
-    .stButton > button:hover {
+    [data-testid="column"] .stButton > button p {
+        color: inherit !important;
+    }
+    
+    [data-testid="column"] .stButton > button:hover {
         background-color: #f0fdf4 !important; 
         border-color: #10b981 !important;
         color: #047857 !important;
         z-index: 2; 
     }
     
-    button[kind="primary"] {
+    [data-testid="column"] button[kind="primary"] {
         background-color: #fef2f2 !important; 
         border: 1px solid #ef4444 !important; 
         color: #b91c1c !important; 
     }
-    button[kind="primary"]:hover {
+    [data-testid="column"] button[kind="primary"]:hover {
         background-color: #fee2e2 !important;
     }
 
-    button:disabled {
+    [data-testid="column"] button:disabled {
         background-color: #f1f5f9 !important; 
         color: #94a3b8 !important; 
         border: 1px solid #e2e8f0 !important;
@@ -184,7 +225,7 @@ def log_action(action, performed_by, target_user, details):
     pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
 
 # ==========================================
-# 2. AUTHENTICATION (BACK IN THE SIDEBAR)
+# 2. AUTHENTICATION & LOGIN SYSTEM
 # ==========================================
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
@@ -235,13 +276,8 @@ if st.session_state.logged_in_user is None:
                     st.rerun()
             else:
                 st.sidebar.error("Incorrect email/password.")
-                
-    # If not logged in, show a polite message on the main screen and stop drawing the schedule
-    st.markdown("<h1>RESERVE <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
-    st.info("👈 Please use the sidebar menu to log in or register to view the schedule.")
     st.stop()
 
-# --- Everything below this line only happens if logged in ---
 st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in_user = None
