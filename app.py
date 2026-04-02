@@ -12,7 +12,7 @@ st.markdown("""
 <style>
     /* Global App Theme - Premium Light Slate */
     .stApp {
-        background-color: #f8fafc !important; /* Very soft, clean off-white */
+        background-color: #f8fafc !important; /* Soft, clean off-white */
         color: #0f172a !important; /* Deep slate text */
     }
     
@@ -54,7 +54,7 @@ st.markdown("""
         min-width: max-content; 
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Very subtle shadow */
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     
     /* Style the SELECTED Date Card (Emerald Glow) */
@@ -92,15 +92,15 @@ st.markdown("""
         text-align: center !important;
         font-size: 16px !important;
         font-weight: 800 !important;
-        color: #0f172a !important; /* Dark text for contrast */
-        background-color: #e2e8f0; /* Soft gray cap */
+        color: #0f172a !important; 
+        background-color: #e2e8f0; 
         padding: 10px 0;
         border: 1px solid #cbd5e1;
         border-bottom: none;
         margin-bottom: 0 !important;
     }
     
-    /* Grid Frames (NO Rounded Corners, Sharp Edges) */
+    /* Grid Frames (ALL EQUAL SIZE, NO ROUNDED CORNERS) */
     .stButton > button {
         width: 100%;
         border-radius: 0px !important; /* STRICTLY RECTANGULAR */
@@ -108,8 +108,8 @@ st.markdown("""
         background-color: #ffffff !important; /* Pure white cells */
         color: #334155 !important; 
         padding: 6px 2px !important; 
-        min-height: 48px !important; 
-        margin-bottom: -1px !important; /* Overlaps borders for a seamless spreadsheet look */
+        min-height: 48px !important; /* EVERY button is the same size */
+        margin-bottom: -1px !important; /* Overlaps borders for a seamless grid */
         font-size: 11px !important; 
         line-height: 1.3 !important;
         font-weight: 600 !important;
@@ -118,17 +118,17 @@ st.markdown("""
     
     /* Hover effect for Free Slots */
     .stButton > button:hover {
-        background-color: #f0fdf4 !important; /* Very faint green tint on hover */
+        background-color: #f0fdf4 !important; 
         border-color: #10b981 !important;
         color: #047857 !important;
-        z-index: 2; /* Brings border to front on hover */
+        z-index: 2; 
     }
     
     /* Primary frames (Cancel - Red) */
     button[kind="primary"] {
-        background-color: #fef2f2 !important; /* Light red tint */
-        border: 1px solid #ef4444 !important; /* Sharp red frame */
-        color: #b91c1c !important; /* Dark red text */
+        background-color: #fef2f2 !important; 
+        border: 1px solid #ef4444 !important; 
+        color: #b91c1c !important; 
     }
     button[kind="primary"]:hover {
         background-color: #fee2e2 !important;
@@ -136,8 +136,8 @@ st.markdown("""
 
     /* Disabled frames (Someone else's booking) */
     button:disabled {
-        background-color: #f1f5f9 !important; /* Light gray */
-        color: #94a3b8 !important; /* Faded text */
+        background-color: #f1f5f9 !important; 
+        color: #94a3b8 !important; 
         border: 1px solid #e2e8f0 !important;
     }
     
