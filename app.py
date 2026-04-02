@@ -6,19 +6,17 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. CLEAN STANDARD UI (Roboto Light)
+# 0. CLEAN STANDARD UI (Roboto Light & Leak Fixes)
 # ==========================================
 st.markdown("""
 <style>
-    /* Import Roboto Font */
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
 
-    /* Global Font & Standard Light Theme */
     html, body, .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
-        background-color: #f8f9fa !important; /* Standard off-white */
+        background-color: #f8f9fa !important; 
         font-family: 'Roboto', sans-serif !important;
-        font-weight: 300 !important; /* Roboto Light */
-        color: #212529 !important; /* Standard dark text */
+        font-weight: 300 !important; 
+        color: #212529 !important; 
     }
     
     p, span, div, label, li {
@@ -29,7 +27,7 @@ st.markdown("""
     
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Roboto', sans-serif !important;
-        font-weight: 400 !important; /* Slightly bolder for headings, but still clean */
+        font-weight: 400 !important; 
         color: #212529 !important;
     }
     
@@ -39,21 +37,35 @@ st.markdown("""
     }
 
     /* ---------------------------------------------------
-       STANDARD LOGIN INPUTS (Fixes the black boxes)
+       STANDARD LOGIN INPUTS (Fixes password eye-icon black box)
        --------------------------------------------------- */
-    div[data-baseweb="input"] > div {
-        background-color: #ffffff !important; /* Strictly white background */
-        border: 1px solid #ced4da !important; /* Standard gray border */
+    /* Target the wrapper AND the inner eye-icon container */
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="input"] > div > div {
+        background-color: #ffffff !important; 
+    }
+    
+    /* Ensure the wrapper has the standard border */
+    div[data-baseweb="input"] > div:first-child {
+        border: 1px solid #ced4da !important; 
         border-radius: 4px !important;
     }
+    
     div[data-baseweb="input"] input {
-        color: #495057 !important; /* Standard gray text */
+        color: #495057 !important; 
         font-family: 'Roboto', sans-serif !important;
         font-weight: 300 !important;
         background-color: transparent !important;
     }
     
-    /* Standardize Sidebar Radio Buttons */
+    /* Force the eye icon button to be transparent */
+    div[data-baseweb="input"] button {
+        background-color: transparent !important;
+    }
+
+    /* ---------------------------------------------------
+       RADIO BUTTON FIXES (Fixes black circles)
+       --------------------------------------------------- */
     [data-testid="stSidebar"] [data-testid="stRadio"] label {
         background-color: transparent !important;
         border: none !important;
@@ -61,9 +73,23 @@ st.markdown("""
         padding: 0 !important;
     }
     
-    /* Standard Login Button */
+    /* Force unselected radio circles to be white/gray */
+    [role="radio"] > div {
+        background-color: #ffffff !important;
+        border: 2px solid #ced4da !important;
+    }
+    
+    /* Force selected radio circles to be green */
+    [role="radio"][aria-checked="true"] > div {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+    }
+    
+    /* ---------------------------------------------------
+       STANDARD BUTTONS
+       --------------------------------------------------- */
     [data-testid="stSidebar"] .stButton > button {
-        background-color: #28a745 !important; /* Standard Success Green */
+        background-color: #5cb85c !important; /* Soft green */
         color: #ffffff !important;
         border-radius: 4px !important;
         border: none !important;
@@ -100,7 +126,6 @@ st.markdown("""
         min-width: max-content; 
         cursor: pointer;
     }
-    /* Selected Date (Clean Blue) */
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #007bff !important; 
         border-color: #007bff !important;
@@ -135,7 +160,7 @@ st.markdown("""
         font-size: 15px !important;
         font-weight: 500 !important;
         color: #495057 !important; 
-        background-color: #e9ecef; /* Light gray header */
+        background-color: #e9ecef; 
         padding: 8px 0;
         border: 1px solid #ced4da;
         border-bottom: none;
@@ -153,7 +178,7 @@ st.markdown("""
         margin-bottom: -1px !important; 
         font-size: 12px !important; 
         line-height: 1.2 !important;
-        font-weight: 300 !important; /* Roboto Light for grid text */
+        font-weight: 300 !important; 
         text-align: center !important; 
     }
     [data-testid="column"] .stButton > button:hover {
@@ -162,7 +187,6 @@ st.markdown("""
         z-index: 2; 
     }
     
-    /* Cancel Buttons (Clean Red) */
     [data-testid="column"] button[kind="primary"] {
         background-color: #fff3f3 !important; 
         border: 1px solid #dc3545 !important; 
@@ -172,7 +196,6 @@ st.markdown("""
         color: #dc3545 !important; 
     }
     
-    /* Taken Buttons (Grayed out) */
     [data-testid="column"] button:disabled {
         background-color: #e9ecef !important; 
         color: #6c757d !important; 
