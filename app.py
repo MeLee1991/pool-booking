@@ -19,6 +19,7 @@ font="sans serif"
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
@@ -134,9 +135,9 @@ st.markdown("""
 
     /* 🔥 THE MAGIC STICKY HEADER FIX 🔥 */
     .table-header {
-        position: sticky;       /* Makes it stick to the top when scrolling */
-        top: 2.875rem;          /* Sits just below the Streamlit top bar */
-        z-index: 999;           /* Keeps it floating above the buttons */
+        position: sticky;       
+        top: 2.875rem;          
+        z-index: 999;           
         text-align: center !important;
         font-size: 15px !important;
         font-weight: 700 !important;
@@ -147,13 +148,13 @@ st.markdown("""
         padding: 10px 0;
         border-radius: 6px !important;
         margin-bottom: 12px !important; 
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3); /* Adds a shadow so it looks elevated */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
     }
 
+    /* Base button structural styles (colors handled by dynamic CSS below) */
     [data-testid="column"] .stButton > button {
         width: 100% !important;
         border-radius: 4px !important; 
-        border: 1px solid #dee2e6 !important; 
         padding: 6px 2px !important; 
         min-height: 44px !important; 
         margin-bottom: 4px !important; 
@@ -161,13 +162,13 @@ st.markdown("""
         line-height: 1.2 !important;
         text-align: center !important; 
         background-color: #ffffff !important; 
-        transition: all 0.1s ease;
+        transition: all 0.2s ease;
     }
     
+    /* Hour Banding Background stripes */
     [data-testid="column"] > div:nth-child(4n) button,
     [data-testid="column"] > div:nth-child(4n+1) button {
         background-color: #f1f3f5 !important; 
-        border-color: #e2e6ea !important;
     }
 
     [data-testid="column"] .stButton > button:hover {
@@ -175,19 +176,17 @@ st.markdown("""
         border-color: #28a745 !important;
     }
     
-    /* Reserved (Red) */
+    /* Reserved (Red) Background override */
     [data-testid="column"] button[kind="primary"] {
         background-color: #ff4b4b !important; 
-        border: 1px solid #dc3545 !important; 
     }
     [data-testid="column"] button[kind="primary"] p {
         color: #ffffff !important; 
     }
     
-    /* Locked */
+    /* Locked Background override */
     [data-testid="column"] button:disabled {
         background-color: #e9ecef !important; 
-        border: 1px solid #ced4da !important;
         color: #6c757d !important;
     }
     [data-testid="column"] button:disabled p {
@@ -205,6 +204,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
+# 1.5 DYNAMIC "PRIME TIME" HEATMAP BORDERS
+# ==========================================
+HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
+
+prime_time_css = "<style>\n"
+for idx, time_str in enumerate(HOURS):
+    hour = int(time_str[:2])
+    minute = int(time_str[3:])
+    time_float = hour + minute / 60.0
+    
+    # Distance from 19:00 (Prime Time)
+    dist = abs(time_float - 19.0)
+    
+    # Opacity curve: 1.0 at 19:00, drops to ~0.15 at 08:00
+    opacity = max(0.15, 1.0 - (dist / 11.0))
+    
+    border_color = f"rgba(33, 37, 41, {opacity:.2f})"
+    
+    # +2 because CSS nth-child is 1-based, and the Header is child #1
+    child_idx = idx + 2 
+    
+    # Apply a thicker 2px border that changes color based on proximity to 19:00
+    prime_time_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    prime_time_css += f'    border: 2px solid {border_color} !important;\n'
+    prime_time_css += f'}}\n'
+
+prime_time_css += "</style>"
+st.markdown(prime_time_css, unsafe_allow_html=True)
+
+
+# ==========================================
 # 2. DATABASE & LOGGING SETUP
 # ==========================================
 USERS_FILE = 'users.csv'
@@ -220,11 +250,8 @@ if not os.path.exists(AUDIT_FILE):
     pd.DataFrame(columns=['Timestamp', 'Action', 'Performed_By', 'Target_User', 'Details']).to_csv(AUDIT_FILE, index=False)
 
 def load_users(): 
-    try:
-        df = pd.read_csv(USERS_FILE)
-        return df
-    except:
-        return pd.DataFrame(columns=['Email', 'Name', 'Password', 'Role'])
+    try: return pd.read_csv(USERS_FILE)
+    except: return pd.DataFrame(columns=['Email', 'Name', 'Password', 'Role'])
 
 def save_users(df): df.to_csv(USERS_FILE, index=False)
 def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
@@ -239,17 +266,11 @@ def log_action(action, performed_by, target_user, details):
 # ==========================================
 # 3. AUTHENTICATION & STATE MANAGEMENT
 # ==========================================
-if 'logged_in_user' not in st.session_state:
-    st.session_state.logged_in_user = None
-if 'logged_in_name' not in st.session_state:
-    st.session_state.logged_in_name = None
-if 'user_role' not in st.session_state:
-    st.session_state.user_role = None
-
-if 'admin_selected_slot' not in st.session_state:
-    st.session_state.admin_selected_slot = None
-if 'admin_edit_mode' not in st.session_state:
-    st.session_state.admin_edit_mode = False
+if 'logged_in_user' not in st.session_state: st.session_state.logged_in_user = None
+if 'logged_in_name' not in st.session_state: st.session_state.logged_in_name = None
+if 'user_role' not in st.session_state: st.session_state.user_role = None
+if 'admin_selected_slot' not in st.session_state: st.session_state.admin_selected_slot = None
+if 'admin_edit_mode' not in st.session_state: st.session_state.admin_edit_mode = False
 
 st.sidebar.markdown("<h2>🔐 Access</h2>", unsafe_allow_html=True)
 
@@ -356,8 +377,6 @@ if view_mode == "⚙️ Admin Dashboard":
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
 
-HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
-
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(14)]
 def get_date_label(d):
@@ -439,7 +458,6 @@ cols = st.columns(3)
 for i, col in enumerate(cols):
     t_name = f"Table {i+1}"
     
-    # Notice this is drawn natively in the column, NO scroll wrappers!
     col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
@@ -492,3 +510,27 @@ for i, col in enumerate(cols):
                     bookings_df = pd.concat([bookings_df, new_row], ignore_index=True)
                     save_bookings(bookings_df)
                     st.rerun()
+
+# ==========================================
+# 6. AUTO-SCROLL TO PRIME TIME SCRIPT
+# ==========================================
+# Injects a tiny invisible script that glides the page down to 19:00 on load.
+components.html(
+    """
+    <script>
+    // Give Streamlit a moment to draw the buttons, then scroll
+    setTimeout(function() {
+        const buttons = window.parent.document.querySelectorAll('button');
+        for (let btn of buttons) {
+            // Find the 19:00 prime time button
+            if (btn.innerText.includes('19:00')) {
+                // Smoothly scroll it right into the middle of the screen
+                btn.scrollIntoView({behavior: 'smooth', block: 'center'});
+                break;
+            }
+        }
+    }, 1000); 
+    </script>
+    """,
+    height=0
+)
