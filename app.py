@@ -6,20 +6,19 @@ import os
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. CLEAN STANDARD UI (Roboto Light & Leak Fixes)
+# 0. CLEAN STANDARD UI (Glitch-Free)
 # ==========================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap');
 
-    html, body, .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
+    /* Backgrounds */
+    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
         background-color: #f8f9fa !important; 
-        font-family: 'Roboto', sans-serif !important;
-        font-weight: 300 !important; 
-        color: #212529 !important; 
     }
     
-    p, span, div, label, li {
+    /* Typography: Safely apply Roboto WITHOUT breaking Material Icons (spans) */
+    html, body, p, label, li, input, button {
         font-family: 'Roboto', sans-serif !important;
         font-weight: 300 !important;
         color: #212529 !important;
@@ -29,67 +28,29 @@ st.markdown("""
         font-family: 'Roboto', sans-serif !important;
         font-weight: 400 !important; 
         color: #212529 !important;
+        text-align: center;
     }
     
-    h1 {
-        text-align: center;
-        margin-bottom: 10px !important;
-    }
+    h1 { margin-bottom: 10px !important; }
 
     /* ---------------------------------------------------
-       STANDARD LOGIN INPUTS (Fixes password eye-icon black box)
+       STANDARD LOGIN INPUTS
        --------------------------------------------------- */
-    /* Target the wrapper AND the inner eye-icon container */
-    div[data-baseweb="input"] > div,
-    div[data-baseweb="input"] > div > div {
+    div[data-baseweb="input"] > div {
         background-color: #ffffff !important; 
-    }
-    
-    /* Ensure the wrapper has the standard border */
-    div[data-baseweb="input"] > div:first-child {
         border: 1px solid #ced4da !important; 
         border-radius: 4px !important;
     }
-    
     div[data-baseweb="input"] input {
-        color: #495057 !important; 
-        font-family: 'Roboto', sans-serif !important;
-        font-weight: 300 !important;
         background-color: transparent !important;
     }
-    
-    /* Force the eye icon button to be transparent */
     div[data-baseweb="input"] button {
-        background-color: transparent !important;
-    }
-
-    /* ---------------------------------------------------
-       RADIO BUTTON FIXES (Fixes black circles)
-       --------------------------------------------------- */
-    [data-testid="stSidebar"] [data-testid="stRadio"] label {
-        background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
+        background-color: transparent !important; /* Protects the eye icon */
     }
     
-    /* Force unselected radio circles to be white/gray */
-    [role="radio"] > div {
-        background-color: #ffffff !important;
-        border: 2px solid #ced4da !important;
-    }
-    
-    /* Force selected radio circles to be green */
-    [role="radio"][aria-checked="true"] > div {
-        background-color: #28a745 !important;
-        border-color: #28a745 !important;
-    }
-    
-    /* ---------------------------------------------------
-       STANDARD BUTTONS
-       --------------------------------------------------- */
+    /* Standard Login Button */
     [data-testid="stSidebar"] .stButton > button {
-        background-color: #5cb85c !important; /* Soft green */
+        background-color: #28a745 !important; 
         color: #ffffff !important;
         border-radius: 4px !important;
         border: none !important;
@@ -129,10 +90,10 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] {
         background-color: #007bff !important; 
         border-color: #007bff !important;
-        color: #ffffff !important;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p {
         color: #ffffff !important;
+        font-weight: 400 !important;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] label span[data-baseweb="radio"] {
         display: none !important;
@@ -159,7 +120,6 @@ st.markdown("""
         text-align: center !important;
         font-size: 15px !important;
         font-weight: 500 !important;
-        color: #495057 !important; 
         background-color: #e9ecef; 
         padding: 8px 0;
         border: 1px solid #ced4da;
@@ -172,13 +132,11 @@ st.markdown("""
         border-radius: 0px !important; 
         border: 1px solid #ced4da !important; 
         background-color: #ffffff !important; 
-        color: #495057 !important; 
         padding: 4px 2px !important; 
         min-height: 44px !important; 
         margin-bottom: -1px !important; 
         font-size: 12px !important; 
         line-height: 1.2 !important;
-        font-weight: 300 !important; 
         text-align: center !important; 
     }
     [data-testid="column"] .stButton > button:hover {
@@ -190,7 +148,6 @@ st.markdown("""
     [data-testid="column"] button[kind="primary"] {
         background-color: #fff3f3 !important; 
         border: 1px solid #dc3545 !important; 
-        color: #dc3545 !important; 
     }
     [data-testid="column"] button[kind="primary"] p {
         color: #dc3545 !important; 
@@ -198,7 +155,6 @@ st.markdown("""
     
     [data-testid="column"] button:disabled {
         background-color: #e9ecef !important; 
-        color: #6c757d !important; 
         border: 1px solid #ced4da !important;
     }
     [data-testid="column"] button:disabled p {
@@ -255,7 +211,7 @@ def log_action(action, performed_by, target_user, details):
     pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
 
 # ==========================================
-# 2. AUTHENTICATION (Standard Clean Sidebar)
+# 2. AUTHENTICATION
 # ==========================================
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
