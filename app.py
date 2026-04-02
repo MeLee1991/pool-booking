@@ -6,32 +6,47 @@ import os
 st.set_page_config(page_title="Pool Club - 9ft Tables", layout="wide")
 
 # ==========================================
-# 0. MAGIC CSS FOR MOBILE UI
+# 0. MAGIC CSS FOR MOBILE UI (UPGRADED)
 # ==========================================
 st.markdown("""
 <style>
-    /* 1. Force 3 columns side-by-side on mobile phones */
-    [data-testid="column"] {
-        width: 33.33% !important;
-        flex: 1 1 calc(33.33% - 1rem) !important;
-        min-width: 33% !important;
-        padding: 0 3px !important;
+    /* 1. Force columns to stay side-by-side on mobile */
+    @media (max-width: 768px) {
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+        }
+        [data-testid="column"] {
+            width: 33.33% !important;
+            flex: 1 1 33.33% !important;
+            min-width: 32% !important;
+            padding: 0 2px !important; /* Tiny gap between columns */
+        }
     }
     
-    /* 2. Squish buttons into solid Calendar "Blocks" */
+    /* 2. Squish buttons to be narrower and continuous */
     .stButton > button {
         width: 100%;
-        border-radius: 2px !important; /* Square edges */
-        padding: 4px 2px !important;
-        min-height: 45px !important;
-        margin-bottom: -12px !important; /* Removes gap between buttons */
-        font-size: 11px !important; /* Smaller text to fit phone screens */
-        line-height: 1.2 !important;
+        border-radius: 2px !important; 
+        padding: 2px !important; /* Narrower buttons */
+        min-height: 30px !important;
+        margin-bottom: -10px !important; 
+        font-size: 11px !important; 
+        line-height: 1.1 !important;
     }
     
-    /* Hide some extra padding at the top to save phone space */
+    /* 3. Hide extra padding to save screen space */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 1.5rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+    
+    /* 4. Center the table headers */
+    h3 {
+        text-align: center !important;
+        font-size: 16px !important;
+        margin-bottom: 5px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -186,11 +201,11 @@ if view_mode == "⚙️ Admin Dashboard":
 
 
 # ==========================================
-# 4. THE BOOKING SYSTEM (Mobile Friendly)
+# 4. THE BOOKING SYSTEM (Mobile Optimized)
 # ==========================================
-st.title("🎱 Table Reservations")
+st.markdown("### 🎱 Table Reservations")
 
-HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] # Shrunk the day from 08:00 to 24:00 to save scrolling
+HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(7)]
 date_labels = ["Today" if d == today else "Tomorrow" if d == today + timedelta(days=1) else d.strftime("%a, %b %d") for d in upcoming_dates]
@@ -210,14 +225,19 @@ if st.session_state.user_role != 'admin':
 users_df = load_users()
 name_lookup = dict(zip(users_df['Email'], users_df['Name']))
 
-# 3 Columns for the tables
+# 3 Columns for the tables (CSS forces these side-by-side on mobile)
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
     t_name = f"Table {i+1}"
-    col.markdown(f"**{t_name}**")
+    col.markdown(f"### {t_name}")
     
     for time_str in HOURS:
+        hour_int = int(time_str.split(":")[0])
+        
+        # Determine if it's off-peak (Before 10:00 or after 22:00)
+        is_off_peak = hour_int < 10 or hour_int >= 22
+        
         booked = relevant_bookings[(relevant_bookings['Table'] == t_name) & (relevant_bookings['Time'] == time_str)]
         button_key = f"{t_name}_{time_str}_{view_date}"
         
@@ -225,9 +245,14 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
             
-            # If it's MY booking (or Admin), show RED block to delete
+            # Formatting for taken slots
+            if is_off_peak:
+                btn_label = f"x {short_name.lower()}" if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user else f"- {short_name.lower()}"
+            else:
+                btn_label = f"{time_str}\n❌ {short_name}" if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user else f"{time_str}\n🔒 {short_name}"
+            
             if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
-                if col.button(f"{time_str}\n❌ {short_name}", key=f"del_{button_key}", type="primary"):
+                if col.button(btn_label, key=f"del_{button_key}", type="primary"):
                     log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"{t_name} | {view_date} | {time_str}")
                     bookings_df = bookings_df[~((bookings_df['Table'] == t_name) & 
                                                 (bookings_df['Time'] == time_str) & 
@@ -235,12 +260,13 @@ for i, col in enumerate(cols):
                     save_bookings(bookings_df)
                     st.rerun()
             else:
-                # Someone else's booking, disabled grey block
-                col.button(f"{time_str}\n🔒 {short_name}", key=f"dis_{button_key}", disabled=True)
+                col.button(btn_label, key=f"dis_{button_key}", disabled=True)
                 
         else:
-            # FREE slot
-            if col.button(f"{time_str}\n🟢 FREE", key=f"add_{button_key}"):
+            # Formatting for FREE slots
+            btn_label = f"{time_str} free" if is_off_peak else f"{time_str}\n🟢 FREE"
+            
+            if col.button(btn_label, key=f"add_{button_key}"):
                 if user_today_hours + 0.5 > 3.0 and st.session_state.user_role != 'admin':
                     st.error("Limit reached! (3h/day)")
                 else:
