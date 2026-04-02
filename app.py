@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. CLEAN STRUCTURAL CSS (With Smart Width & Banding)
+# 1. CLEAN STRUCTURAL CSS 
 # ==========================================
 st.markdown("""
 <style>
@@ -40,11 +40,8 @@ st.markdown("""
         text-align: center;
     }
 
-    /* ---------------------------------------------------
-       GLOBAL LAYOUT: MATCH COLUMNS TO DATE RIBBON
-       --------------------------------------------------- */
     .block-container {
-        max-width: 750px !important; /* Locks the app width so tables don't stretch */
+        max-width: 750px !important; 
         margin: 0 auto !important;
         padding-top: 2rem !important;
         padding-left: 0.5rem !important;
@@ -61,12 +58,12 @@ st.markdown("""
         gap: 12px 8px !important; 
         padding: 10px 5px 15px 5px !important;
         border-bottom: 1px solid #dee2e6; 
-        margin-bottom: 25px !important;
+        margin-bottom: 20px !important;
         overflow-x: auto !important; 
         -webkit-overflow-scrolling: touch; 
         scrollbar-width: none; 
         align-items: center;
-        justify-content: center !important; /* Center the ribbon */
+        justify-content: center !important; 
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar {
         display: none;
@@ -135,7 +132,6 @@ st.markdown("""
         padding: 0 !important; 
     }
 
-    /* True Header Styling */
     .table-header {
         text-align: center !important;
         font-size: 15px !important;
@@ -143,43 +139,38 @@ st.markdown("""
         letter-spacing: 1px !important;
         text-transform: uppercase !important;
         color: #ffffff !important; 
-        background-color: #495057 !important; /* Dark Slate to make it pop */
+        background-color: #495057 !important; 
         padding: 10px 0;
         border-radius: 6px !important;
         margin-bottom: 12px !important; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* Base Grid Button Style */
     [data-testid="column"] .stButton > button {
         width: 100% !important;
         border-radius: 4px !important; 
         border: 1px solid #dee2e6 !important; 
         padding: 6px 2px !important; 
         min-height: 44px !important; 
-        margin-bottom: 4px !important; /* Small gap between rows */
+        margin-bottom: 4px !important; 
         font-size: 13px !important; 
         line-height: 1.2 !important;
         text-align: center !important; 
-        background-color: #ffffff !important; /* Base color: White */
+        background-color: #ffffff !important; 
         transition: all 0.1s ease;
     }
     
-    /* Alternating Stripes! Groups of 2 buttons (1 hour) share the same background */
-    /* Children 4&5 (09:00), 8&9 (11:00), 12&13 (13:00) get the gray background */
     [data-testid="column"] > div:nth-child(4n) button,
     [data-testid="column"] > div:nth-child(4n+1) button {
-        background-color: #f1f3f5 !important; /* Soft light gray */
+        background-color: #f1f3f5 !important; 
         border-color: #e2e6ea !important;
     }
 
-    /* Hover effect for Free Slots */
     [data-testid="column"] .stButton > button:hover {
         background-color: #e6f4ea !important; 
         border-color: #28a745 !important;
     }
     
-    /* Cancel Buttons (Red Override) */
     [data-testid="column"] button[kind="primary"] {
         background-color: #fff3f3 !important; 
         border: 1px solid #dc3545 !important; 
@@ -188,10 +179,18 @@ st.markdown("""
         color: #dc3545 !important; 
     }
     
-    /* Taken Buttons (Gray Override) */
     [data-testid="column"] button:disabled {
         background-color: #e9ecef !important; 
         border: 1px solid #ced4da !important;
+    }
+    
+    /* Style for the Admin Control Panel */
+    .admin-panel {
+        background-color: #e3f2fd;
+        border: 1px solid #b8daff;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -238,7 +237,7 @@ def log_action(action, performed_by, target_user, details):
     pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
 
 # ==========================================
-# 3. AUTHENTICATION
+# 3. AUTHENTICATION & STATE MANAGEMENT
 # ==========================================
 if 'logged_in_user' not in st.session_state:
     st.session_state.logged_in_user = None
@@ -246,6 +245,12 @@ if 'logged_in_name' not in st.session_state:
     st.session_state.logged_in_name = None
 if 'user_role' not in st.session_state:
     st.session_state.user_role = None
+
+# New states for Admin Editing
+if 'admin_selected_slot' not in st.session_state:
+    st.session_state.admin_selected_slot = None
+if 'admin_edit_mode' not in st.session_state:
+    st.session_state.admin_edit_mode = False
 
 st.sidebar.markdown("<h2>🔐 Login / Register</h2>", unsafe_allow_html=True)
 
@@ -294,12 +299,13 @@ if st.session_state.logged_in_user is None:
     st.info("👈 Please use the sidebar menu to log in or register to view the schedule.")
     st.stop()
 
-# --- Everything below this line only happens if logged in ---
+# --- Inside App ---
 st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in_user = None
     st.session_state.logged_in_name = None
     st.session_state.user_role = None
+    st.session_state.admin_selected_slot = None
     st.rerun()
 
 view_mode = "📅 Schedule"
@@ -365,6 +371,13 @@ date_labels = [get_date_label(d) for d in upcoming_dates]
 selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
+# If date changes, close any open admin panels
+if 'last_view_date' not in st.session_state:
+    st.session_state.last_view_date = view_date
+if st.session_state.last_view_date != view_date:
+    st.session_state.admin_selected_slot = None
+    st.session_state.last_view_date = view_date
+
 bookings_df = load_bookings()
 bookings_df['Date'] = bookings_df['Date'].astype(str) 
 relevant_bookings = bookings_df[bookings_df['Date'] == str(view_date)]
@@ -377,10 +390,60 @@ if st.session_state.user_role != 'admin':
 users_df = load_users()
 name_lookup = dict(zip(users_df['Email'], users_df['Name']))
 
+# --- ADMIN ACTION PANEL ---
+if st.session_state.user_role == 'admin' and st.session_state.admin_selected_slot:
+    slot = st.session_state.admin_selected_slot
+    st.markdown(f"<div class='admin-panel'><b>⚙️ Admin Action:</b> {slot['Table']} at {slot['Time']} (Current: {slot['Display_Name']})</div>", unsafe_allow_html=True)
+    
+    if st.session_state.admin_edit_mode:
+        # EDIT MODE: Text box to change the name
+        new_name = st.text_input("Enter new name for this slot:", value=slot['Display_Name'])
+        c1, c2 = st.columns(2)
+        if c1.button("💾 Save New Name", type="primary"):
+            # Update the specific row in pandas
+            bookings_df.loc[
+                (bookings_df['Table'] == slot['Table']) & 
+                (bookings_df['Time'] == slot['Time']) & 
+                (bookings_df['Date'] == slot['Date']), 
+                'User'
+            ] = new_name # Temporarily storing the name directly in the User column for ease of use
+            
+            save_bookings(bookings_df)
+            log_action("EDITED", st.session_state.logged_in_user, slot['User'], f"{slot['Table']} | {slot['Time']} | New Name: {new_name}")
+            st.session_state.admin_selected_slot = None
+            st.session_state.admin_edit_mode = False
+            st.rerun()
+        if c2.button("Cancel"):
+            st.session_state.admin_edit_mode = False
+            st.rerun()
+            
+    else:
+        # DEFAULT MODE: OK (Delete), Edit, Cancel
+        c1, c2, c3 = st.columns(3)
+        if c1.button("🗑️ Delete (OK)", type="primary", use_container_width=True):
+            bookings_df = bookings_df[~((bookings_df['Table'] == slot['Table']) & 
+                                        (bookings_df['Time'] == slot['Time']) & 
+                                        (bookings_df['Date'] == slot['Date']))]
+            save_bookings(bookings_df)
+            log_action("CANCELLED", st.session_state.logged_in_user, slot['User'], f"{slot['Table']} | {slot['Date']} | {slot['Time']}")
+            st.session_state.admin_selected_slot = None
+            st.rerun()
+            
+        if c2.button("✏️ Edit Name", use_container_width=True):
+            st.session_state.admin_edit_mode = True
+            st.rerun()
+            
+        if c3.button("❌ Close", use_container_width=True):
+            st.session_state.admin_selected_slot = None
+            st.rerun()
+    st.markdown("---") # Separator before the tables
+
+
+# --- THE GRID ---
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
-    t_name = f"Tbl {i+1}"
+    t_name = f"Table {i+1}"
     col.markdown(f"<div class='table-header'>{t_name}</div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
@@ -389,9 +452,29 @@ for i, col in enumerate(cols):
         
         if not booked.empty:
             booked_user_email = booked.iloc[0]['User']
-            short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
             
-            if st.session_state.user_role == 'admin' or booked_user_email == st.session_state.logged_in_user:
+            # If the stored 'User' value doesn't have an '@', it means an Admin manually edited it to a display name.
+            if "@" in str(booked_user_email):
+                short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0])
+            else:
+                short_name = booked_user_email # It's a manually entered name
+            
+            if st.session_state.user_role == 'admin':
+                # ADMIN VIEW: Clicking opens the Control Panel above
+                btn_label = f"{time_str} ⚙️ {short_name}"
+                if col.button(btn_label, key=f"admin_{button_key}", use_container_width=True):
+                    st.session_state.admin_selected_slot = {
+                        'Table': f"Table {i+1}", 
+                        'Time': time_str, 
+                        'Date': str(view_date), 
+                        'User': booked_user_email,
+                        'Display_Name': short_name
+                    }
+                    st.session_state.admin_edit_mode = False
+                    st.rerun()
+                    
+            elif booked_user_email == st.session_state.logged_in_user:
+                # NORMAL USER VIEW: Can instantly cancel their own booking
                 btn_label = f"{time_str} ❌ {short_name}"
                 if col.button(btn_label, key=f"del_{button_key}", type="primary", use_container_width=True):
                     log_action("CANCELLED", st.session_state.logged_in_user, booked_user_email, f"Table {i+1} | {view_date} | {time_str}")
@@ -401,10 +484,12 @@ for i, col in enumerate(cols):
                     save_bookings(bookings_df)
                     st.rerun()
             else:
+                # LOCKED VIEW: Someone else's booking
                 btn_label = f"{time_str} 🔒 {short_name}"
                 col.button(btn_label, key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
+            # FREE VIEW
             btn_label = f"{time_str} 🟢 FREE"
             if col.button(btn_label, key=f"add_{button_key}", use_container_width=True):
                 if user_today_hours + 0.5 > 3.0 and st.session_state.user_role != 'admin':
