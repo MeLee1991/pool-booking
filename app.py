@@ -3,13 +3,52 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 
-st.set_page_config(page_title="Pool Club - 9ft Tables", layout="wide")
+st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 0. MAGIC CSS FOR MOBILE UI (UPGRADED)
+# 0. MODERN DESIGN CSS (Based on your mockup)
 # ==========================================
 st.markdown("""
 <style>
+    /* Global App Background & Text */
+    .stApp {
+        background-color: #0d1117 !important; /* Deep modern dark theme */
+        color: #ffffff !important;
+    }
+    
+    /* Center and style the main title */
+    h1 {
+        text-align: center;
+        font-weight: 800 !important;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 20px !important;
+    }
+    
+    /* Style the Date Selector to be full-width and modern */
+    [data-testid="stRadio"] > div[role="radiogroup"] {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        width: 100% !important;
+        padding: 10px 0 !important;
+        border-bottom: 1px solid #2d333b;
+        margin-bottom: 15px !important;
+    }
+    
+    /* Make the Table Headers modern */
+    h3 {
+        text-align: center !important;
+        font-size: 15px !important;
+        font-weight: bold !important;
+        color: #10b981 !important; /* Emerald Green */
+        text-transform: uppercase;
+        background-color: #161b22;
+        padding: 8px 0;
+        border-radius: 4px;
+    }
+
     /* 1. Force columns to stay side-by-side on mobile */
     @media (max-width: 768px) {
         [data-testid="stHorizontalBlock"] {
@@ -20,33 +59,35 @@ st.markdown("""
             width: 33.33% !important;
             flex: 1 1 33.33% !important;
             min-width: 32% !important;
-            padding: 0 2px !important; /* Tiny gap between columns */
+            padding: 0 1px !important; /* ULTRA TIGHT GAP for mobile */
         }
     }
     
     /* 2. Squish buttons to be narrower and continuous */
     .stButton > button {
         width: 100%;
-        border-radius: 2px !important; 
-        padding: 2px !important; /* Narrower buttons */
-        min-height: 30px !important;
-        margin-bottom: -10px !important; 
+        border-radius: 3px !important; 
+        padding: 2px !important; 
+        min-height: 32px !important;
+        margin-bottom: -8px !important; /* Seamless stacking */
         font-size: 11px !important; 
         line-height: 1.1 !important;
+        font-weight: 600 !important;
+        border: none !important;
     }
     
-    /* 3. Hide extra padding to save screen space */
+    /* Custom button colors to match your mockup */
+    /* Primary buttons (Cancel) */
+    button[kind="primary"] {
+        background-color: #ef4444 !important; 
+        color: white !important;
+    }
+    
+    /* Hide extra padding to save screen space */
     .block-container {
-        padding-top: 1.5rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-    }
-    
-    /* 4. Center the table headers */
-    h3 {
-        text-align: center !important;
-        font-size: 16px !important;
-        margin-bottom: 5px !important;
+        padding-top: 1rem !important;
+        padding-left: 0.2rem !important;
+        padding-right: 0.2rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -201,16 +242,24 @@ if view_mode == "⚙️ Admin Dashboard":
 
 
 # ==========================================
-# 4. THE BOOKING SYSTEM (Mobile Optimized)
+# 4. THE BOOKING SYSTEM (Modern Optimized)
 # ==========================================
-st.markdown("### 🎱 Table Reservations")
+# Use a custom HTML header for the modern title
+st.markdown("<h1>RESERVE YOUR <span style='color: #10b981;'>TABLE</span></h1>", unsafe_allow_html=True)
 
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
-today = datetime.now().date()
-upcoming_dates = [today + timedelta(days=i) for i in range(7)]
-date_labels = ["Today" if d == today else "Tomorrow" if d == today + timedelta(days=1) else d.strftime("%a, %b %d") for d in upcoming_dates]
 
-selected_date_label_main = st.radio("Date:", date_labels, horizontal=True)
+# EXPANDED TO 14 DAYS
+today = datetime.now().date()
+upcoming_dates = [today + timedelta(days=i) for i in range(14)]
+def get_date_label(d):
+    if d == today: return "Today"
+    if d == today + timedelta(days=1): return "Tomorrow"
+    return d.strftime("%a, %b %d")
+
+date_labels = [get_date_label(d) for d in upcoming_dates]
+
+selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
 view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 
 bookings_df = load_bookings()
@@ -234,8 +283,6 @@ for i, col in enumerate(cols):
     
     for time_str in HOURS:
         hour_int = int(time_str.split(":")[0])
-        
-        # Determine if it's off-peak (Before 10:00 or after 22:00)
         is_off_peak = hour_int < 10 or hour_int >= 22
         
         booked = relevant_bookings[(relevant_bookings['Table'] == t_name) & (relevant_bookings['Time'] == time_str)]
@@ -263,7 +310,7 @@ for i, col in enumerate(cols):
                 col.button(btn_label, key=f"dis_{button_key}", disabled=True)
                 
         else:
-            # Formatting for FREE slots
+            # Formatting for FREE slots (Now styled green via Python injection to ensure it bypasses themes)
             btn_label = f"{time_str} free" if is_off_peak else f"{time_str}\n🟢 FREE"
             
             if col.button(btn_label, key=f"add_{button_key}"):
