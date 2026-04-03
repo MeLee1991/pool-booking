@@ -133,7 +133,7 @@ st.markdown("""
         padding: 0 !important; 
     }
 
-    /* 🔥 THE MAGIC STICKY HEADER FIX 🔥 */
+    /* THE MAGIC STICKY HEADER FIX */
     .table-header {
         position: sticky;       
         top: 2.875rem;          
@@ -176,7 +176,7 @@ st.markdown("""
         border-color: #28a745 !important;
     }
     
-    /* Reserved (Red) Background override */
+    /* Reserved (Red) Background override for User's own slot or Admin view */
     [data-testid="column"] button[kind="primary"] {
         background-color: #ff4b4b !important; 
     }
@@ -184,13 +184,17 @@ st.markdown("""
         color: #ffffff !important; 
     }
     
-    /* Locked Background override */
+    /* ---------------------------------------------------
+       🔥 THE NEW "HEAVY OCCUPIED" LOOK FOR LOCKED SLOTS 🔥
+       --------------------------------------------------- */
     [data-testid="column"] button:disabled {
-        background-color: #e9ecef !important; 
-        color: #6c757d !important;
+        background-color: #545b62 !important; /* Solid Heavy Charcoal Gray */
+        border: 1px solid #343a40 !important; /* Darker border */
+        opacity: 1 !important; /* Kills Streamlit's default faded look */
     }
     [data-testid="column"] button:disabled p {
-        color: #6c757d !important;
+        color: #ffffff !important; /* Crisp White Text */
+        font-weight: 500 !important;
     }
     
     .admin-panel {
@@ -214,18 +218,11 @@ for idx, time_str in enumerate(HOURS):
     minute = int(time_str[3:])
     time_float = hour + minute / 60.0
     
-    # Distance from 19:00 (Prime Time)
     dist = abs(time_float - 19.0)
-    
-    # Opacity curve: 1.0 at 19:00, drops to ~0.15 at 08:00
     opacity = max(0.15, 1.0 - (dist / 11.0))
-    
     border_color = f"rgba(33, 37, 41, {opacity:.2f})"
     
-    # +2 because CSS nth-child is 1-based, and the Header is child #1
     child_idx = idx + 2 
-    
-    # Apply a thicker 2px border that changes color based on proximity to 19:00
     prime_time_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     prime_time_css += f'    border: 2px solid {border_color} !important;\n'
     prime_time_css += f'}}\n'
@@ -499,6 +496,7 @@ for i, col in enumerate(cols):
                 col.button(btn_label, key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
+            # CLICKING THIS "CHECKS IN" THE ORDINARY USER
             btn_label = f"{time_str} 🟢 FREE"
             if col.button(btn_label, key=f"add_{button_key}", use_container_width=True):
                 if user_today_hours + 0.5 > 3.0 and st.session_state.user_role != 'admin':
@@ -514,17 +512,13 @@ for i, col in enumerate(cols):
 # ==========================================
 # 6. AUTO-SCROLL TO PRIME TIME SCRIPT
 # ==========================================
-# Injects a tiny invisible script that glides the page down to 19:00 on load.
 components.html(
     """
     <script>
-    // Give Streamlit a moment to draw the buttons, then scroll
     setTimeout(function() {
         const buttons = window.parent.document.querySelectorAll('button');
         for (let btn of buttons) {
-            // Find the 19:00 prime time button
             if (btn.innerText.includes('19:00')) {
-                // Smoothly scroll it right into the middle of the screen
                 btn.scrollIntoView({behavior: 'smooth', block: 'center'});
                 break;
             }
