@@ -24,10 +24,12 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING ENGINE (HALF SIZE)
+# 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING ENGINE
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
+
 dynamic_css = "<style>\n"
+mobile_css = "@media (max-width: 768px) {\n"
 
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
@@ -39,50 +41,69 @@ for idx, time_str in enumerate(HOURS):
     is_prime = 18 <= hour <= 22
     
     if is_prime:
-        # PRIME TIME: Still flashy, but much smaller heights/padding
+        # PC Settings
         bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" 
         font_size = "13px"
         font_weight = "700"
         padding = "4px 2px" 
         min_height = "28px"
+        # MOBILE Settings (Half Size)
+        m_font_size = "10px"
+        m_padding = "2px 0px"
+        m_min_height = "22px"
         
         r = int(255 - (255 - 220) * intensity)
         g = int(193 - (193 - 53) * intensity)
         b = int(7 - (7 - 69) * intensity)
         border = f"2px solid rgb({r}, {g}, {b})"
     else:
-        # OFF-HOURS: Tiny and compact
+        # PC Settings
         bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef"
         font_size = "10px"
         font_weight = "400"
         padding = "2px 2px"
         min_height = "24px"
+        # MOBILE Settings (Tiny)
+        m_font_size = "8px"
+        m_padding = "1px 0px"
+        m_min_height = "16px"
         
         gray = int(222 - (50 * intensity))
         border = f"1px solid rgb({gray}, {gray}, {gray})"
 
     child_idx = idx + 3 
     
-    dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    # ------------------- DESKTOP CSS -------------------
+    dynamic_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    border: {border} !important;\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    padding: {padding} !important;\n'
     dynamic_css += f'    min-height: {min_height} !important;\n'
     dynamic_css += f'}}\n'
     
-    dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
+    dynamic_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
     dynamic_css += f'    margin: 0 !important;\n'
     dynamic_css += f'    line-height: 1.0 !important;\n'
     dynamic_css += f'}}\n'
 
-dynamic_css += "</style>"
+    # ------------------- MOBILE CSS -------------------
+    mobile_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    mobile_css += f'    padding: {m_padding} !important;\n'
+    mobile_css += f'    min-height: {m_min_height} !important;\n'
+    mobile_css += f'}}\n'
+    mobile_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
+    mobile_css += f'    font-size: {m_font_size} !important;\n'
+    mobile_css += f'}}\n'
+
+mobile_css += "}\n</style>"
+dynamic_css += mobile_css
 st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 CLEAN STRUCTURAL CSS
+# 1.5 CLEAN STRUCTURAL CSS & MOBILE OVERRIDES
 # ==========================================
 st.markdown("""
 <style>
@@ -114,7 +135,8 @@ st.markdown("""
         -webkit-overflow-scrolling: touch; 
         scrollbar-width: none; 
         align-items: center;
-        justify-content: center !important; 
+        /* THE FIX: Start from the left so "Today" is never hidden on mobile */
+        justify-content: flex-start !important; 
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar { display: none; }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
@@ -172,43 +194,64 @@ st.markdown("""
         text-align: center !important; transition: all 0.1s ease;
         margin-bottom: 2px !important;
     }
-    section[data-testid="stMain"] [data-testid="column"] .stButton > button:hover { background-color: #e6f4ea !important; }
     
-    /* ACTIVE/BOOKED SLOTS OVERRIDES (Matching compact sizes) */
+    /* ---------------------------------------------------
+       ACTIVE/BOOKED SLOTS OVERRIDES (Protects Button Identity)
+       --------------------------------------------------- */
     section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 1px solid #bd2130 !important;
-        padding: 4px 2px !important; 
-        min-height: 28px !important;
     }
     section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] p { 
-        color: #ffffff !important; font-weight: 600 !important; font-size: 12px !important; 
+        color: #ffffff !important; font-weight: 700 !important; 
     }
     
     section[data-testid="stMain"] [data-testid="column"] button[disabled] { 
         background-color: #ffcccc !important; 
         border: 1px solid #dc3545 !important;
         opacity: 1 !important; 
-        padding: 4px 2px !important; 
-        min-height: 28px !important;
     }
     section[data-testid="stMain"] [data-testid="column"] button[disabled] p { 
-        color: #dc3545 !important; font-weight: 700 !important; font-size: 12px !important; 
+        color: #dc3545 !important; font-weight: 700 !important; 
     }
 
     /* ---------------------------------------------------
-       📱 MOBILE RESPONSIVE SWIPE CAROUSEL
+       📱 MOBILE RESPONSIVE OVERRIDE
+       Forces all 3 columns side-by-side with no carousel
        --------------------------------------------------- */
     @media (max-width: 768px) {
         section[data-testid="stMain"] [data-testid="stHorizontalBlock"] {
-            display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-            overflow-x: auto !important; overflow-y: hidden !important; scroll-snap-type: x mandatory;
-            padding-bottom: 15px !important; justify-content: flex-start !important; -webkit-overflow-scrolling: touch;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 2px !important; /* Extremely tight gap */
+            overflow-x: hidden !important; 
         }
         section[data-testid="stMain"] [data-testid="column"] {
-            min-width: 85vw !important; flex: 0 0 85vw !important; scroll-snap-align: center; margin-right: 10px !important;
+            width: 33.33% !important;
+            flex: 1 1 33.33% !important;
+            min-width: 0 !important; /* Prevents column from bursting */
+            margin-right: 0 !important;
         }
-        section[data-testid="stMain"] [data-testid="column"]:last-child { margin-right: 0 !important; }
+        .table-header {
+            font-size: 11px !important;
+            padding: 4px 0 !important;
+            margin-bottom: 2px !important;
+        }
+        [data-testid="stImage"] {
+            margin-bottom: 4px !important;
+        }
+        
+        /* Ensure primary and disabled slots also inherit the tiny height */
+        section[data-testid="stMain"] [data-testid="column"] button[kind="primary"],
+        section[data-testid="stMain"] [data-testid="column"] button[disabled] {
+            min-height: 22px !important;
+            padding: 2px 0 !important;
+        }
+        section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] p,
+        section[data-testid="stMain"] [data-testid="column"] button[disabled] p {
+            font-size: 10px !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -232,14 +275,12 @@ def archive_old_bookings():
         df = pd.read_csv(BOOKINGS_FILE)
         if df.empty: return
         
-        # Safely calculate dates
         df['DateObj'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
         today = datetime.now().date()
         
         past_bookings = df[df['DateObj'] < today].copy()
         active_bookings = df[df['DateObj'] >= today].copy()
         
-        # If we have old bookings, move them to history
         if not past_bookings.empty:
             past_bookings = past_bookings.drop(columns=['DateObj'])
             active_bookings = active_bookings.drop(columns=['DateObj'])
@@ -250,9 +291,8 @@ def archive_old_bookings():
             
             active_bookings.to_csv(BOOKINGS_FILE, index=False)
     except Exception as e:
-        pass # Silently fail on first run or corruption
+        pass 
 
-# Run archive on startup
 archive_old_bookings()
 
 def load_users(): 
@@ -359,7 +399,6 @@ if view_mode == "⚙️ Admin Dashboard":
     with tab3: 
         st.write("### Past Bookings Archive")
         st.dataframe(pd.read_csv(HISTORY_FILE), use_container_width=True)
-        # Offer CSV download
         with open(HISTORY_FILE, "rb") as file:
             st.download_button(label="📥 Download History CSV", data=file, file_name="reservation_history.csv", mime="text/csv")
             
@@ -458,10 +497,8 @@ cols = st.columns(3)
 for i, col in enumerate(cols):
     t_name = f"Table {i+1}"
     
-    # Render Sticky Header
     col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
     
-    # Render Local Table Image
     img_name = f"table{i+1}.jpg"
     if os.path.exists(img_name):
         col.image(img_name, use_container_width=True)
