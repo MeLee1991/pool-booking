@@ -35,10 +35,9 @@ for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
     is_prime = 18 <= hour <= 22
     
-    child_idx = idx + 3 # +3 Because of Header(1), Image(2), then buttons
+    child_idx = idx + 3 
     
     if is_prime:
-        # 🌟 EYE-CATCHING PRIME TIME: Bright White, Thick Gold Border, Pop-out Shadow
         bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
         border = "2px solid #ffc107"
         font_size = "14px"
@@ -47,11 +46,9 @@ for idx, time_str in enumerate(HOURS):
         box_shadow = "0px 3px 6px rgba(0,0,0,0.15)"
         padding = "8px 2px"
         
-        # Mobile specific prime time
         m_font_size = "12px"
         m_padding = "6px 2px"
     else:
-        # 🌙 FLAT OFF-HOURS: Darker Gray, No Shadow, Thin Border
         bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
         border = "1px solid #ced4da"
         font_size = "11px"
@@ -60,11 +57,10 @@ for idx, time_str in enumerate(HOURS):
         box_shadow = "none"
         padding = "4px 2px"
         
-        # Mobile specific off-hours
         m_font_size = "10px"
         m_padding = "2px 2px"
 
-    # --- APPLY TO DESKTOP (Locked to Main Area to protect Sidebar) ---
+    # --- APPLY TO DESKTOP ---
     dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    border: {border} !important;\n'
@@ -78,7 +74,7 @@ for idx, time_str in enumerate(HOURS):
     dynamic_css += f'    color: {text_color} !important;\n'
     dynamic_css += f'}}\n'
 
-    # --- APPLY TO MOBILE (Locked to Main Area) ---
+    # --- APPLY TO MOBILE ---
     mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
     mobile_css += f'    padding: {m_padding} !important;\n'
     mobile_css += f'}}\n'
@@ -92,7 +88,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 CLEAN STRUCTURAL CSS & IRONCLAD MOBILE SWIPE
+# 1.5 CLEAN STRUCTURAL CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -109,9 +105,6 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
-    /* ---------------------------------------------------
-       MAIN AREA: 2-ROW DATE RIBBON (Locked to stMain)
-       --------------------------------------------------- */
     [data-testid="stMain"] div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
@@ -153,9 +146,6 @@ st.markdown("""
     [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
     [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
-    /* ---------------------------------------------------
-       MAIN AREA: TABLES & STICKY HEADERS (Locked to stMain)
-       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
         gap: 10px !important; 
         justify-content: center !important; 
@@ -191,9 +181,6 @@ st.markdown("""
         display: block !important;
     }
     
-    /* ---------------------------------------------------
-       🔥 ACTIVE/BOOKED SLOTS OVERRIDES (Locked to stMain) 🔥
-       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="column"] button[kind="primary"], [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
@@ -213,9 +200,6 @@ st.markdown("""
         color: #dc3545 !important; font-weight: 700 !important; 
     }
 
-    /* ---------------------------------------------------
-       📱 IRONCLAD MOBILE SCROLL FIX
-       --------------------------------------------------- */
     @media (max-width: 900px) {
         [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns {
             display: flex !important; 
@@ -230,7 +214,6 @@ st.markdown("""
             gap: 6px !important;
         }
         [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] {
-            /* 45vw lets the 3rd table "peek" from the edge to signal swiping */
             width: 45vw !important; 
             min-width: 45vw !important; 
             max-width: 45vw !important; 
@@ -355,17 +338,23 @@ if view_mode == "⚙️ Admin Dashboard":
     
     with tab1:
         st.write("### Manage Users")
+        st.info("💡 **Tip:** Click the **gray '+' row at the bottom** to add a new user. Select a row and press **Delete** on your keyboard (or use the trash icon) to remove a user.")
+        
         users_df = load_users()
+        # MAGIC FIX: num_rows="dynamic" enables Adding and Deleting!
+        # Removed disabled=True from Email and Password so you can edit them directly.
         edited_users = st.data_editor(
             users_df,
             column_config={
                 "Role": st.column_config.SelectboxColumn("User Role", options=["pending", "user", "admin"], required=True),
-                "Name": st.column_config.TextColumn("Display Name"), 
-                "Email": st.column_config.TextColumn("Email Address", disabled=True), 
-                "Password": st.column_config.TextColumn("Password", disabled=True),
+                "Name": st.column_config.TextColumn("Display Name", required=True), 
+                "Email": st.column_config.TextColumn("Email Address", required=True), 
+                "Password": st.column_config.TextColumn("Password", required=True),
                 "Max_Hours_Day": st.column_config.NumberColumn("Daily Max (Hours)", min_value=0.5, max_value=24.0, step=0.5)
             },
-            hide_index=True, use_container_width=True
+            num_rows="dynamic",
+            hide_index=True, 
+            use_container_width=True
         )
         if st.button("💾 Save User Changes", type="primary"):
             save_users(edited_users)
