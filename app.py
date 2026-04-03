@@ -24,48 +24,57 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC "PRIME TIME" SPOTLIGHT & HOUR BANDING
+# 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 dynamic_css = "<style>\n"
 
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
+    minute = int(time_str[3:])
+    time_float = hour + minute / 60.0
     
-    # Define Prime Time (18:00 to 22:00)
+    # Distance from 19:30 (Peak Prime Time)
+    dist = abs(time_float - 19.5)
+    intensity = max(0.0, 1.0 - (dist / 11.5))
+    
     is_prime = 18 <= hour <= 22
     
     if is_prime:
-        # FLASHY PRIME TIME SETTINGS
-        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" # Crisp White / Pale Warm Yellow
-        border = "2px solid #ffc107" # Vibrant Gold Border
-        font_size = "15px"
-        font_weight = "600"
-        text_color = "#212529" # Dark, legible text
-        padding = "8px 2px" # Slightly taller buttons
+        # FLASHY PRIME TIME: Big font, bold text, fading Gold-to-Red border
+        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" # White or Pale Yellow
+        font_size = "16px"
+        font_weight = "700"
+        padding = "10px 2px"
+        
+        # Color math: Fades from Gold (255,193,7) to Red (220,53,69)
+        r = int(255 - (255 - 220) * intensity)
+        g = int(193 - (193 - 53) * intensity)
+        b = int(7 - (7 - 69) * intensity)
+        border = f"3px solid rgb({r}, {g}, {b})"
     else:
-        # DIM OFF-HOURS SETTINGS
-        bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef" # Dimmer Grays
-        border = "1px solid #dee2e6"
-        font_size = "12px" # Smaller text
+        # DIM OFF-HOURS: Small font, faded text, thin gray border
+        bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef"
+        font_size = "11px"
         font_weight = "400"
-        text_color = "#868e96" # Faded text color
         padding = "4px 2px"
+        
+        # Fading Gray Border
+        gray = int(222 - (50 * intensity))
+        border = f"1px solid rgb({gray}, {gray}, {gray})"
 
-    child_idx = idx + 2 # +2 because child 1 is the Table Header
+    # +3 Because in the column we have: 1. Header, 2. Image, 3. The first button
+    child_idx = idx + 3 
     
-    # Apply to the button container
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    border: {border} !important;\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    padding: {padding} !important;\n'
     dynamic_css += f'}}\n'
     
-    # Apply to the text inside the button
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
-    dynamic_css += f'    color: {text_color} !important;\n'
     dynamic_css += f'}}\n'
 
 dynamic_css += "</style>"
@@ -108,7 +117,6 @@ st.markdown("""
         justify-content: center !important; 
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar { display: none; }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px; }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px; }
     
@@ -119,7 +127,6 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
@@ -132,7 +139,6 @@ st.markdown("""
         background-color: #ffffff !important; border: 1px solid #ced4da !important; border-radius: 6px !important;
         padding: 6px 12px !important; min-width: max-content; cursor: pointer; margin: 0 !important; 
     }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
@@ -143,50 +149,49 @@ st.markdown("""
     [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
     [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
 
+    /* STICKY HEADER */
     .table-header {
         position: sticky; top: 2.875rem; z-index: 990; text-align: center !important; font-size: 15px !important;
         font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important;
-        color: #ffffff !important; background-color: #495057 !important; padding: 10px 0;
-        border-radius: 6px !important; margin-bottom: 12px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+        color: #ffffff !important; background-color: #343a40 !important; padding: 10px 0;
+        border-radius: 6px !important; margin-bottom: 8px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
     }
+
+    [data-testid="stImage"] { margin-bottom: 10px !important; border-radius: 6px; overflow: hidden; }
 
     [data-testid="column"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         line-height: 1.2 !important; text-align: center !important; transition: all 0.2s ease;
+        margin-bottom: 4px !important;
     }
     [data-testid="column"] .stButton > button:hover { background-color: #e6f4ea !important; }
     
-    /* OVERRIDES: Ensure Active/Booked slots are ALWAYS large and readable */
-    /* Active User / Admin Clickable Slot (Solid Red) */
+    /* OVERRIDES: Ensure Active/Booked slots beat Dynamic Backgrounds */
+    
+    /* User's Own Slot / Admin View (Solid Deep Red) */
     [data-testid="column"] div button[kind="primary"] { 
-        background-color: #ff4b4b !important; 
-        border: 2px solid #dc3545 !important;
-        padding: 8px 2px !important;
+        background-color: #dc3545 !important; 
+        border: 2px solid #bd2130 !important;
     }
     [data-testid="column"] div button[kind="primary"] p { 
         color: #ffffff !important; 
-        font-weight: 600 !important; 
-        font-size: 14px !important; 
     }
     
-    /* HEAVY OCCUPIED LOOK FOR LOCKED SLOTS */
+    /* LOCKED SLOTS (Lighter Red Background, Red Text, Lock Icon) */
     [data-testid="column"] div button:disabled { 
-        background-color: #fff5f5 !important; /* Pale Red */
-        border: 1px solid #ff4b4b !important;
+        background-color: #ffcccc !important; /* Pale/Lighter Red */
+        border: 1px solid #dc3545 !important;
         opacity: 1 !important; 
-        padding: 8px 2px !important;
     }
     [data-testid="column"] div button:disabled p { 
         color: #dc3545 !important; /* Bright Red Text */
-        font-weight: 700 !important; 
-        font-size: 14px !important; 
     }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ==========================================
-# 2. DATABASE & LOGGING SETUP (Added Max Hours)
+# 2. DATABASE & LOGGING SETUP
 # ==========================================
 USERS_FILE, BOOKINGS_FILE, AUDIT_FILE = 'users.csv', 'bookings.csv', 'audit.csv'
 OWNER_EMAIL = "tomazbratina@gmail.com" 
@@ -304,12 +309,10 @@ if view_mode == "⚙️ Admin Dashboard":
 # ==========================================
 # 5. POPUP DIALOG WINDOWS
 # ==========================================
-
 @st.dialog("⚙️ Admin Control")
 def admin_modal(table, time, date, current_user, display_name):
     st.write(f"**Slot:** {table} at {time}")
     new_name = st.text_input("Edit Player Name:", value=display_name)
-    
     c1, c2 = st.columns(2)
     if c1.button("💾 Save Name", type="primary", use_container_width=True):
         df = load_bookings()
@@ -317,7 +320,6 @@ def admin_modal(table, time, date, current_user, display_name):
         save_bookings(df)
         log_action("EDITED", st.session_state.logged_in_user, current_user, f"{table} | {time} | New Name: {new_name}")
         st.rerun()
-        
     if c2.button("🗑️ Free Slot", use_container_width=True):
         df = load_bookings()
         df = df[~((df['Table'] == table) & (df['Time'] == time) & (df['Date'] == str(date)))]
@@ -356,9 +358,11 @@ def book_modal(table, time, date, current_hours, max_allowed):
 
 
 # ==========================================
-# 6. THE BOOKING SYSTEM
+# 6. THE BOOKING SYSTEM UI & IMAGES
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
+# Main Banner Image
+st.image("https://images.unsplash.com/photo-1542155018-8fbf4cba4da4?q=80&w=1200&auto=format&fit=crop", use_container_width=True)
 
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(14)]
@@ -380,12 +384,23 @@ user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_sta
 if st.session_state.user_role != 'admin':
     st.caption(f"<div style='text-align:center; font-weight: 500; font-size: 15px;'>Your booked time: {user_today_hours} / {user_max_hours}h</div>", unsafe_allow_html=True)
 
+# Table thumbnails
+TABLE_IMAGES = [
+    "https://images.unsplash.com/photo-1598284566378-08d4469e8bd5?q=80&w=300&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1598284566378-08d4469e8bd5?q=80&w=300&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1598284566378-08d4469e8bd5?q=80&w=300&auto=format&fit=crop"
+]
+
 # --- THE GRID ---
 cols = st.columns(3)
 
 for i, col in enumerate(cols):
     t_name = f"Table {i+1}"
+    
+    # Render Sticky Header
     col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
+    # Render Table Thumbnail Image
+    col.image(TABLE_IMAGES[i], use_container_width=True)
     
     for time_str in HOURS:
         booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
@@ -403,6 +418,7 @@ for i, col in enumerate(cols):
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     user_cancel_modal(f"Table {i+1}", time_str, view_date)
             else:
+                # Locked by someone else
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
