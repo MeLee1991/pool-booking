@@ -107,16 +107,14 @@ st.markdown("""
         background-color: #007bff !important; border-color: #007bff !important;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
-    
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
     /* ---------------------------------------------------
-       MAIN AREA: TABLES & HOUR BANDING
+       MAIN AREA: TABLES & STICKY HEADERS
        --------------------------------------------------- */
     [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
     [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
 
-    /* MAGIC STICKY HEADER FIX */
     .table-header {
         position: sticky;       
         top: 2.875rem;          
@@ -136,33 +134,39 @@ st.markdown("""
 
     /* Base button structural styles */
     [data-testid="column"] .stButton > button {
-        width: 100% !important; border-radius: 4px !important; padding: 6px 2px !important; 
-        min-height: 44px !important; margin-bottom: 4px !important; font-size: 13px !important; 
-        line-height: 1.2 !important; text-align: center !important; background-color: #ffffff !important; 
+        width: 100% !important;
+        border-radius: 4px !important; 
+        padding: 6px 2px !important; 
+        min-height: 44px !important; 
+        margin-bottom: 4px !important; 
+        font-size: 13px !important; 
+        line-height: 1.2 !important;
+        text-align: center !important; 
+        background-color: #ffffff !important; 
         transition: all 0.2s ease;
     }
     
-    /* Hour Banding Background stripes */
-    [data-testid="column"] > div:nth-child(4n) button, [data-testid="column"] > div:nth-child(4n+1) button {
-        background-color: #f1f3f5 !important; 
-    }
     [data-testid="column"] .stButton > button:hover {
-        background-color: #e6f4ea !important; border-color: #28a745 !important;
+        background-color: #e6f4ea !important; 
     }
     
-    /* Reserved (Red) Background */
-    [data-testid="column"] button[kind="primary"] { background-color: #ff4b4b !important; }
-    [data-testid="column"] button[kind="primary"] p { color: #ffffff !important; }
-    
-    /* 🔥 HEAVY OCCUPIED LOOK FOR LOCKED SLOTS 🔥 */
-    [data-testid="column"] button:disabled {
-        background-color: #545b62 !important; 
-        border: 1px solid #343a40 !important; 
-        opacity: 1 !important; 
+    /* Active User / Admin Clickable Slot (Solid Red) */
+    [data-testid="column"] button[kind="primary"] {
+        background-color: #ff4b4b !important; 
     }
-    [data-testid="column"] button:disabled p {
+    [data-testid="column"] button[kind="primary"] p {
         color: #ffffff !important; 
         font-weight: 500 !important;
+    }
+    
+    /* 🔥 HEAVY OCCUPIED LOOK FOR LOCKED SLOTS (Red Text + Light Red BG) 🔥 */
+    [data-testid="column"] button:disabled {
+        background-color: #fff5f5 !important; /* Pale Red */
+        opacity: 1 !important; /* Removes default fade */
+    }
+    [data-testid="column"] button:disabled p {
+        color: #dc3545 !important; /* Bright Red Text & Icon */
+        font-weight: 700 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -172,15 +176,32 @@ st.markdown("""
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 prime_time_css = "<style>\n"
+
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
     minute = int(time_str[3:])
     time_float = hour + minute / 60.0
+    
+    # Calculate distance from 19:00
     dist = abs(time_float - 19.0)
-    opacity = max(0.15, 1.0 - (dist / 11.0))
-    border_color = f"rgba(33, 37, 41, {opacity:.2f})"
-    child_idx = idx + 2 
-    prime_time_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{ border: 2px solid {border_color} !important; }}\n'
+    
+    # Intensity: 1.0 at 19:00, approaches 0 at off-hours
+    intensity = max(0.0, 1.0 - (dist / 10.0))
+    
+    # Color fades from Light Gray rgb(222,226,230) to Dark Slate rgb(33,37,41)
+    r = int(222 - (222 - 33) * intensity)
+    g = int(226 - (226 - 37) * intensity)
+    b = int(230 - (230 - 41) * intensity)
+    
+    # Border thickens as it gets closer to prime time (1px to 4px)
+    border_width = 1 + int(3 * intensity)
+    
+    child_idx = idx + 2 # +2 because child 1 is the Table Header
+    
+    prime_time_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    prime_time_css += f'    border: {border_width}px solid rgb({r}, {g}, {b}) !important;\n'
+    prime_time_css += f'}}\n'
+
 prime_time_css += "</style>"
 st.markdown(prime_time_css, unsafe_allow_html=True)
 
@@ -291,7 +312,7 @@ if view_mode == "⚙️ Admin Dashboard":
 
 
 # ==========================================
-# 5. POPUP DIALOG WINDOWS
+# 5. POPUP DIALOG WINDOWS (Centered over screen)
 # ==========================================
 
 @st.dialog("⚙️ Admin Control")
@@ -396,21 +417,28 @@ for i, col in enumerate(cols):
                 book_modal(f"Table {i+1}", time_str, view_date, user_today_hours)
 
 # ==========================================
-# 7. AUTO-SCROLL TO PRIME TIME SCRIPT
+# 7. AUTO-SCROLL TO PRIME TIME SCRIPT (Gated)
 # ==========================================
-components.html(
-    """
-    <script>
-    setTimeout(function() {
-        const buttons = window.parent.document.querySelectorAll('button');
-        for (let btn of buttons) {
-            if (btn.innerText.includes('19:00')) {
-                btn.scrollIntoView({behavior: 'smooth', block: 'center'});
-                break;
+# This prevents the page from ripping away when a modal opens!
+# It only scrolls when you change the date.
+if 'scroll_trigger_date' not in st.session_state:
+    st.session_state.scroll_trigger_date = None
+
+if st.session_state.scroll_trigger_date != view_date:
+    st.session_state.scroll_trigger_date = view_date
+    components.html(
+        """
+        <script>
+        setTimeout(function() {
+            const buttons = window.parent.document.querySelectorAll('button');
+            for (let btn of buttons) {
+                if (btn.innerText.includes('19:00')) {
+                    btn.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    break;
+                }
             }
-        }
-    }, 1000); 
-    </script>
-    """,
-    height=0
-)
+        }, 800); 
+        </script>
+        """,
+        height=0
+    )
