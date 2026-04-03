@@ -25,7 +25,6 @@ st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
 # 1. DYNAMIC "PRIME TIME" BORDERS & HOUR BANDING
-# (Placed first so main CSS can override active/locked states)
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 dynamic_css = "<style>\n"
@@ -35,7 +34,6 @@ for idx, time_str in enumerate(HOURS):
     minute = int(time_str[3:])
     time_float = hour + minute / 60.0
     
-    # 1. Calculate Prime Time Border (19:00 Focus)
     dist = abs(time_float - 19.0)
     intensity = max(0.0, 1.0 - (dist / 10.0))
     
@@ -44,10 +42,8 @@ for idx, time_str in enumerate(HOURS):
     b = int(230 - (230 - 69) * intensity)
     border_width = 1 + int(2 * intensity)
     
-    # 2. Alternating Hour Backgrounds (Even hours = White, Odd hours = Shaded Gray)
     bg_color = "#ffffff" if hour % 2 == 0 else "#eceff1"
-    
-    child_idx = idx + 2 # +2 because child 1 is the Table Header
+    child_idx = idx + 2 
     
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    border: {border_width}px solid rgb({r}, {g}, {b}) !important;\n'
@@ -76,9 +72,6 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
-    /* ---------------------------------------------------
-       MAIN AREA: 2-ROW DATE RIBBON
-       --------------------------------------------------- */
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
@@ -123,9 +116,6 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
-    /* ---------------------------------------------------
-       MAIN AREA: TABLES & STICKY HEADERS
-       --------------------------------------------------- */
     [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
     [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
 
@@ -136,7 +126,6 @@ st.markdown("""
         border-radius: 6px !important; margin-bottom: 12px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
     }
 
-    /* Grid Button Base */
     [data-testid="column"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; padding: 6px 2px !important; 
         min-height: 44px !important; margin-bottom: 4px !important; font-size: 13px !important; 
@@ -144,12 +133,9 @@ st.markdown("""
     }
     [data-testid="column"] .stButton > button:hover { background-color: #e6f4ea !important; }
     
-    /* OVERRIDES: High Specificity to beat Dynamic Backgrounds */
-    /* Active User / Admin Clickable Slot (Solid Red) */
     [data-testid="column"] div button[kind="primary"] { background-color: #ff4b4b !important; }
     [data-testid="column"] div button[kind="primary"] p { color: #ffffff !important; font-weight: 500 !important; }
     
-    /* HEAVY OCCUPIED LOOK FOR LOCKED SLOTS */
     [data-testid="column"] div button:disabled { background-color: #545b62 !important; opacity: 1 !important; }
     [data-testid="column"] div button:disabled p { color: #ffffff !important; font-weight: 500 !important; }
 </style>
@@ -157,12 +143,11 @@ st.markdown("""
 
 
 # ==========================================
-# 2. DATABASE & LOGGING SETUP (Added Max Hours)
+# 2. DATABASE & LOGGING SETUP
 # ==========================================
 USERS_FILE, BOOKINGS_FILE, AUDIT_FILE = 'users.csv', 'bookings.csv', 'audit.csv'
 OWNER_EMAIL = "tomazbratina@gmail.com" 
 
-# Auto-migration system: Ensures old databases get the new 'Max_Hours_Day' column seamlessly.
 def load_users(): 
     try: 
         df = pd.read_csv(USERS_FILE)
@@ -265,7 +250,12 @@ if view_mode == "⚙️ Admin Dashboard":
             st.success("Database updated successfully!")
 
     with tab2: st.dataframe(load_bookings(), use_container_width=True)
-    with tab3: st.dataframe(pd.read_csv(AUDIT_FILE) if st.session_state.logged_in_user == OWNER_EMAIL else "⛔ Access Denied", use_container_width=True)
+    with tab3: 
+        # FIX: Break out the single line into an if/else block to handle Owner access properly
+        if st.session_state.logged_in_user == OWNER_EMAIL:
+            st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
+        else:
+            st.error("⛔ Access Denied. Only the Owner can view the Audit Log.")
     st.stop()
 
 
@@ -338,7 +328,6 @@ view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
 users_df = load_users()
 name_lookup = dict(zip(users_df['Email'], users_df['Name']))
 
-# Get specific user's max hours
 user_max_hours = float(users_df[users_df['Email'] == st.session_state.logged_in_user]['Max_Hours_Day'].iloc[0])
 
 bookings_df = load_bookings()
