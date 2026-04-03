@@ -107,6 +107,7 @@ st.markdown("""
         background-color: #007bff !important; border-color: #007bff !important;
     }
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
+    
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
     /* ---------------------------------------------------
@@ -115,6 +116,7 @@ st.markdown("""
     [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
     [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
 
+    /* MAGIC STICKY HEADER FIX */
     .table-header {
         position: sticky;       
         top: 2.875rem;          
@@ -146,6 +148,10 @@ st.markdown("""
         transition: all 0.2s ease;
     }
     
+    /* Hour Banding Background stripes */
+    [data-testid="column"] > div:nth-child(4n) button, [data-testid="column"] > div:nth-child(4n+1) button {
+        background-color: #f1f3f5 !important; 
+    }
     [data-testid="column"] .stButton > button:hover {
         background-color: #e6f4ea !important; 
     }
@@ -159,7 +165,7 @@ st.markdown("""
         font-weight: 500 !important;
     }
     
-    /* 🔥 HEAVY OCCUPIED LOOK FOR LOCKED SLOTS (Red Text + Light Red BG) 🔥 */
+    /* HEAVY OCCUPIED LOOK FOR LOCKED SLOTS (Red Text + Light Red BG) */
     [data-testid="column"] button:disabled {
         background-color: #fff5f5 !important; /* Pale Red */
         opacity: 1 !important; /* Removes default fade */
@@ -172,7 +178,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 1.5 DYNAMIC "PRIME TIME" HEATMAP BORDERS
+# 1.5 DYNAMIC "PRIME TIME" HEATMAP BORDERS (RED)
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 prime_time_css = "<style>\n"
@@ -188,13 +194,13 @@ for idx, time_str in enumerate(HOURS):
     # Intensity: 1.0 at 19:00, approaches 0 at off-hours
     intensity = max(0.0, 1.0 - (dist / 10.0))
     
-    # Color fades from Light Gray rgb(222,226,230) to Dark Slate rgb(33,37,41)
-    r = int(222 - (222 - 33) * intensity)
-    g = int(226 - (226 - 37) * intensity)
-    b = int(230 - (230 - 41) * intensity)
+    # Color fades from Light Gray rgb(222,226,230) to Theme Red rgb(220,53,69)
+    r = int(222 - (222 - 220) * intensity)
+    g = int(226 - (226 - 53) * intensity)
+    b = int(230 - (230 - 69) * intensity)
     
-    # Border thickens as it gets closer to prime time (1px to 4px)
-    border_width = 1 + int(3 * intensity)
+    # Border thickens slightly as it gets closer to prime time (1px to 3px)
+    border_width = 1 + int(2 * intensity)
     
     child_idx = idx + 2 # +2 because child 1 is the Table Header
     
