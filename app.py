@@ -24,76 +24,65 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING ENGINE
+# 1. DYNAMIC "PRIME TIME" SPOTLIGHT ENGINE
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 
 dynamic_css = "<style>\n"
-mobile_css = "@media (max-width: 768px) {\n"
+mobile_css = "@media (max-width: 900px) {\n" # Increased mobile breakpoint
 
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
-    minute = int(time_str[3:])
-    time_float = hour + minute / 60.0
-    
-    dist = abs(time_float - 19.5)
-    intensity = max(0.0, 1.0 - (dist / 11.5))
     is_prime = 18 <= hour <= 22
     
-    if is_prime:
-        # PC Settings
-        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" 
-        font_size = "13px"
-        font_weight = "700"
-        padding = "4px 2px" 
-        min_height = "28px"
-        # MOBILE Settings (Half Size)
-        m_font_size = "10px"
-        m_padding = "2px 0px"
-        m_min_height = "22px"
-        
-        r = int(255 - (255 - 220) * intensity)
-        g = int(193 - (193 - 53) * intensity)
-        b = int(7 - (7 - 69) * intensity)
-        border = f"2px solid rgb({r}, {g}, {b})"
-    else:
-        # PC Settings
-        bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef"
-        font_size = "10px"
-        font_weight = "400"
-        padding = "2px 2px"
-        min_height = "24px"
-        # MOBILE Settings (Tiny)
-        m_font_size = "8px"
-        m_padding = "1px 0px"
-        m_min_height = "16px"
-        
-        gray = int(222 - (50 * intensity))
-        border = f"1px solid rgb({gray}, {gray}, {gray})"
-
-    child_idx = idx + 3 
+    child_idx = idx + 3 # +3 Because of Header(1), Image(2), then buttons
     
-    # ------------------- DESKTOP CSS -------------------
-    dynamic_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button {{\n'
-    dynamic_css += f'    border: {border} !important;\n'
+    if is_prime:
+        # 🌟 EYE-CATCHING PRIME TIME: Bright White, Thick Gold Border, Pop-out Shadow
+        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
+        border = "2px solid #ffc107"
+        font_size = "14px"
+        font_weight = "800"
+        text_color = "#000000"
+        box_shadow = "0px 3px 6px rgba(0,0,0,0.15)"
+        padding = "8px 2px"
+        
+        # Mobile specific prime time
+        m_font_size = "12px"
+        m_padding = "6px 2px"
+    else:
+        # 🌙 FLAT OFF-HOURS: Darker Gray, No Shadow, Thin Border
+        bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
+        border = "1px solid #ced4da"
+        font_size = "11px"
+        font_weight = "400"
+        text_color = "#6c757d"
+        box_shadow = "none"
+        padding = "4px 2px"
+        
+        # Mobile specific off-hours
+        m_font_size = "10px"
+        m_padding = "2px 2px"
+
+    # --- APPLY TO DESKTOP ---
+    dynamic_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button, div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
+    dynamic_css += f'    border: {border} !important;\n'
+    dynamic_css += f'    box-shadow: {box_shadow} !important;\n'
     dynamic_css += f'    padding: {padding} !important;\n'
-    dynamic_css += f'    min-height: {min_height} !important;\n'
     dynamic_css += f'}}\n'
     
-    dynamic_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
+    dynamic_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button p, div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
-    dynamic_css += f'    margin: 0 !important;\n'
-    dynamic_css += f'    line-height: 1.0 !important;\n'
+    dynamic_css += f'    color: {text_color} !important;\n'
     dynamic_css += f'}}\n'
 
-    # ------------------- MOBILE CSS -------------------
-    mobile_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    # --- APPLY TO MOBILE ---
+    mobile_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button, div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
     mobile_css += f'    padding: {m_padding} !important;\n'
-    mobile_css += f'    min-height: {m_min_height} !important;\n'
     mobile_css += f'}}\n'
-    mobile_css += f'section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
+    mobile_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button p, div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
     mobile_css += f'    font-size: {m_font_size} !important;\n'
     mobile_css += f'}}\n'
 
@@ -103,7 +92,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 CLEAN STRUCTURAL CSS & MOBILE OVERRIDES
+# 1.5 CLEAN STRUCTURAL CSS & IRONCLAD MOBILE SWIPE
 # ==========================================
 st.markdown("""
 <style>
@@ -113,7 +102,7 @@ st.markdown("""
     h1, h2, h3, h4 { font-family: 'Roboto', sans-serif !important; font-weight: 500 !important; text-align: center; }
 
     .block-container {
-        max-width: 750px !important; 
+        max-width: 800px !important; 
         margin: 0 auto !important;
         padding-top: 1.5rem !important;
         padding-left: 0.5rem !important;
@@ -123,7 +112,7 @@ st.markdown("""
     /* ---------------------------------------------------
        MAIN AREA: 2-ROW DATE RIBBON
        --------------------------------------------------- */
-    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
+    div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
         grid-template-rows: auto auto !important;
@@ -135,41 +124,47 @@ st.markdown("""
         -webkit-overflow-scrolling: touch; 
         scrollbar-width: none; 
         align-items: center;
-        /* THE FIX: Start from the left so "Today" is never hidden on mobile */
         justify-content: flex-start !important; 
     }
-    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar { display: none; }
-    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
-    section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
+    div[role="radiogroup"]::-webkit-scrollbar { display: none; }
+    div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
+    div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
     
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(4)  { grid-column: 5; grid-row: 1; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(11) { grid-column: 5; grid-row: 2; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(12) { grid-column: 6; grid-row: 2; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
+    div[role="radiogroup"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
+    div[role="radiogroup"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
+    div[role="radiogroup"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
+    div[role="radiogroup"] label:nth-of-type(4)  { grid-column: 5; grid-row: 1; }
+    div[role="radiogroup"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
+    div[role="radiogroup"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
+    div[role="radiogroup"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
+    div[role="radiogroup"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
+    div[role="radiogroup"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
+    div[role="radiogroup"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
+    div[role="radiogroup"] label:nth-of-type(11) { grid-column: 5; grid-row: 2; }
+    div[role="radiogroup"] label:nth-of-type(12) { grid-column: 6; grid-row: 2; }
+    div[role="radiogroup"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
+    div[role="radiogroup"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
 
-    section[data-testid="stMain"] [data-testid="stRadio"] label {
+    div[role="radiogroup"] label {
         background-color: #ffffff !important; border: 1px solid #ced4da !important; border-radius: 4px !important;
         padding: 4px 8px !important; min-width: max-content; cursor: pointer; margin: 0 !important; 
     }
-    section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
-    section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
+    div[role="radiogroup"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
+    div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
     /* ---------------------------------------------------
        MAIN AREA: TABLES & STICKY HEADERS
        --------------------------------------------------- */
-    section[data-testid="stMain"] [data-testid="stHorizontalBlock"] { gap: 10px !important; justify-content: center !important; }
-    section[data-testid="stMain"] [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
+    div[data-testid="stHorizontalBlock"], div.stColumns { 
+        gap: 10px !important; 
+        justify-content: center !important; 
+    }
+    div[data-testid="column"], div[data-testid="stColumn"] { 
+        display: flex !important; 
+        flex-direction: column !important; 
+        padding: 0 !important; 
+    }
 
     .table-header {
         position: sticky;       
@@ -180,77 +175,70 @@ st.markdown("""
         font-weight: 700 !important;
         text-transform: uppercase !important;
         color: #ffffff !important; 
-        background-color: #343a40 !important; 
+        background-color: #212529 !important; 
         padding: 6px 0;
         border-radius: 4px !important;
         margin-bottom: 4px !important; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.4); 
     }
 
     [data-testid="stImage"] { margin-bottom: 8px !important; border-radius: 4px; overflow: hidden; }
 
-    section[data-testid="stMain"] [data-testid="column"] .stButton > button {
+    div[data-testid="column"] .stButton > button, div[data-testid="stColumn"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         text-align: center !important; transition: all 0.1s ease;
-        margin-bottom: 2px !important;
+        margin-bottom: 4px !important;
+        display: block !important;
     }
     
     /* ---------------------------------------------------
-       ACTIVE/BOOKED SLOTS OVERRIDES (Protects Button Identity)
+       🔥 ACTIVE/BOOKED SLOTS OVERRIDES 🔥
        --------------------------------------------------- */
-    section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] { 
+    div[data-testid="column"] button[kind="primary"], div[data-testid="stColumn"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
-        border: 1px solid #bd2130 !important;
+        border: 2px solid #bd2130 !important;
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.2) !important;
     }
-    section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] p { 
+    div[data-testid="column"] button[kind="primary"] p, div[data-testid="stColumn"] button[kind="primary"] p { 
         color: #ffffff !important; font-weight: 700 !important; 
     }
     
-    section[data-testid="stMain"] [data-testid="column"] button[disabled] { 
-        background-color: #ffcccc !important; 
+    div[data-testid="column"] button[disabled], div[data-testid="stColumn"] button[disabled] { 
+        background-color: #ffe5e5 !important; 
         border: 1px solid #dc3545 !important;
         opacity: 1 !important; 
+        box-shadow: none !important;
     }
-    section[data-testid="stMain"] [data-testid="column"] button[disabled] p { 
+    div[data-testid="column"] button[disabled] p, div[data-testid="stColumn"] button[disabled] p { 
         color: #dc3545 !important; font-weight: 700 !important; 
     }
 
     /* ---------------------------------------------------
-       📱 MOBILE RESPONSIVE OVERRIDE
-       Forces all 3 columns side-by-side with no carousel
+       📱 IRONCLAD MOBILE SCROLL FIX
        --------------------------------------------------- */
-    @media (max-width: 768px) {
-        section[data-testid="stMain"] [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
+    @media (max-width: 900px) {
+        div[data-testid="stHorizontalBlock"], div.stColumns {
+            display: flex !important; 
+            flex-direction: row !important; 
             flex-wrap: nowrap !important;
-            gap: 2px !important; /* Extremely tight gap */
-            overflow-x: hidden !important; 
+            overflow-x: auto !important; 
+            overflow-y: hidden !important; 
+            scroll-snap-type: x mandatory;
+            padding-bottom: 10px !important; 
+            justify-content: flex-start !important; 
+            -webkit-overflow-scrolling: touch !important;
+            gap: 6px !important;
         }
-        section[data-testid="stMain"] [data-testid="column"] {
-            width: 33.33% !important;
-            flex: 1 1 33.33% !important;
-            min-width: 0 !important; /* Prevents column from bursting */
-            margin-right: 0 !important;
+        div[data-testid="column"], div[data-testid="stColumn"] {
+            /* 45vw lets the 3rd table "peek" from the edge to signal swiping */
+            width: 45vw !important; 
+            min-width: 45vw !important; 
+            max-width: 45vw !important; 
+            flex: 0 0 45vw !important; 
+            scroll-snap-align: center; 
         }
         .table-header {
-            font-size: 11px !important;
-            padding: 4px 0 !important;
-            margin-bottom: 2px !important;
-        }
-        [data-testid="stImage"] {
-            margin-bottom: 4px !important;
-        }
-        
-        /* Ensure primary and disabled slots also inherit the tiny height */
-        section[data-testid="stMain"] [data-testid="column"] button[kind="primary"],
-        section[data-testid="stMain"] [data-testid="column"] button[disabled] {
-            min-height: 22px !important;
-            padding: 2px 0 !important;
-        }
-        section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] p,
-        section[data-testid="stMain"] [data-testid="column"] button[disabled] p {
-            font-size: 10px !important;
+            font-size: 12px !important;
         }
     }
 </style>
@@ -264,7 +252,6 @@ USERS_FILE, BOOKINGS_FILE, AUDIT_FILE = 'users.csv', 'bookings.csv', 'audit.csv'
 HISTORY_FILE = 'history.csv'
 OWNER_EMAIL = "tomazbratina@gmail.com" 
 
-# Create missing files
 if not os.path.exists(USERS_FILE): pd.DataFrame(columns=['Email', 'Name', 'Password', 'Role', 'Max_Hours_Day']).to_csv(USERS_FILE, index=False)
 if not os.path.exists(BOOKINGS_FILE): pd.DataFrame(columns=['User', 'Date', 'Table', 'Time', 'Duration']).to_csv(BOOKINGS_FILE, index=False)
 if not os.path.exists(AUDIT_FILE): pd.DataFrame(columns=['Timestamp', 'Action', 'Performed_By', 'Target_User', 'Details']).to_csv(AUDIT_FILE, index=False)
@@ -274,24 +261,18 @@ def archive_old_bookings():
     try:
         df = pd.read_csv(BOOKINGS_FILE)
         if df.empty: return
-        
         df['DateObj'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
         today = datetime.now().date()
-        
         past_bookings = df[df['DateObj'] < today].copy()
         active_bookings = df[df['DateObj'] >= today].copy()
-        
         if not past_bookings.empty:
             past_bookings = past_bookings.drop(columns=['DateObj'])
             active_bookings = active_bookings.drop(columns=['DateObj'])
-            
             history_df = pd.read_csv(HISTORY_FILE)
             history_df = pd.concat([history_df, past_bookings], ignore_index=True)
             history_df.to_csv(HISTORY_FILE, index=False)
-            
             active_bookings.to_csv(BOOKINGS_FILE, index=False)
-    except Exception as e:
-        pass 
+    except: pass 
 
 archive_old_bookings()
 
@@ -411,7 +392,7 @@ if view_mode == "⚙️ Admin Dashboard":
 
 
 # ==========================================
-# 5. POPUP DIALOG WINDOWS
+# 5. PROTECTED POPUP DIALOG WINDOWS
 # ==========================================
 @st.dialog("⚙️ Admin Control")
 def admin_modal(table, time, date, current_user, display_name):
@@ -466,7 +447,6 @@ def book_modal(table, time, date, current_hours, max_allowed):
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
 
-# Main Banner Local Image Check
 if os.path.exists("banner.jpg"):
     st.image("banner.jpg", use_container_width=True)
 
@@ -489,7 +469,6 @@ user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_sta
 
 if st.session_state.user_role != 'admin':
     st.caption(f"<div style='text-align:center; font-weight: 500; font-size: 15px;'>Your booked time: {user_today_hours} / {user_max_hours}h</div>", unsafe_allow_html=True)
-
 
 # --- THE GRID ---
 cols = st.columns(3)
