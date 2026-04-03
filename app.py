@@ -4,7 +4,7 @@ import os
 # 0. THE "KILL DARK MODE" SCRIPT
 # ==========================================
 if not os.path.exists('.streamlit'):
-    os.makedirs('.streamlit')
+    os.makedirs('.streamlit)
 with open('.streamlit/config.toml', 'w') as f:
     f.write('''
 [theme]
@@ -24,8 +24,10 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING
+# 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING ENGINE
 # ==========================================
+# This first dynamic block sets the standard formatting, which will be
+# overridden for special user/admin states in the main CSS block below.
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 dynamic_css = "<style>\n"
 
@@ -34,44 +36,49 @@ for idx, time_str in enumerate(HOURS):
     minute = int(time_str[3:])
     time_float = hour + minute / 60.0
     
-    # Distance from 19:30 (Peak Prime Time)
+    # Peak intensity distance from 19:30
     dist = abs(time_float - 19.5)
+    
+    # Calculate visual weight intensity (fades from off-peak to peak)
     intensity = max(0.0, 1.0 - (dist / 11.5))
     
+    # Define Prime Time (18:00 to 22:00) for binary size/text styling
     is_prime = 18 <= hour <= 22
     
     if is_prime:
-        # FLASHY PRIME TIME: Big font, bold text, fading Gold-to-Red border
-        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" # White or Pale Yellow
+        # FLASHY PRIME TIME SETTINGS: Larger font, bold text, fading Gold-to-Red border
+        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" # Crisp White / Pale Warm Yellow
         font_size = "16px"
         font_weight = "700"
-        padding = "10px 2px"
+        padding = "10px 2px" # Taller buttons
         
-        # Color math: Fades from Gold (255,193,7) to Red (220,53,69)
+        # Color math: Fades from Gold (255,193,7) to Theme Red (220,53,69)
         r = int(255 - (255 - 220) * intensity)
         g = int(193 - (193 - 53) * intensity)
         b = int(7 - (7 - 69) * intensity)
         border = f"3px solid rgb({r}, {g}, {b})"
     else:
-        # DIM OFF-HOURS: Small font, faded text, thin gray border
+        # DIM OFF-HOURS SETTINGS: Small font, faded text, thin gray border
         bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef"
         font_size = "11px"
         font_weight = "400"
         padding = "4px 2px"
         
-        # Fading Gray Border
+        # Muted Gray Border (fades from light to darker gray)
         gray = int(222 - (50 * intensity))
         border = f"1px solid rgb({gray}, {gray}, {gray})"
 
     # +3 Because in the column we have: 1. Header, 2. Image, 3. The first button
     child_idx = idx + 3 
     
+    # Apply standard settings (background, border, height) to the button container
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    border: {border} !important;\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    padding: {padding} !important;\n'
     dynamic_css += f'}}\n'
     
+    # Apply typography (font size, font weight) to the text inside the button
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
@@ -117,6 +124,7 @@ st.markdown("""
         justify-content: center !important; 
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar { display: none; }
+    
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px; }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px; }
     
@@ -127,6 +135,7 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
+    
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
@@ -139,6 +148,7 @@ st.markdown("""
         background-color: #ffffff !important; border: 1px solid #ced4da !important; border-radius: 6px !important;
         padding: 6px 12px !important; min-width: max-content; cursor: pointer; margin: 0 !important; 
     }
+    
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
@@ -149,16 +159,27 @@ st.markdown("""
     [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
     [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
 
-    /* STICKY HEADER */
+    /* STICKY HEADER FIX */
     .table-header {
-        position: sticky; top: 2.875rem; z-index: 990; text-align: center !important; font-size: 15px !important;
-        font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important;
-        color: #ffffff !important; background-color: #343a40 !important; padding: 10px 0;
-        border-radius: 6px !important; margin-bottom: 8px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+        position: sticky;       
+        top: 2.875rem;          
+        z-index: 990;           
+        text-align: center !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        letter-spacing: 1px !important;
+        text-transform: uppercase !important;
+        color: #ffffff !important; 
+        background-color: #343a40 !important; /* Reference site dark gray */
+        padding: 10px 0;
+        border-radius: 6px !important;
+        margin-bottom: 8px !important; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
     }
 
     [data-testid="stImage"] { margin-bottom: 10px !important; border-radius: 6px; overflow: hidden; }
 
+    /* Base button structural styles */
     [data-testid="column"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         line-height: 1.2 !important; text-align: center !important; transition: all 0.2s ease;
@@ -172,19 +193,23 @@ st.markdown("""
     [data-testid="column"] div button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
+        padding: 10px 2px !important; # Match Prime height
     }
     [data-testid="column"] div button[kind="primary"] p { 
         color: #ffffff !important; 
+        font-weight: 600 !important; font-size: 14px !important; 
     }
     
-    /* LOCKED SLOTS (Lighter Red Background, Red Text, Lock Icon) */
+    /* 🔥 LIGHTER RED LOCKED SLOTS 🔥 (Light Red BG, Red Text) */
     [data-testid="column"] div button:disabled { 
         background-color: #ffcccc !important; /* Pale/Lighter Red */
         border: 1px solid #dc3545 !important;
-        opacity: 1 !important; 
+        opacity: 1 !important; /* Removes default fade */
+        padding: 10px 2px !important; # Match Prime height
     }
     [data-testid="column"] div button:disabled p { 
         color: #dc3545 !important; /* Bright Red Text */
+        font-weight: 700 !important; font-size: 14px !important; 
     }
 </style>
 """, unsafe_allow_html=True)
@@ -361,7 +386,7 @@ def book_modal(table, time, date, current_hours, max_allowed):
 # 6. THE BOOKING SYSTEM UI & IMAGES
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
-# Main Banner Image
+# Main Banner Image (Place holder of a pool hall)
 st.image("https://images.unsplash.com/photo-1542155018-8fbf4cba4da4?q=80&w=1200&auto=format&fit=crop", use_container_width=True)
 
 today = datetime.now().date()
@@ -384,7 +409,7 @@ user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_sta
 if st.session_state.user_role != 'admin':
     st.caption(f"<div style='text-align:center; font-weight: 500; font-size: 15px;'>Your booked time: {user_today_hours} / {user_max_hours}h</div>", unsafe_allow_html=True)
 
-# Table thumbnails
+# Table thumbnail images (Placeholders of pool tables)
 TABLE_IMAGES = [
     "https://images.unsplash.com/photo-1598284566378-08d4469e8bd5?q=80&w=300&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1598284566378-08d4469e8bd5?q=80&w=300&auto=format&fit=crop",
@@ -418,7 +443,7 @@ for i, col in enumerate(cols):
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     user_cancel_modal(f"Table {i+1}", time_str, view_date)
             else:
-                # Locked by someone else
+                # Locked by someone else (pale red BG)
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
@@ -440,7 +465,7 @@ if st.session_state.scroll_trigger_date != view_date:
             const buttons = window.parent.document.querySelectorAll('button');
             for (let btn of buttons) {
                 if (btn.innerText.includes('19:00')) {
-                    btn.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    btn.scrollIntoView({behavior: 'smooth', block: 'nearest'});
                     break;
                 }
             }
