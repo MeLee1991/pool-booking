@@ -29,7 +29,7 @@ st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 
 dynamic_css = "<style>\n"
-mobile_css = "@media (max-width: 900px) {\n" # Increased mobile breakpoint
+mobile_css = "@media (max-width: 900px) {\n" 
 
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
@@ -64,25 +64,25 @@ for idx, time_str in enumerate(HOURS):
         m_font_size = "10px"
         m_padding = "2px 2px"
 
-    # --- APPLY TO DESKTOP ---
-    dynamic_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button, div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
+    # --- APPLY TO DESKTOP (Locked to Main Area to protect Sidebar) ---
+    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    border: {border} !important;\n'
     dynamic_css += f'    box-shadow: {box_shadow} !important;\n'
     dynamic_css += f'    padding: {padding} !important;\n'
     dynamic_css += f'}}\n'
     
-    dynamic_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button p, div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
+    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
     dynamic_css += f'    color: {text_color} !important;\n'
     dynamic_css += f'}}\n'
 
-    # --- APPLY TO MOBILE ---
-    mobile_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button, div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
+    # --- APPLY TO MOBILE (Locked to Main Area) ---
+    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
     mobile_css += f'    padding: {m_padding} !important;\n'
     mobile_css += f'}}\n'
-    mobile_css += f'div[data-testid="column"] > div:nth-child({child_idx}) button p, div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
+    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
     mobile_css += f'    font-size: {m_font_size} !important;\n'
     mobile_css += f'}}\n'
 
@@ -110,9 +110,9 @@ st.markdown("""
     }
 
     /* ---------------------------------------------------
-       MAIN AREA: 2-ROW DATE RIBBON
+       MAIN AREA: 2-ROW DATE RIBBON (Locked to stMain)
        --------------------------------------------------- */
-    div[role="radiogroup"] {
+    [data-testid="stMain"] div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
         grid-template-rows: auto auto !important;
@@ -126,47 +126,47 @@ st.markdown("""
         align-items: center;
         justify-content: flex-start !important; 
     }
-    div[role="radiogroup"]::-webkit-scrollbar { display: none; }
-    div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
-    div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
+    [data-testid="stMain"] div[role="radiogroup"]::-webkit-scrollbar { display: none; }
+    [data-testid="stMain"] div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
+    [data-testid="stMain"] div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; color: #495057; font-size: 12px; padding-right: 5px; }
     
-    div[role="radiogroup"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
-    div[role="radiogroup"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
-    div[role="radiogroup"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
-    div[role="radiogroup"] label:nth-of-type(4)  { grid-column: 5; grid-row: 1; }
-    div[role="radiogroup"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
-    div[role="radiogroup"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
-    div[role="radiogroup"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
-    div[role="radiogroup"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
-    div[role="radiogroup"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
-    div[role="radiogroup"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
-    div[role="radiogroup"] label:nth-of-type(11) { grid-column: 5; grid-row: 2; }
-    div[role="radiogroup"] label:nth-of-type(12) { grid-column: 6; grid-row: 2; }
-    div[role="radiogroup"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
-    div[role="radiogroup"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(4)  { grid-column: 5; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(11) { grid-column: 5; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(12) { grid-column: 6; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
 
-    div[role="radiogroup"] label {
+    [data-testid="stMain"] div[role="radiogroup"] label {
         background-color: #ffffff !important; border: 1px solid #ced4da !important; border-radius: 4px !important;
         padding: 4px 8px !important; min-width: max-content; cursor: pointer; margin: 0 !important; 
     }
-    div[role="radiogroup"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
-    div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
-    div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
+    [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
+    [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
+    [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
     /* ---------------------------------------------------
-       MAIN AREA: TABLES & STICKY HEADERS
+       MAIN AREA: TABLES & STICKY HEADERS (Locked to stMain)
        --------------------------------------------------- */
-    div[data-testid="stHorizontalBlock"], div.stColumns { 
+    [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
         gap: 10px !important; 
         justify-content: center !important; 
     }
-    div[data-testid="column"], div[data-testid="stColumn"] { 
+    [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] { 
         display: flex !important; 
         flex-direction: column !important; 
         padding: 0 !important; 
     }
 
-    .table-header {
+    [data-testid="stMain"] .table-header {
         position: sticky;       
         top: 2.875rem;          
         z-index: 990;           
@@ -182,9 +182,9 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.4); 
     }
 
-    [data-testid="stImage"] { margin-bottom: 8px !important; border-radius: 4px; overflow: hidden; }
+    [data-testid="stMain"] [data-testid="stImage"] { margin-bottom: 8px !important; border-radius: 4px; overflow: hidden; }
 
-    div[data-testid="column"] .stButton > button, div[data-testid="stColumn"] .stButton > button {
+    [data-testid="stMain"] div[data-testid="column"] .stButton > button, [data-testid="stMain"] div[data-testid="stColumn"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         text-align: center !important; transition: all 0.1s ease;
         margin-bottom: 4px !important;
@@ -192,24 +192,24 @@ st.markdown("""
     }
     
     /* ---------------------------------------------------
-       🔥 ACTIVE/BOOKED SLOTS OVERRIDES 🔥
+       🔥 ACTIVE/BOOKED SLOTS OVERRIDES (Locked to stMain) 🔥
        --------------------------------------------------- */
-    div[data-testid="column"] button[kind="primary"], div[data-testid="stColumn"] button[kind="primary"] { 
+    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"], [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
         box-shadow: inset 0 0 5px rgba(0,0,0,0.2) !important;
     }
-    div[data-testid="column"] button[kind="primary"] p, div[data-testid="stColumn"] button[kind="primary"] p { 
+    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p, [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] p { 
         color: #ffffff !important; font-weight: 700 !important; 
     }
     
-    div[data-testid="column"] button[disabled], div[data-testid="stColumn"] button[disabled] { 
+    [data-testid="stMain"] div[data-testid="column"] button[disabled], [data-testid="stMain"] div[data-testid="stColumn"] button[disabled] { 
         background-color: #ffe5e5 !important; 
         border: 1px solid #dc3545 !important;
         opacity: 1 !important; 
         box-shadow: none !important;
     }
-    div[data-testid="column"] button[disabled] p, div[data-testid="stColumn"] button[disabled] p { 
+    [data-testid="stMain"] div[data-testid="column"] button[disabled] p, [data-testid="stMain"] div[data-testid="stColumn"] button[disabled] p { 
         color: #dc3545 !important; font-weight: 700 !important; 
     }
 
@@ -217,7 +217,7 @@ st.markdown("""
        📱 IRONCLAD MOBILE SCROLL FIX
        --------------------------------------------------- */
     @media (max-width: 900px) {
-        div[data-testid="stHorizontalBlock"], div.stColumns {
+        [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns {
             display: flex !important; 
             flex-direction: row !important; 
             flex-wrap: nowrap !important;
@@ -229,7 +229,7 @@ st.markdown("""
             -webkit-overflow-scrolling: touch !important;
             gap: 6px !important;
         }
-        div[data-testid="column"], div[data-testid="stColumn"] {
+        [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] {
             /* 45vw lets the 3rd table "peek" from the edge to signal swiping */
             width: 45vw !important; 
             min-width: 45vw !important; 
@@ -237,7 +237,7 @@ st.markdown("""
             flex: 0 0 45vw !important; 
             scroll-snap-align: center; 
         }
-        .table-header {
+        [data-testid="stMain"] .table-header {
             font-size: 12px !important;
         }
     }
