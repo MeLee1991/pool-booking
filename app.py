@@ -24,30 +24,48 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC "PRIME TIME" BORDERS & HOUR BANDING
+# 1. DYNAMIC "PRIME TIME" SPOTLIGHT & HOUR BANDING
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 dynamic_css = "<style>\n"
 
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
-    minute = int(time_str[3:])
-    time_float = hour + minute / 60.0
     
-    dist = abs(time_float - 19.0)
-    intensity = max(0.0, 1.0 - (dist / 10.0))
+    # Define Prime Time (18:00 to 22:00)
+    is_prime = 18 <= hour <= 22
     
-    r = int(222 - (222 - 220) * intensity)
-    g = int(226 - (226 - 53) * intensity)
-    b = int(230 - (230 - 69) * intensity)
-    border_width = 1 + int(2 * intensity)
+    if is_prime:
+        # FLASHY PRIME TIME SETTINGS
+        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" # Crisp White / Pale Warm Yellow
+        border = "2px solid #ffc107" # Vibrant Gold Border
+        font_size = "15px"
+        font_weight = "600"
+        text_color = "#212529" # Dark, legible text
+        padding = "8px 2px" # Slightly taller buttons
+    else:
+        # DIM OFF-HOURS SETTINGS
+        bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef" # Dimmer Grays
+        border = "1px solid #dee2e6"
+        font_size = "12px" # Smaller text
+        font_weight = "400"
+        text_color = "#868e96" # Faded text color
+        padding = "4px 2px"
+
+    child_idx = idx + 2 # +2 because child 1 is the Table Header
     
-    bg_color = "#ffffff" if hour % 2 == 0 else "#eceff1"
-    child_idx = idx + 2 
-    
+    # Apply to the button container
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
-    dynamic_css += f'    border: {border_width}px solid rgb({r}, {g}, {b}) !important;\n'
+    dynamic_css += f'    border: {border} !important;\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
+    dynamic_css += f'    padding: {padding} !important;\n'
+    dynamic_css += f'}}\n'
+    
+    # Apply to the text inside the button
+    dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
+    dynamic_css += f'    font-size: {font_size} !important;\n'
+    dynamic_css += f'    font-weight: {font_weight} !important;\n'
+    dynamic_css += f'    color: {text_color} !important;\n'
     dynamic_css += f'}}\n'
 
 dynamic_css += "</style>"
@@ -72,6 +90,9 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
+    /* ---------------------------------------------------
+       MAIN AREA: 2-ROW DATE RIBBON
+       --------------------------------------------------- */
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
@@ -116,6 +137,9 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
+    /* ---------------------------------------------------
+       MAIN AREA: TABLES & STICKY HEADERS
+       --------------------------------------------------- */
     [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
     [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
 
@@ -127,23 +151,42 @@ st.markdown("""
     }
 
     [data-testid="column"] .stButton > button {
-        width: 100% !important; border-radius: 4px !important; padding: 6px 2px !important; 
-        min-height: 44px !important; margin-bottom: 4px !important; font-size: 13px !important; 
+        width: 100% !important; border-radius: 4px !important; 
         line-height: 1.2 !important; text-align: center !important; transition: all 0.2s ease;
     }
     [data-testid="column"] .stButton > button:hover { background-color: #e6f4ea !important; }
     
-    [data-testid="column"] div button[kind="primary"] { background-color: #ff4b4b !important; }
-    [data-testid="column"] div button[kind="primary"] p { color: #ffffff !important; font-weight: 500 !important; }
+    /* OVERRIDES: Ensure Active/Booked slots are ALWAYS large and readable */
+    /* Active User / Admin Clickable Slot (Solid Red) */
+    [data-testid="column"] div button[kind="primary"] { 
+        background-color: #ff4b4b !important; 
+        border: 2px solid #dc3545 !important;
+        padding: 8px 2px !important;
+    }
+    [data-testid="column"] div button[kind="primary"] p { 
+        color: #ffffff !important; 
+        font-weight: 600 !important; 
+        font-size: 14px !important; 
+    }
     
-    [data-testid="column"] div button:disabled { background-color: #545b62 !important; opacity: 1 !important; }
-    [data-testid="column"] div button:disabled p { color: #ffffff !important; font-weight: 500 !important; }
+    /* HEAVY OCCUPIED LOOK FOR LOCKED SLOTS */
+    [data-testid="column"] div button:disabled { 
+        background-color: #fff5f5 !important; /* Pale Red */
+        border: 1px solid #ff4b4b !important;
+        opacity: 1 !important; 
+        padding: 8px 2px !important;
+    }
+    [data-testid="column"] div button:disabled p { 
+        color: #dc3545 !important; /* Bright Red Text */
+        font-weight: 700 !important; 
+        font-size: 14px !important; 
+    }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ==========================================
-# 2. DATABASE & LOGGING SETUP
+# 2. DATABASE & LOGGING SETUP (Added Max Hours)
 # ==========================================
 USERS_FILE, BOOKINGS_FILE, AUDIT_FILE = 'users.csv', 'bookings.csv', 'audit.csv'
 OWNER_EMAIL = "tomazbratina@gmail.com" 
@@ -251,7 +294,6 @@ if view_mode == "⚙️ Admin Dashboard":
 
     with tab2: st.dataframe(load_bookings(), use_container_width=True)
     with tab3: 
-        # FIX: Break out the single line into an if/else block to handle Owner access properly
         if st.session_state.logged_in_user == OWNER_EMAIL:
             st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
         else:
