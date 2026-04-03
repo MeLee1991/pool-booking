@@ -24,51 +24,53 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING ENGINE
+# 1. DYNAMIC "PRIME TIME" SPOTLIGHT ENGINE
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 dynamic_css = "<style>\n"
 
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
-    minute = int(time_str[3:])
-    time_float = hour + minute / 60.0
-    
-    dist = abs(time_float - 19.5)
-    intensity = max(0.0, 1.0 - (dist / 11.5))
     is_prime = 18 <= hour <= 22
     
-    if is_prime:
-        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" 
-        font_size = "16px"
-        font_weight = "700"
-        padding = "10px 2px" 
-        
-        r = int(255 - (255 - 220) * intensity)
-        g = int(193 - (193 - 53) * intensity)
-        b = int(7 - (7 - 69) * intensity)
-        border = f"3px solid rgb({r}, {g}, {b})"
-    else:
-        bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef"
-        font_size = "11px"
-        font_weight = "400"
-        padding = "4px 2px"
-        
-        gray = int(222 - (50 * intensity))
-        border = f"1px solid rgb({gray}, {gray}, {gray})"
-
+    # +3 Because in the column we have: 1. Header, 2. Image, 3. The first button
     child_idx = idx + 3 
     
-    dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
-    dynamic_css += f'    border: {border} !important;\n'
-    dynamic_css += f'    background-color: {bg_color} !important;\n'
-    dynamic_css += f'    padding: {padding} !important;\n'
-    dynamic_css += f'}}\n'
-    
-    dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
-    dynamic_css += f'    font-size: {font_size} !important;\n'
-    dynamic_css += f'    font-weight: {font_weight} !important;\n'
-    dynamic_css += f'}}\n'
+    if is_prime:
+        # 🌟 FLASHY PRIME TIME: Bright White, Gold Border, Big Bold Text
+        dynamic_css += f'''
+        section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button {{
+            background-color: #ffffff !important;
+            border: 2px solid #ffc107 !important; 
+            padding: 12px 4px !important;
+            box-shadow: 0px 4px 12px rgba(255, 193, 7, 0.2) !important;
+            transform: scale(1.02);
+            margin-top: 4px !important;
+            margin-bottom: 8px !important;
+            z-index: 2;
+        }}
+        section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button p {{
+            font-size: 16px !important;
+            font-weight: 800 !important;
+            color: #000000 !important;
+        }}
+        '''
+    else:
+        # 🌙 DIM OFF-HOURS: Flat Gray, Small Text, Faded
+        dynamic_css += f'''
+        section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button {{
+            background-color: #f1f3f5 !important;
+            border: 1px solid #dee2e6 !important;
+            padding: 6px 2px !important;
+            box-shadow: none !important;
+            margin-bottom: 4px !important;
+        }}
+        section[data-testid="stMain"] [data-testid="column"] > div:nth-child({child_idx}) button p {{
+            font-size: 12px !important;
+            font-weight: 400 !important;
+            color: #adb5bd !important;
+        }}
+        '''
 
 dynamic_css += "</style>"
 st.markdown(dynamic_css, unsafe_allow_html=True)
@@ -139,8 +141,8 @@ st.markdown("""
     /* ---------------------------------------------------
        MAIN AREA: TABLES & STICKY HEADERS
        --------------------------------------------------- */
-    [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
-    [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
+    section[data-testid="stMain"] [data-testid="stHorizontalBlock"] { gap: 15px !important; justify-content: center !important; }
+    section[data-testid="stMain"] [data-testid="column"] { display: flex !important; flex-direction: column !important; padding: 0 !important; }
 
     /* STICKY HEADER FIX */
     .table-header {
@@ -153,7 +155,7 @@ st.markdown("""
         letter-spacing: 1px !important;
         text-transform: uppercase !important;
         color: #ffffff !important; 
-        background-color: #343a40 !important; 
+        background-color: #212529 !important; /* Darker Slate for High Contrast */
         padding: 10px 0;
         border-radius: 6px !important;
         margin-bottom: 8px !important; 
@@ -162,58 +164,62 @@ st.markdown("""
 
     [data-testid="stImage"] { margin-bottom: 10px !important; border-radius: 6px; overflow: hidden; }
 
-    [data-testid="column"] .stButton > button {
+    /* General Button structural settings */
+    section[data-testid="stMain"] [data-testid="column"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         line-height: 1.2 !important; text-align: center !important; transition: all 0.2s ease;
-        margin-bottom: 4px !important;
     }
-    [data-testid="column"] .stButton > button:hover { background-color: #e6f4ea !important; }
+    section[data-testid="stMain"] [data-testid="column"] .stButton > button:hover { background-color: #e6f4ea !important; }
+    
+    /* ---------------------------------------------------
+       🔥 OVERRIDES: ACTIVE AND LOCKED SLOTS 🔥
+       --------------------------------------------------- */
     
     /* User's Own Slot / Admin View (Solid Deep Red) */
-    [data-testid="column"] div button[kind="primary"] { 
+    section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
-        padding: 10px 2px !important; 
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3) !important;
     }
-    [data-testid="column"] div button[kind="primary"] p { 
+    section[data-testid="stMain"] [data-testid="column"] button[kind="primary"] p { 
         color: #ffffff !important; 
-        font-weight: 600 !important; font-size: 14px !important; 
+        font-weight: 700 !important; 
     }
     
-    /* LOCKED SLOTS (Lighter Red Background, Red Text, Lock Icon) */
-    [data-testid="column"] div button:disabled { 
-        background-color: #ffcccc !important; 
+    /* LOCKED SLOTS (Light Red Background, Red Text, Lock Icon) */
+    section[data-testid="stMain"] [data-testid="column"] button[disabled] { 
+        background-color: #ffe5e5 !important; /* PALE LIGHT RED */
         border: 1px solid #dc3545 !important;
         opacity: 1 !important; 
-        padding: 10px 2px !important; 
     }
-    [data-testid="column"] div button:disabled p { 
-        color: #dc3545 !important; 
-        font-weight: 700 !important; font-size: 14px !important; 
+    section[data-testid="stMain"] [data-testid="column"] button[disabled] p { 
+        color: #dc3545 !important; /* BRIGHT RED TEXT */
+        font-weight: 700 !important; 
     }
 
     /* ---------------------------------------------------
-       📱 MOBILE RESPONSIVE OVERRIDE
-       Forces columns side-by-side on phone screens
+       📱 MOBILE RESPONSIVE SWIPE CAROUSEL
        --------------------------------------------------- */
     @media (max-width: 768px) {
-        [data-testid="stHorizontalBlock"] {
+        section[data-testid="stMain"] [data-testid="stHorizontalBlock"] {
+            display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            gap: 4px !important; /* Tighter gap for mobile */
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            scroll-snap-type: x mandatory;
+            padding-bottom: 20px !important; /* Space for the scrollbar */
+            justify-content: flex-start !important; 
+            -webkit-overflow-scrolling: touch;
         }
-        [data-testid="column"] {
-            width: 33.33% !important;
-            flex: 1 1 33.33% !important;
-            min-width: 0 !important; /* Crucial to prevent column overflow */
+        section[data-testid="stMain"] [data-testid="column"] {
+            min-width: 85vw !important; /* Forces each column to take up 85% of screen */
+            flex: 0 0 85vw !important;
+            scroll-snap-align: center;
+            margin-right: 15px !important; /* Space between tables */
         }
-        .table-header {
-            font-size: 12px !important;
-            padding: 8px 0 !important;
-        }
-        /* Shrink text globally on mobile so it fits in the narrow 33% columns */
-        [data-testid="column"] div button p {
-            font-size: 11px !important;
+        section[data-testid="stMain"] [data-testid="column"]:last-child {
+            margin-right: 0 !important;
         }
     }
 </style>
@@ -337,7 +343,7 @@ if view_mode == "⚙️ Admin Dashboard":
 
 
 # ==========================================
-# 5. POPUP DIALOG WINDOWS
+# 5. PROTECTED POPUP DIALOG WINDOWS
 # ==========================================
 @st.dialog("⚙️ Admin Control")
 def admin_modal(table, time, date, current_user, display_name):
@@ -391,7 +397,7 @@ def book_modal(table, time, date, current_hours, max_allowed):
 # 6. THE BOOKING SYSTEM UI & IMAGES
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
-# Main Banner Image
+# Main Banner Image 
 st.image("https://images.unsplash.com/photo-1542155018-8fbf4cba4da4?q=80&w=1200&auto=format&fit=crop", use_container_width=True)
 
 today = datetime.now().date()
@@ -448,7 +454,7 @@ for i, col in enumerate(cols):
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     user_cancel_modal(f"Table {i+1}", time_str, view_date)
             else:
-                # Locked by someone else (pale red BG)
+                # Locked by someone else
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
@@ -456,7 +462,7 @@ for i, col in enumerate(cols):
                 book_modal(f"Table {i+1}", time_str, view_date, user_today_hours, user_max_hours)
 
 # ==========================================
-# 7. AUTO-SCROLL TO PRIME TIME SCRIPT (Gated)
+# 7. SAFE AUTO-SCROLL SCRIPT
 # ==========================================
 if 'scroll_trigger_date' not in st.session_state:
     st.session_state.scroll_trigger_date = None
