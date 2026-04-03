@@ -34,49 +34,37 @@ for idx, time_str in enumerate(HOURS):
     minute = int(time_str[3:])
     time_float = hour + minute / 60.0
     
-    # Peak intensity distance from 19:30
     dist = abs(time_float - 19.5)
-    
-    # Calculate visual weight intensity (fades from off-peak to peak)
     intensity = max(0.0, 1.0 - (dist / 11.5))
-    
-    # Define Prime Time (18:00 to 22:00) for binary size/text styling
     is_prime = 18 <= hour <= 22
     
     if is_prime:
-        # FLASHY PRIME TIME SETTINGS: Larger font, bold text, fading Gold-to-Red border
-        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" # Crisp White / Pale Warm Yellow
+        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7" 
         font_size = "16px"
         font_weight = "700"
-        padding = "10px 2px" # Taller buttons
+        padding = "10px 2px" 
         
-        # Color math: Fades from Gold (255,193,7) to Theme Red (220,53,69)
         r = int(255 - (255 - 220) * intensity)
         g = int(193 - (193 - 53) * intensity)
         b = int(7 - (7 - 69) * intensity)
         border = f"3px solid rgb({r}, {g}, {b})"
     else:
-        # DIM OFF-HOURS SETTINGS: Small font, faded text, thin gray border
         bg_color = "#f8f9fa" if hour % 2 == 0 else "#e9ecef"
         font_size = "11px"
         font_weight = "400"
         padding = "4px 2px"
         
-        # Muted Gray Border (fades from light to darker gray)
         gray = int(222 - (50 * intensity))
         border = f"1px solid rgb({gray}, {gray}, {gray})"
 
-    # +3 Because in the column we have: 1. Header, 2. Image, 3. The first button
     child_idx = idx + 3 
     
-    # Apply standard settings (background, border, height) to the button container
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    border: {border} !important;\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    padding: {padding} !important;\n'
     dynamic_css += f'}}\n'
     
-    # Apply typography (font size, font weight) to the text inside the button
     dynamic_css += f'[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
@@ -87,7 +75,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 CLEAN STRUCTURAL CSS
+# 1.5 CLEAN STRUCTURAL CSS & MOBILE FIXES
 # ==========================================
 st.markdown("""
 <style>
@@ -122,7 +110,6 @@ st.markdown("""
         justify-content: center !important; 
     }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::-webkit-scrollbar { display: none; }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px; }
     section[data-testid="stMain"] [data-testid="stRadio"] > div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; color: #495057; font-size: 14px; padding-right: 5px; }
     
@@ -133,7 +120,6 @@ st.markdown("""
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
     section[data-testid="stMain"] [data-testid="stRadio"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
@@ -146,7 +132,6 @@ st.markdown("""
         background-color: #ffffff !important; border: 1px solid #ced4da !important; border-radius: 6px !important;
         padding: 6px 12px !important; min-width: max-content; cursor: pointer; margin: 0 !important; 
     }
-    
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
     section[data-testid="stMain"] [data-testid="stRadio"] label[data-checked="true"] p { color: #ffffff !important; }
     div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
@@ -168,7 +153,7 @@ st.markdown("""
         letter-spacing: 1px !important;
         text-transform: uppercase !important;
         color: #ffffff !important; 
-        background-color: #343a40 !important; /* Reference site dark gray */
+        background-color: #343a40 !important; 
         padding: 10px 0;
         border-radius: 6px !important;
         margin-bottom: 8px !important; 
@@ -177,7 +162,6 @@ st.markdown("""
 
     [data-testid="stImage"] { margin-bottom: 10px !important; border-radius: 6px; overflow: hidden; }
 
-    /* Base button structural styles */
     [data-testid="column"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         line-height: 1.2 !important; text-align: center !important; transition: all 0.2s ease;
@@ -185,29 +169,52 @@ st.markdown("""
     }
     [data-testid="column"] .stButton > button:hover { background-color: #e6f4ea !important; }
     
-    /* OVERRIDES: Ensure Active/Booked slots beat Dynamic Backgrounds */
-    
     /* User's Own Slot / Admin View (Solid Deep Red) */
     [data-testid="column"] div button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
-        padding: 10px 2px !important; /* Match Prime height */
+        padding: 10px 2px !important; 
     }
     [data-testid="column"] div button[kind="primary"] p { 
         color: #ffffff !important; 
         font-weight: 600 !important; font-size: 14px !important; 
     }
     
-    /* 🔥 LIGHTER RED LOCKED SLOTS 🔥 (Light Red BG, Red Text) */
+    /* LOCKED SLOTS (Lighter Red Background, Red Text, Lock Icon) */
     [data-testid="column"] div button:disabled { 
-        background-color: #ffcccc !important; /* Pale/Lighter Red */
+        background-color: #ffcccc !important; 
         border: 1px solid #dc3545 !important;
-        opacity: 1 !important; /* Removes default fade */
-        padding: 10px 2px !important; /* Match Prime height */
+        opacity: 1 !important; 
+        padding: 10px 2px !important; 
     }
     [data-testid="column"] div button:disabled p { 
-        color: #dc3545 !important; /* Bright Red Text */
+        color: #dc3545 !important; 
         font-weight: 700 !important; font-size: 14px !important; 
+    }
+
+    /* ---------------------------------------------------
+       📱 MOBILE RESPONSIVE OVERRIDE
+       Forces columns side-by-side on phone screens
+       --------------------------------------------------- */
+    @media (max-width: 768px) {
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 4px !important; /* Tighter gap for mobile */
+        }
+        [data-testid="column"] {
+            width: 33.33% !important;
+            flex: 1 1 33.33% !important;
+            min-width: 0 !important; /* Crucial to prevent column overflow */
+        }
+        .table-header {
+            font-size: 12px !important;
+            padding: 8px 0 !important;
+        }
+        /* Shrink text globally on mobile so it fits in the narrow 33% columns */
+        [data-testid="column"] div button p {
+            font-size: 11px !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -384,7 +391,7 @@ def book_modal(table, time, date, current_hours, max_allowed):
 # 6. THE BOOKING SYSTEM UI & IMAGES
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
-# Main Banner Image (Place holder of a pool hall)
+# Main Banner Image
 st.image("https://images.unsplash.com/photo-1542155018-8fbf4cba4da4?q=80&w=1200&auto=format&fit=crop", use_container_width=True)
 
 today = datetime.now().date()
@@ -407,7 +414,7 @@ user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_sta
 if st.session_state.user_role != 'admin':
     st.caption(f"<div style='text-align:center; font-weight: 500; font-size: 15px;'>Your booked time: {user_today_hours} / {user_max_hours}h</div>", unsafe_allow_html=True)
 
-# Table thumbnail images (Placeholders of pool tables)
+# Table thumbnail images
 TABLE_IMAGES = [
     "https://images.unsplash.com/photo-1598284566378-08d4469e8bd5?q=80&w=300&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1598284566378-08d4469e8bd5?q=80&w=300&auto=format&fit=crop",
