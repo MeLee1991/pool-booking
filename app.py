@@ -4,7 +4,7 @@ import os
 # 0. THE "KILL DARK MODE" SCRIPT
 # ==========================================
 if not os.path.exists('.streamlit'):
-    os.makedirs('.streamlit)
+    os.makedirs('.streamlit')
 with open('.streamlit/config.toml', 'w') as f:
     f.write('''
 [theme]
@@ -26,8 +26,6 @@ st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 # ==========================================
 # 1. DYNAMIC "PRIME TIME" HEATMAP & SIZING ENGINE
 # ==========================================
-# This first dynamic block sets the standard formatting, which will be
-# overridden for special user/admin states in the main CSS block below.
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 dynamic_css = "<style>\n"
 
@@ -193,7 +191,7 @@ st.markdown("""
     [data-testid="column"] div button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
-        padding: 10px 2px !important; # Match Prime height
+        padding: 10px 2px !important; /* Match Prime height */
     }
     [data-testid="column"] div button[kind="primary"] p { 
         color: #ffffff !important; 
@@ -205,7 +203,7 @@ st.markdown("""
         background-color: #ffcccc !important; /* Pale/Lighter Red */
         border: 1px solid #dc3545 !important;
         opacity: 1 !important; /* Removes default fade */
-        padding: 10px 2px !important; # Match Prime height
+        padding: 10px 2px !important; /* Match Prime height */
     }
     [data-testid="column"] div button:disabled p { 
         color: #dc3545 !important; /* Bright Red Text */
