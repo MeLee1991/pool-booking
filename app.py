@@ -18,40 +18,24 @@ st.markdown("""
 body, .stApp {
     background:#f5f5f7;
     color:#1d1d1f;
-    font-family:-apple-system,BlinkMacSystemFont;
 }
 
-/* CARD */
-.card {
-    background:white;
-    padding:10px;
-    border-radius:14px;
-    margin-bottom:10px;
-    border:1px solid #e5e5ea;
-}
-
-/* HEADER */
 .header {
     text-align:center;
     font-weight:600;
-    margin-bottom:5px;
 }
 
-/* TIME */
-.time {
-    font-size:12px;
-    color:#666;
+.slot {
+    height:32px;
+    border-radius:10px;
+    margin-bottom:4px;
 }
 
-/* PRIME */
+.normal { background:#e5e5ea; }
+
 .prime {
-    background:#fff3cd !important;
-    border:1px solid #ff9500 !important;
-}
-
-/* BUTTON */
-button {
-    border-radius:10px !important;
+    background:#fff3cd;
+    border:1px solid #ff9500;
 }
 </style>
 """, unsafe_allow_html=True)
