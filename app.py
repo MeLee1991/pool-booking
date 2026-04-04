@@ -51,25 +51,29 @@ for idx, time_str in enumerate(HOURS):
     child_idx = idx + 3 # 1: Header, 2: Image/Placeholder, 3+: Buttons
     
     if is_prime:
+        # PRIME TIME BACKGROUNDS & BORDERS
         bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
         border = f"2px solid {row_color}"
         font_size = "13px"
         font_weight = "800"
         text_color = "#000000"
-        height = "36px" # Strict Desktop Height
+        height = "34px" 
         
-        m_font_size = "10px"
-        m_height = "30px" # Strict Mobile Height
+        m_font_size = "9px"
+        m_font_weight = "600" # Less bold on mobile
+        m_height = "26px" # Strict rigid height
     else:
+        # OFF-HOURS BACKGROUNDS & BORDERS
         bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
         border = f"1px solid {row_color}"
         font_size = "11px"
         font_weight = "500"
         text_color = "#495057"
-        height = "30px"
+        height = "28px"
         
-        m_font_size = "9px"
-        m_height = "26px"
+        m_font_size = "8px"
+        m_font_weight = "400" # Unbolded on mobile
+        m_height = "26px" # Strict rigid height matching prime time for perfect rows
 
     # --- DESKTOP ---
     dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
@@ -91,9 +95,11 @@ for idx, time_str in enumerate(HOURS):
     mobile_css += f'    height: {m_height} !important;\n'
     mobile_css += f'    min-height: {m_height} !important;\n'
     mobile_css += f'    max-height: {m_height} !important;\n'
+    mobile_css += f'    padding: 0 2px !important;\n' # Tiny padding to maximize text space
     mobile_css += f'}}\n'
     mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     mobile_css += f'    font-size: {m_font_size} !important;\n'
+    mobile_css += f'    font-weight: {m_font_weight} !important;\n'
     mobile_css += f'}}\n'
 
 mobile_css += "}\n</style>"
@@ -187,7 +193,9 @@ st.markdown("""
 
     [data-testid="stMain"] [data-testid="stImage"] { margin-bottom: 4px !important; border-radius: 4px; overflow: hidden; }
 
-    /* ROW ALIGNMENT FIX: Prevent button expansion, format text to cut off smoothly */
+    /* ---------------------------------------------------
+       ROW ALIGNMENT FIX: Prevent button expansion 
+       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="column"] .stButton > button {
         width: 100% !important; 
         border-radius: 4px !important; 
@@ -197,13 +205,16 @@ st.markdown("""
         justify-content: center !important;
         transition: none !important; 
         animation: none !important;
-        padding: 0 4px !important;
+        overflow: hidden !important; /* Prevents physical box from expanding */
     }
+    
     [data-testid="stMain"] div[data-testid="column"] .stButton > button p {
-        white-space: nowrap !important; /* NEVER wrap to next line */
-        overflow: hidden !important;    /* Hide extra text */
-        text-overflow: ellipsis !important; /* Add "..." */
+        white-space: nowrap !important; /* BANS TEXT FROM WRAPPING TO 2nd LINE */
+        overflow: hidden !important;    /* Hides extra text */
+        text-overflow: ellipsis !important; /* Adds '...' if text is too long */
         width: 100% !important;
+        max-width: 100% !important;
+        display: inline-block !important;
         margin: 0 !important;
         line-height: 1 !important;
     }
@@ -238,7 +249,7 @@ st.markdown("""
             width: 100% !important;
             padding-bottom: 5px !important; 
             justify-content: flex-start !important; 
-            gap: 2px !important; 
+            gap: 2px !important; /* Tiny gap to maximize width */
         }
         [data-testid="stMain"] div[data-testid="column"] {
             width: 33.33% !important; 
@@ -464,7 +475,6 @@ for i, col in enumerate(cols):
     
     col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
     
-    # THE MISSING IMAGE SAFETY FIX: Ensure child indexes stay consistent
     img_loaded = False
     img_name = f"table{i+1}.jpg"
     if os.path.exists(img_name):
@@ -474,7 +484,6 @@ for i, col in enumerate(cols):
         except: pass
     
     if not img_loaded:
-        # Invisible spacer acts as the "Image" so CSS row logic remains perfect
         col.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
@@ -485,6 +494,7 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
             
+            # 1. Is it YOUR slot? INSTANT CANCEL (No Popup)
             if booked_user_email == st.session_state.logged_in_user:
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     df = load_bookings()
@@ -493,14 +503,17 @@ for i, col in enumerate(cols):
                     log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
                     st.rerun()
             
+            # 2. Are you an Admin clicking SOMEONE ELSE'S slot? OPEN ADMIN MODAL
             elif st.session_state.user_role == 'admin':
                 if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
                     admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
                     
+            # 3. Someone else's slot and you are NOT an admin. LOCKED.
             else:
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
+            # 4. Slot is FREE. INSTANT BOOK (No Popup)
             if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", use_container_width=True):
                 if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
                     st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
