@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
 import hashlib
+import os
 
 # ==========================================
 # CONFIG
@@ -13,7 +14,7 @@ DB = "db.sqlite"
 OWNER_EMAIL = "admin@pool.com"
 
 # ==========================================
-# 🍏 APPLE UI
+# 🍏 UI
 # ==========================================
 st.markdown("""
 <style>
@@ -30,8 +31,8 @@ body, .stApp {
     z-index:999;
     background:#0b0b0c;
     padding:8px;
-    font-weight:600;
     text-align:center;
+    font-weight:600;
 }
 
 /* SLOT */
@@ -45,24 +46,24 @@ body, .stApp {
     font-size:11px;
 }
 
-/* NON PRIME */
-.normal {
-    background:#1c1c1e;
-    color:#aaa;
-}
+/* NORMAL */
+.normal { background:#1c1c1e; color:#aaa; }
 
 /* PRIME */
 .prime {
     background:#2c2c2e;
     border:1px solid #ff9f0a;
-    box-shadow:0 0 12px rgba(255,159,10,0.35);
+    box-shadow:0 0 10px rgba(255,159,10,0.4);
     color:#fff;
 }
 
-/* STATES */
+/* LOCK */
 .locked { opacity:0.4; }
+
+/* OWN */
 .mine { background:#ff453a !important; color:white; }
 
+/* TOP BAR */
 .topbar {
     background:#1c1c1e;
     padding:10px;
@@ -88,11 +89,12 @@ def init():
 init()
 
 # ==========================================
-# EMAIL PREVIEW (TEMP)
+# EMAIL PREVIEW
 # ==========================================
 def send_email(to, subject, body):
-    st.markdown("### 📧 Email Preview")
-    st.markdown(f"**To:** {to}  \n**Subject:** {subject}\n\n---\n{body}\n---")
+    st.markdown(f"📧 **Email → {to}**")
+    st.write(subject)
+    st.write(body)
 
 # ==========================================
 # AUTH
@@ -119,78 +121,63 @@ if "user" not in st.session_state:
     st.session_state.role=None
 
 # ==========================================
-# LOGIN (FIXED ✅)
+# LOGIN SCREEN (FIXED)
 # ==========================================
-st.sidebar.title("Account")
+if not st.session_state.user:
 
-mode = st.sidebar.radio("Mode", ["Login", "Register"])
+    st.title("🎱 Poolhall Reservations")
 
-email = st.sidebar.text_input("Email").strip().lower()
-name = st.sidebar.text_input("Name") if mode=="Register" else ""
-pw = st.sidebar.text_input("Password", type="password")
+    mode = st.radio("Select", ["Login", "Register"])
 
-if st.sidebar.button("Go", use_container_width=True):
+    email = st.text_input("Email").strip().lower()
+    name = st.text_input("Name") if mode=="Register" else ""
+    pw = st.text_input("Password", type="password")
 
-    if "@" not in email or "." not in email:
-        st.sidebar.error("Enter valid email")
+    if st.button("Continue", use_container_width=True):
 
-    elif len(pw) < 3:
-        st.sidebar.error("Password too short")
+        if "@" not in email or "." not in email:
+            st.error("Enter valid email")
 
-    else:
-        if mode == "Register":
-            success = register(email, name, pw)
-
-            if success:
-                st.sidebar.success("Account created ✅")
-            else:
-                st.sidebar.error("User already exists")
+        elif len(pw) < 3:
+            st.error("Password too short")
 
         else:
-            user = login(email, pw)
+            if mode == "Register":
+                if register(email, name, pw):
+                    st.success("Account created ✅")
+                else:
+                    st.error("User exists")
 
-            if user:
-                st.session_state.user = email
-                st.session_state.role = user[3]
-                st.sidebar.success("Logged in ✅")
-                st.rerun()
             else:
-                st.sidebar.error("Wrong email or password")
+                user = login(email, pw)
 
-if not st.session_state.user:
-    st.title("🎱 Poolhall Reservations")
-    st.info("Login or register from sidebar")
+                if user:
+                    st.session_state.user = email
+                    st.session_state.role = user[3]
+                    st.success("Logged in ✅")
+                    st.rerun()
+                else:
+                    st.error("Wrong login")
+
     st.stop()
 
-if st.sidebar.button("Logout"):
+# ==========================================
+# LOGOUT
+# ==========================================
+if st.button("Logout"):
     st.session_state.clear()
     st.rerun()
 
 # ==========================================
-# NAV
+# BANNER IMAGE
 # ==========================================
-view="Schedule"
-if st.session_state.role=="admin":
-    view=st.sidebar.radio("View",["Schedule","Admin"])
-
-# ==========================================
-# ADMIN
-# ==========================================
-if view=="Admin":
-    st.title("⚙️ Admin Panel")
-
-    st.subheader("Users")
-    st.dataframe(pd.read_sql_query("SELECT * FROM users",db()))
-
-    st.subheader("Bookings")
-    st.dataframe(pd.read_sql_query("SELECT * FROM bookings",db()))
-
-    st.stop()
+if os.path.exists("banner.jpg"):
+    st.image("banner.jpg", use_container_width=True)
 
 # ==========================================
 # SCHEDULE
 # ==========================================
-st.title("🎱 Reservations")
+st.title("Reservations")
 
 today=datetime.now().date()
 date=st.selectbox("Date",[today+timedelta(days=i) for i in range(7)])
@@ -211,7 +198,13 @@ cols=st.columns(3)
 
 for i,tbl in enumerate(tables):
     with cols[i]:
+
         st.markdown(f"<div class='header'>{tbl}</div>",unsafe_allow_html=True)
+
+        # TABLE IMAGE
+        img_path=f"table{i+1}.jpg"
+        if os.path.exists(img_path):
+            st.image(img_path, use_container_width=True)
 
         for t in times:
             hour=int(t[:2])
@@ -220,7 +213,6 @@ for i,tbl in enumerate(tables):
             slot=df[(df["table_name"]==tbl)&(df["time"]==t)]
             cls="slot prime" if prime else "slot normal"
 
-            # BOOKED
             if not slot.empty:
                 u=slot.iloc[0]["user"]
 
@@ -230,16 +222,13 @@ for i,tbl in enumerate(tables):
                                      (u,str(date),tbl,t))
                         db().commit()
 
-                        send_email(OWNER_EMAIL,"❌ Cancelled",
-                                   f"{u} cancelled {tbl} at {t}")
-
+                        send_email(OWNER_EMAIL,"Cancel",f"{u} cancelled {t}")
                         st.rerun()
                 else:
                     st.markdown(f"<div class='{cls} locked'>{t}</div>",unsafe_allow_html=True)
 
-            # FREE
             else:
-                if used>=max_hours and st.session_state.role!="admin":
+                if used>=max_hours:
                     st.markdown(f"<div class='{cls} locked'>{t}</div>",unsafe_allow_html=True)
                 else:
                     if st.button(f"{t}",key=f"{tbl}{t}"):
@@ -247,10 +236,5 @@ for i,tbl in enumerate(tables):
                                      (st.session_state.user,str(date),tbl,t))
                         db().commit()
 
-                        send_email(OWNER_EMAIL,"🎱 New Booking",
-                                   f"{email} booked {tbl} at {t}")
-
-                        send_email(email,"⏰ Reminder",
-                                   f"You have {tbl} at {t}")
-
+                        send_email(OWNER_EMAIL,"Booking",f"{email} booked {t}")
                         st.rerun()
