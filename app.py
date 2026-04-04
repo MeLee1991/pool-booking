@@ -1,521 +1,200 @@
-import os
-
-# ==========================================
-# 0. THE "KILL DARK MODE" SCRIPT
-# ==========================================
-if not os.path.exists('.streamlit'):
-    os.makedirs('.streamlit')
-with open('.streamlit/config.toml', 'w') as f:
-    f.write('''
-[theme]
-base="light"
-primaryColor="#dc3545"
-backgroundColor="#f8f9fa"
-secondaryBackgroundColor="#e9ecef"
-textColor="#212529"
-font="sans serif"
-''')
-
 import streamlit as st
+import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
-import streamlit.components.v1 as components
-
-st.set_page_config(page_title="Poolhall Reservations", layout="wide")
-
-# ==========================================
-# 1. DYNAMIC BACKGROUNDS & SPREADSHEET ALIGNMENT
-# ==========================================
-HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
-
-# 4-Row (2-Hour) Color Blocks (Background, Border, Text)
-BLOCK_STYLES = [
-    {"bg": "#fff9c4", "border": "#fbc02d", "text": "#000000"}, # 08-09 Pale Yellow
-    {"bg": "#e3f2fd", "border": "#42a5f5", "text": "#000000"}, # 10-11 Pale Blue
-    {"bg": "#e8f5e9", "border": "#66bb6a", "text": "#000000"}, # 12-13 Pale Green
-    {"bg": "#ffebee", "border": "#ef5350", "text": "#000000"}, # 14-15 Pale Red
-    {"bg": "#f3e5f5", "border": "#ab47bc", "text": "#000000"}, # 16-17 Pale Purple
-    {"bg": "#ffb74d", "border": "#e65100", "text": "#000000"}, # 18-19 VIBRANT ORANGE (PRIME)
-    {"bg": "#80cbc4", "border": "#00695c", "text": "#000000"}, # 20-21 VIBRANT TEAL (PRIME)
-    {"bg": "#d7ccc8", "border": "#8d6e63", "text": "#000000"}  # 22-23 Pale Brown
-]
-
-dynamic_css = "<style>\n"
-mobile_css = "@media (max-width: 900px) {\n" 
-
-for idx, time_str in enumerate(HOURS):
-    hour = int(time_str[:2])
-    is_prime = 18 <= hour <= 22
-    
-    style = BLOCK_STYLES[idx // 4]
-    child_idx = idx + 3 # 1: Header, 2: Image/Spacer, 3+: Buttons
-    
-    if is_prime:
-        # 🔥 BIG, FLASHY PRIME TIME
-        height = "38px" 
-        font_size = "15px"
-        font_weight = "900"
-        
-        m_height = "32px" 
-        m_font_size = "11px" 
-    else:
-        # 🌙 SMALL, DIM OFF-HOURS
-        height = "26px"
-        font_size = "11px"
-        font_weight = "500"
-        
-        m_height = "24px" 
-        m_font_size = "8px" 
-
-    # --- DESKTOP ---
-    # 1. Hard-lock the container height so rows NEVER misalign
-    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) {{\n'
-    dynamic_css += f'    height: {height} !important;\n'
-    dynamic_css += f'    min-height: {height} !important;\n'
-    dynamic_css += f'    max-height: {height} !important;\n'
-    dynamic_css += f'    margin-bottom: 4px !important;\n'
-    dynamic_css += f'    overflow: visible !important;\n' # Allow scale animation to pop slightly
-    dynamic_css += f'}}\n'
-    
-    # 2. Force the background color directly onto the button
-    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
-    dynamic_css += f'    background-color: {style["bg"]} !important;\n'
-    dynamic_css += f'    border: 2px solid {style["border"]} !important;\n'
-    dynamic_css += f'}}\n'
-    
-    # 3. Apply font sizes
-    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
-    dynamic_css += f'    font-size: {font_size} !important;\n'
-    dynamic_css += f'    font-weight: {font_weight} !important;\n'
-    dynamic_css += f'    color: {style["text"]} !important;\n'
-    dynamic_css += f'}}\n'
-
-    # --- MOBILE ---
-    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) {{\n'
-    mobile_css += f'    height: {m_height} !important;\n'
-    mobile_css += f'    min-height: {m_height} !important;\n'
-    mobile_css += f'    max-height: {m_height} !important;\n'
-    mobile_css += f'    margin-bottom: 2px !important;\n'
-    mobile_css += f'}}\n'
-    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
-    mobile_css += f'    font-size: {m_font_size} !important;\n'
-    mobile_css += f'}}\n'
-
-mobile_css += "}\n</style>"
-dynamic_css += mobile_css
-st.markdown(dynamic_css, unsafe_allow_html=True)
-
+import hashlib
+import smtplib
+from email.mime.text import MIMEText
 
 # ==========================================
-# 1.5 STRUCTURAL CSS: TACTILE BUTTONS & 3-COLUMNS
+# CONFIG
+# ==========================================
+st.set_page_config(page_title="Poolhall", layout="wide")
+
+DB = "db.sqlite"
+OWNER_EMAIL = "your@email.com"
+
+# ==========================================
+# 🍏 APPLE UI
 # ==========================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+body, .stApp {
+    background:#0b0b0c;
+    color:#f5f5f7;
+    font-family:-apple-system,BlinkMacSystemFont;
+}
 
-    html, body, [class*="css"] { font-family: 'Roboto', sans-serif !important; font-weight: 300 !important; }
-    h1, h2, h3, h4 { font-family: 'Roboto', sans-serif !important; font-weight: 500 !important; text-align: center; }
+/* HEADER STICKY */
+.header {
+    position:sticky;
+    top:0;
+    z-index:999;
+    background:#0b0b0c;
+    padding:8px;
+    font-weight:600;
+    text-align:center;
+}
 
-    .block-container {
-        max-width: 800px !important; 
-        margin: 0 auto !important;
-        padding-top: 1.5rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-    }
+/* SLOT BASE */
+.slot {
+    height:26px;
+    border-radius:10px;
+    margin-bottom:4px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    transition:all .12s ease;
+}
 
-    /* DATE RIBBON */
-    [data-testid="stMain"] div[role="radiogroup"] {
-        display: grid !important; grid-template-columns: max-content repeat(7, max-content) !important;
-        grid-template-rows: auto auto !important; gap: 8px 6px !important; padding: 5px !important;
-        border-bottom: 1px solid #dee2e6; margin-bottom: 15px !important; overflow-x: auto !important; 
-        -webkit-overflow-scrolling: touch; scrollbar-width: none; align-items: center; justify-content: flex-start !important; 
-    }
-    [data-testid="stMain"] div[role="radiogroup"]::-webkit-scrollbar { display: none; }
-    [data-testid="stMain"] div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; font-size: 12px; padding-right: 5px; }
-    [data-testid="stMain"] div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; font-size: 12px; padding-right: 5px; }
-    
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(4)  { grid-column: 5; grid-row: 1; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(11) { grid-column: 5; grid-row: 2; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(12) { grid-column: 6; grid-row: 2; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
-    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
+/* NON PRIME */
+.normal {
+    background:#1c1c1e;
+    color:#aaa;
+}
 
-    [data-testid="stMain"] div[role="radiogroup"] label {
-        background-color: #ffffff !important; border: 1px solid #ced4da !important; border-radius: 4px !important;
-        padding: 4px 8px !important; min-width: max-content; cursor: pointer; margin: 0 !important; 
-    }
-    [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
-    [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
-    [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
+/* 🔥 PRIME */
+.prime {
+    background:#2c2c2e;
+    border:1px solid #ff9f0a;
+    box-shadow:0 0 12px rgba(255,159,10,0.35);
+    color:#fff;
+}
 
-    /* HEADER & IMAGE ALIGNMENT ANCHORS */
-    [data-testid="stMain"] div[data-testid="column"] { gap: 0 !important; } 
-    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(1) { height: 35px !important; margin-bottom: 4px !important; }
-    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(2) { height: 80px !important; margin-bottom: 8px !important; }
+/* STATES */
+.free { cursor:pointer; }
+.free:hover { transform:scale(1.05); }
 
-    .table-header {
-        text-align: center !important; font-size: 14px !important; font-weight: 700 !important; text-transform: uppercase !important; 
-        color: #ffffff !important; background-color: #212529 !important; border-radius: 4px !important; margin: 0 !important;
-        height: 100% !important; display: flex; align-items: center; justify-content: center; position: sticky; top: 2.875rem; z-index: 990;
-    }
-    [data-testid="stImage"] img { border-radius: 4px; max-height: 80px !important; object-fit: cover; }
+.locked { opacity:0.4; }
 
-    /* ---------------------------------------------------
-       💥 SNAPPY MICRO-INTERACTIONS (FAST TACTILE FEEDBACK) 💥
-       --------------------------------------------------- */
-    [data-testid="stMain"] div[data-testid="column"] button {
-        height: 100% !important; width: 100% !important; border-radius: 4px !important; 
-        margin: 0 !important; padding: 0 2px !important;
-        /* Fast 0.1s transition for that crisp app-like feel */
-        transition: transform 0.1s ease, filter 0.1s ease !important; 
-    }
-    
-    /* Hover slightly darkens */
-    [data-testid="stMain"] div[data-testid="column"] button:hover {
-        filter: brightness(0.92) !important;
-    }
-    
-    /* Active (Clicking) makes it dent inwards instantly */
-    [data-testid="stMain"] div[data-testid="column"] button:active {
-        transform: scale(0.94) !important; 
-        filter: brightness(0.85) !important;
-    }
-    
-    [data-testid="stMain"] div[data-testid="column"] button p {
-        white-space: nowrap !important; /* BAN TEXT WRAPPING */
-        overflow: hidden !important; text-overflow: ellipsis !important; 
-        width: 100% !important; margin: 0 !important; line-height: 1 !important;
-    }
-    
-    /* 🔥 SPECIFIC OVERRIDES FOR BOOKED/LOCKED SLOTS 🔥 */
-    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[kind="primary"] { 
-        background-color: #dc3545 !important; border: 2px solid #bd2130 !important;
-    }
-    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[kind="primary"] p { color: #ffffff !important; }
-    
-    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] { 
-        background-color: #ffe5e5 !important; border: 1px solid #dc3545 !important; opacity: 1 !important; 
-        /* Disabled buttons shouldn't dent when clicked */
-        pointer-events: none !important;
-    }
-    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] p { color: #dc3545 !important; }
-
-    /* ---------------------------------------------------
-       📱 100% FORCED 3-COLUMN MOBILE LAYOUT 
-       --------------------------------------------------- */
-    @media (max-width: 900px) {
-        .block-container { padding-left: 2px !important; padding-right: 2px !important; }
-        [data-testid="stMain"] div[data-testid="stHorizontalBlock"] {
-            display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-            width: 100% !important; justify-content: space-between !important; gap: 2px !important; 
-        }
-        [data-testid="stMain"] div[data-testid="column"] {
-            min-width: 0 !important; width: calc(33.33% - 2px) !important; flex: 1 1 0 !important; 
-        }
-        [data-testid="stMain"] div[data-testid="column"] > div:nth-child(1) { height: 26px !important; margin-bottom: 2px !important; }
-        [data-testid="stMain"] div[data-testid="column"] > div:nth-child(2) { height: 50px !important; margin-bottom: 6px !important; }
-        .table-header { font-size: 10px !important; }
-        [data-testid="stImage"] img { max-height: 50px !important; }
-        
-        [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[kind="primary"] p,
-        [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] p {
-            font-size: 8px !important; letter-spacing: -0.5px !important;
-        }
-    }
+.mine {
+    background:#ff453a !important;
+    color:white;
+}
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# DB
+# ==========================================
+def db():
+    return sqlite3.connect(DB, check_same_thread=False)
+
+def init():
+    d = db()
+    d.execute("CREATE TABLE IF NOT EXISTS users(email TEXT, name TEXT, pw TEXT, role TEXT)")
+    d.execute("CREATE TABLE IF NOT EXISTS bookings(user TEXT, date TEXT, table_name TEXT, time TEXT)")
+    d.commit()
+
+init()
 
 # ==========================================
-# 2. DATABASE & ARCHIVE SYSTEM
+# AUTH
 # ==========================================
-USERS_FILE, BOOKINGS_FILE, AUDIT_FILE = 'users.csv', 'bookings.csv', 'audit.csv'
-HISTORY_FILE = 'history.csv'
-OWNER_EMAIL = "tomazbratina@gmail.com" 
+def hash_pw(p): return hashlib.sha256(p.encode()).hexdigest()
 
-if not os.path.exists(USERS_FILE): 
-    pd.DataFrame(columns=['Email', 'Name', 'Password', 'Role', 'Max_Hours_Day']).to_csv(USERS_FILE, index=False)
-if not os.path.exists(BOOKINGS_FILE): 
-    pd.DataFrame(columns=['User', 'Date', 'Table', 'Time', 'Duration']).to_csv(BOOKINGS_FILE, index=False)
-if not os.path.exists(AUDIT_FILE): 
-    pd.DataFrame(columns=['Timestamp', 'Action', 'Performed_By', 'Target_User', 'Details']).to_csv(AUDIT_FILE, index=False)
-if not os.path.exists(HISTORY_FILE): 
-    pd.DataFrame(columns=['User', 'Date', 'Table', 'Time', 'Duration']).to_csv(HISTORY_FILE, index=False)
+def login(email,pw):
+    return db().execute("SELECT * FROM users WHERE email=? AND pw=?", (email,hash_pw(pw))).fetchone()
 
-def archive_old_bookings():
+def register(e,n,p):
     try:
-        df = pd.read_csv(BOOKINGS_FILE)
-        if df.empty: return
-        df['DateObj'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
-        today = datetime.now().date()
-        past_bookings = df[df['DateObj'] < today].copy()
-        active_bookings = df[df['DateObj'] >= today].copy()
-        if not past_bookings.empty:
-            past_bookings = past_bookings.drop(columns=['DateObj'])
-            active_bookings = active_bookings.drop(columns=['DateObj'])
-            history_df = pd.read_csv(HISTORY_FILE)
-            history_df = pd.concat([history_df, past_bookings], ignore_index=True)
-            history_df.to_csv(HISTORY_FILE, index=False)
-            active_bookings.to_csv(BOOKINGS_FILE, index=False)
-    except: pass 
-
-archive_old_bookings()
-
-def load_users(): 
-    try: 
-        df = pd.read_csv(USERS_FILE)
-        if 'Max_Hours_Day' not in df.columns:
-            df['Max_Hours_Day'] = 3.0
-            df.to_csv(USERS_FILE, index=False)
-        return df
-    except: 
-        return pd.DataFrame(columns=['Email', 'Name', 'Password', 'Role', 'Max_Hours_Day'])
-
-def save_users(df): df.to_csv(USERS_FILE, index=False)
-def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
-def save_bookings(df): df.to_csv(BOOKINGS_FILE, index=False)
-def log_action(action, performed_by, target_user, details):
-    audit_df = pd.read_csv(AUDIT_FILE)
-    new_log = pd.DataFrame([[datetime.now().strftime("%Y-%m-%d %H:%M:%S"), action, performed_by, target_user, details]], columns=['Timestamp', 'Action', 'Performed_By', 'Target_User', 'Details'])
-    pd.concat([audit_df, new_log], ignore_index=True).to_csv(AUDIT_FILE, index=False)
-
+        role="admin" if e==OWNER_EMAIL else "user"
+        db().execute("INSERT INTO users VALUES (?,?,?,?)",(e,n,hash_pw(p),role))
+        db().commit()
+        return True
+    except: return False
 
 # ==========================================
-# 3. AUTHENTICATION & STATE MANAGEMENT
+# EMAIL
 # ==========================================
-if 'logged_in_user' not in st.session_state: st.session_state.logged_in_user = None
-if 'logged_in_name' not in st.session_state: st.session_state.logged_in_name = None
-if 'user_role' not in st.session_state: st.session_state.user_role = None
+def send_email(to, subject, body):
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = st.secrets["EMAIL"]
+    msg['To'] = to
 
-st.sidebar.markdown("<h2>🔐 Access</h2>", unsafe_allow_html=True)
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
+        s.login(st.secrets["EMAIL"], st.secrets["EMAIL_PASS"])
+        s.send_message(msg)
 
-if st.session_state.logged_in_user is None:
-    auth_mode = st.sidebar.radio("Choose Action", ["Login", "Register"])
-    email_input = st.sidebar.text_input("Email Address").strip().lower()
-    display_name = st.sidebar.text_input("Display Name (e.g. Tomi)").strip() if auth_mode == "Register" else ""
-    password = st.sidebar.text_input("Password", type="password")
-    
-    if st.sidebar.button("Go", type="primary", use_container_width=True):
-        users = load_users()
-        if auth_mode == "Register":
-            if email_input in users['Email'].values: st.sidebar.error("Email already exists!")
-            elif len(email_input) < 5 or "@" not in email_input: st.sidebar.error("Valid email required.")
-            elif len(display_name) < 2: st.sidebar.error("Display name required.")
-            else:
-                role = 'admin' if email_input == OWNER_EMAIL else 'pending'
-                new_user = pd.DataFrame([[email_input, display_name, password, role, 3.0]], columns=['Email', 'Name', 'Password', 'Role', 'Max_Hours_Day'])
-                save_users(pd.concat([users, new_user], ignore_index=True))
-                st.sidebar.success("Account created! Switch to Login.")
-        else:
-            user_match = users[(users['Email'] == email_input) & (users['Password'] == password)]
-            if not user_match.empty:
-                st.session_state.logged_in_user = email_input
-                st.session_state.logged_in_name = user_match.iloc[0]['Name']
-                st.session_state.user_role = user_match.iloc[0]['Role']
-                st.rerun()
-            else: st.sidebar.error("Incorrect email/password.")
-                
-    st.markdown("<h1>RESERVE TABLE</h1>", unsafe_allow_html=True)
-    st.info("👈 Please use the sidebar menu to log in or register to view the schedule.")
+# ==========================================
+# SESSION
+# ==========================================
+if "user" not in st.session_state:
+    st.session_state.user=None
+    st.session_state.role=None
+
+# ==========================================
+# LOGIN UI
+# ==========================================
+st.sidebar.title("Account")
+
+mode=st.sidebar.radio("Mode",["Login","Register"])
+email=st.sidebar.text_input("Email")
+name=st.sidebar.text_input("Name") if mode=="Register" else ""
+pw=st.sidebar.text_input("Password",type="password")
+
+if st.sidebar.button("Go"):
+    if mode=="Register":
+        if register(email,name,pw):
+            st.success("Created")
+    else:
+        u=login(email,pw)
+        if u:
+            st.session_state.user=email
+            st.session_state.role=u[3]
+            st.rerun()
+
+if not st.session_state.user:
     st.stop()
 
-st.sidebar.success(f"Playing as: \n**{st.session_state.logged_in_name}**")
-if st.sidebar.button("Logout"):
-    st.session_state.logged_in_user = None
-    st.session_state.logged_in_name = None
-    st.session_state.user_role = None
-    st.rerun()
-
-view_mode = "📅 Schedule"
-if st.session_state.user_role == 'admin':
-    st.sidebar.markdown("---")
-    view_mode = st.sidebar.radio("Navigation", ["📅 Schedule", "⚙️ Admin Dashboard"])
-
 # ==========================================
-# 4. ADMIN DASHBOARD
+# SCHEDULE
 # ==========================================
-if view_mode == "⚙️ Admin Dashboard":
-    st.title("⚙️ Club Administration")
-    tab1, tab2, tab3, tab4 = st.tabs(["👥 Users", "📊 Active Database", "🕰️ History (Archive)", "🕵️‍♂️ Audit Log"])
-    
-    with tab1:
-        st.write("### Manage Users")
-        users_df = load_users()
-        edited_users = st.data_editor(
-            users_df,
-            column_config={
-                "Role": st.column_config.SelectboxColumn("User Role", options=["pending", "user", "admin"], required=True),
-                "Name": st.column_config.TextColumn("Display Name"), 
-                "Email": st.column_config.TextColumn("Email Address", disabled=False), 
-                "Password": st.column_config.TextColumn("Password", disabled=False),
-                "Max_Hours_Day": st.column_config.NumberColumn("Daily Max (Hours)", min_value=0.5, max_value=24.0, step=0.5)
-            },
-            num_rows="dynamic",
-            hide_index=True, use_container_width=True
-        )
-        if st.button("💾 Save User Changes", type="primary"):
-            save_users(edited_users)
-            if st.session_state.logged_in_user in edited_users['Email'].values:
-                st.session_state.logged_in_name = edited_users[edited_users['Email'] == st.session_state.logged_in_user].iloc[0]['Name']
-            st.success("Database updated successfully!")
+st.title("Reservations")
 
-    with tab2: 
-        st.write("### Current Future Bookings")
-        st.dataframe(load_bookings(), use_container_width=True)
-        
-    with tab3: 
-        st.write("### Past Bookings Archive")
-        st.dataframe(pd.read_csv(HISTORY_FILE), use_container_width=True)
-        with open(HISTORY_FILE, "rb") as file:
-            st.download_button("📥 Download History CSV", data=file, file_name="reservation_history.csv", mime="text/csv")
-            
-    with tab4: 
-        if st.session_state.user_role == 'admin':
-            st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
-        else:
-            st.error("⛔ Access Denied.")
-    st.stop()
+today=datetime.now().date()
+date=st.selectbox("Date",[today+timedelta(days=i) for i in range(7)])
 
+times=[f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
+tables=["Table 1","Table 2","Table 3"]
 
-# ==========================================
-# 5. ADMIN EDIT DIALOG WINDOW (Only for others' slots)
-# ==========================================
-@st.dialog("⚙️ Admin Control")
-def admin_modal(table, time, date, current_user, display_name):
-    st.write(f"**Slot:** {table} at {time}")
-    new_name = st.text_input("Edit Player Name:", value=display_name)
-    c1, c2 = st.columns(2)
-    if c1.button("💾 Save Name", type="primary", use_container_width=True):
-        df = load_bookings()
-        df.loc[(df['Table'] == table) & (df['Time'] == time) & (df['Date'] == str(date)), 'User'] = new_name 
-        save_bookings(df)
-        log_action("EDITED", st.session_state.logged_in_user, current_user, f"{table} | {time} | New Name: {new_name}")
-        st.rerun()
-    if c2.button("🗑️ Free Slot", use_container_width=True):
-        df = load_bookings()
-        df = df[~((df['Table'] == table) & (df['Time'] == time) & (df['Date'] == str(date)))]
-        save_bookings(df)
-        log_action("CANCELLED", st.session_state.logged_in_user, current_user, f"{table} | {date} | {time}")
-        st.rerun()
+df=pd.read_sql_query("SELECT * FROM bookings WHERE date=?", db(), params=(str(date),))
 
-# ==========================================
-# 6. THE BOOKING SYSTEM UI
-# ==========================================
-st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
+cols=st.columns(3)
 
-if os.path.exists("banner.jpg"):
-    try:
-        st.image("banner.jpg", use_container_width=True)
-    except: pass
+for i,tbl in enumerate(tables):
+    with cols[i]:
+        st.markdown(f"<div class='header'>{tbl}</div>",unsafe_allow_html=True)
 
-today = datetime.now().date()
-upcoming_dates = [today + timedelta(days=i) for i in range(14)]
-date_labels = ["Today" if d == today else "Tomorrow" if d == today + timedelta(days=1) else d.strftime("%a %d") for d in upcoming_dates]
+        for t in times:
+            hour=int(t[:2])
+            prime=17<=hour<=22
 
-selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
-view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
+            slot=df[(df["table_name"]==tbl)&(df["time"]==t)]
 
-users_df = load_users()
-name_lookup = dict(zip(users_df['Email'], users_df['Name']))
+            cls="slot prime" if prime else "slot normal"
 
-user_max_hours = float(users_df[users_df['Email'] == st.session_state.logged_in_user]['Max_Hours_Day'].iloc[0])
+            if not slot.empty:
+                u=slot.iloc[0]["user"]
 
-bookings_df = load_bookings()
-bookings_df['Date'] = bookings_df['Date'].astype(str) 
-relevant_bookings = bookings_df[bookings_df['Date'] == str(view_date)]
-user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_state.logged_in_user]['Duration'].sum()
-
-if st.session_state.user_role != 'admin':
-    st.caption(f"<div style='text-align:center; font-weight: 500; font-size: 15px;'>Your booked time: {user_today_hours} / {user_max_hours}h</div>", unsafe_allow_html=True)
-
-# --- THE GRID ---
-cols = st.columns(3)
-
-for i, col in enumerate(cols):
-    t_name = f"Table {i+1}"
-    
-    col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
-    
-    img_loaded = False
-    img_name = f"table{i+1}.jpg"
-    if os.path.exists(img_name):
-        try:
-            col.image(img_name, use_container_width=True)
-            img_loaded = True
-        except: pass
-    
-    if not img_loaded:
-        col.markdown("<div style='height: 100%; width: 100%; border-radius: 4px; background: #e9ecef; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #adb5bd;'>No Image</div>", unsafe_allow_html=True)
-    
-    for time_str in HOURS:
-        booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
-        button_key = f"T{i+1}_{time_str}_{view_date}"
-        
-        if not booked.empty:
-            booked_user_email = booked.iloc[0]['User']
-            short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
-            
-            # 1. Is it YOUR slot? INSTANT CANCEL (No Popup)
-            if booked_user_email == st.session_state.logged_in_user:
-                if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
-                    df = load_bookings()
-                    df = df[~((df['Table'] == f"Table {i+1}") & (df['Time'] == time_str) & (df['Date'] == str(view_date)))]
-                    save_bookings(df)
-                    log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
-                    st.rerun()
-            
-            # 2. Are you an Admin clicking SOMEONE ELSE'S slot? OPEN ADMIN MODAL
-            elif st.session_state.user_role == 'admin':
-                if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
-                    admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
-                    
-            # 3. Someone else's slot and you are NOT an admin. LOCKED.
-            else:
-                col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
-                
-        else:
-            # 4. Slot is FREE. INSTANT BOOK (No Popup)
-            if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", type="secondary", use_container_width=True):
-                if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
-                    st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
+                if u==st.session_state.user:
+                    if st.button(f"{t}",key=f"{tbl}{t}"):
+                        db().execute("DELETE FROM bookings WHERE user=? AND date=? AND table_name=? AND time=?",
+                                     (u,str(date),tbl,t))
+                        db().commit()
+                        send_email(OWNER_EMAIL,"Booking Cancelled",f"{u} cancelled {t}")
+                        st.rerun()
                 else:
-                    df = load_bookings()
-                    new_row = pd.DataFrame([[st.session_state.logged_in_user, str(view_date), f"Table {i+1}", time_str, 0.5]], columns=['User', 'Date', 'Table', 'Time', 'Duration'])
-                    save_bookings(pd.concat([df, new_row], ignore_index=True))
-                    log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
+                    st.markdown(f"<div class='{cls} locked'>{t}</div>",unsafe_allow_html=True)
+
+            else:
+                if st.button(f"{t}",key=f"{tbl}{t}"):
+                    db().execute("INSERT INTO bookings VALUES (?,?,?,?)",
+                                 (st.session_state.user,str(date),tbl,t))
+                    db().commit()
+
+                    send_email(OWNER_EMAIL,"New Booking",f"{email} booked {t}")
+
                     st.rerun()
-
-# ==========================================
-# 7. SAFE AUTO-SCROLL SCRIPT
-# ==========================================
-if 'scroll_trigger_date' not in st.session_state:
-    st.session_state.scroll_trigger_date = None
-
-if st.session_state.scroll_trigger_date != view_date:
-    st.session_state.scroll_trigger_date = view_date
-    components.html(
-        """
-        <script>
-        setTimeout(function() {
-            const buttons = window.parent.document.querySelectorAll('button');
-            for (let btn of buttons) {
-                if (btn.innerText.includes('19:00')) {
-                    btn.scrollIntoView({behavior: 'smooth', block: 'nearest'});
-                    break;
-                }
-            }
-        }, 800); 
-        </script>
-        """,
-        height=0
-    )
