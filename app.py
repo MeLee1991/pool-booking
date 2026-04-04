@@ -48,23 +48,23 @@ for idx, time_str in enumerate(HOURS):
     is_prime = 18 <= hour <= 22
     
     style = BLOCK_STYLES[idx // 4]
-    child_idx = idx + 3 # 1: Header, 2: Image, 3+: Buttons
+    child_idx = idx + 3 # 1: Header, 2: Image/Spacer, 3+: Buttons
     
     if is_prime:
-        # 🔥 FLASHY PRIME TIME
+        # 🔥 BIG, FLASHY PRIME TIME
         height = "38px" 
-        font_size = "14px"
-        font_weight = "800"
+        font_size = "15px"
+        font_weight = "900"
         
         m_height = "32px" 
-        m_font_size = "10px" 
+        m_font_size = "12px" 
     else:
-        # 🌙 TINY OFF-HOURS
-        height = "30px"
-        font_size = "11px"
-        font_weight = "500"
+        # 🌙 SMALL, DIM OFF-HOURS
+        height = "26px"
+        font_size = "10px"
+        font_weight = "400"
         
-        m_height = "26px" 
+        m_height = "24px" 
         m_font_size = "8px" 
 
     # --- DESKTOP ---
@@ -77,16 +77,17 @@ for idx, time_str in enumerate(HOURS):
     dynamic_css += f'    overflow: hidden !important;\n'
     dynamic_css += f'}}\n'
     
-    # 2. Colorize ONLY the "FREE" (secondary) buttons with the Block Backgrounds
-    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button[kind="secondary"] {{\n'
+    # 2. Force the background color directly onto the button
+    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    background-color: {style["bg"]} !important;\n'
     dynamic_css += f'    border: 2px solid {style["border"]} !important;\n'
     dynamic_css += f'}}\n'
     
-    # 3. Text formatting
+    # 3. Apply font sizes
     dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
+    dynamic_css += f'    color: {style["text"]} !important;\n'
     dynamic_css += f'}}\n'
 
     # --- MOBILE ---
@@ -123,18 +124,50 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
+    /* DATE RIBBON */
+    [data-testid="stMain"] div[role="radiogroup"] {
+        display: grid !important; grid-template-columns: max-content repeat(7, max-content) !important;
+        grid-template-rows: auto auto !important; gap: 8px 6px !important; padding: 5px !important;
+        border-bottom: 1px solid #dee2e6; margin-bottom: 15px !important; overflow-x: auto !important; 
+        -webkit-overflow-scrolling: touch; scrollbar-width: none; align-items: center; justify-content: flex-start !important; 
+    }
+    [data-testid="stMain"] div[role="radiogroup"]::-webkit-scrollbar { display: none; }
+    [data-testid="stMain"] div[role="radiogroup"]::before { content: "Week 1:"; grid-column: 1; grid-row: 1; font-weight: 500; font-size: 12px; padding-right: 5px; }
+    [data-testid="stMain"] div[role="radiogroup"]::after { content: "Week 2:"; grid-column: 1; grid-row: 2; font-weight: 500; font-size: 12px; padding-right: 5px; }
+    
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(1)  { grid-column: 2; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(2)  { grid-column: 3; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(3)  { grid-column: 4; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(4)  { grid-column: 5; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(5)  { grid-column: 6; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(6)  { grid-column: 7; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(7)  { grid-column: 8; grid-row: 1; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(8)  { grid-column: 2; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(9)  { grid-column: 3; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(10) { grid-column: 4; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(11) { grid-column: 5; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(12) { grid-column: 6; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(13) { grid-column: 7; grid-row: 2; }
+    [data-testid="stMain"] div[role="radiogroup"] label:nth-of-type(14) { grid-column: 8; grid-row: 2; }
+
+    [data-testid="stMain"] div[role="radiogroup"] label {
+        background-color: #ffffff !important; border: 1px solid #ced4da !important; border-radius: 4px !important;
+        padding: 4px 8px !important; min-width: max-content; cursor: pointer; margin: 0 !important; 
+    }
+    [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] { background-color: #007bff !important; border-color: #007bff !important; }
+    [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
+    [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
+
     /* HEADER & IMAGE ALIGNMENT ANCHORS */
     [data-testid="stMain"] div[data-testid="column"] { gap: 0 !important; } /* Strip internal spacing */
     [data-testid="stMain"] div[data-testid="column"] > div:nth-child(1) { height: 35px !important; margin-bottom: 4px !important; }
     [data-testid="stMain"] div[data-testid="column"] > div:nth-child(2) { height: 80px !important; margin-bottom: 8px !important; }
 
     .table-header {
-        text-align: center !important; font-size: 14px !important; font-weight: 700 !important;
-        text-transform: uppercase !important; color: #ffffff !important; background-color: #212529 !important; 
-        padding: 6px 0; border-radius: 4px !important; margin: 0 !important;
-        height: 100% !important; display: flex; align-items: center; justify-content: center;
+        text-align: center !important; font-size: 14px !important; font-weight: 700 !important; text-transform: uppercase !important; 
+        color: #ffffff !important; background-color: #212529 !important; border-radius: 4px !important; margin: 0 !important;
+        height: 100% !important; display: flex; align-items: center; justify-content: center; position: sticky; top: 2.875rem; z-index: 990;
     }
-
     [data-testid="stImage"] img { border-radius: 4px; max-height: 80px !important; object-fit: cover; }
 
     /* ---------------------------------------------------
@@ -148,7 +181,7 @@ st.markdown("""
     [data-testid="stMain"] div[data-testid="column"] button:active, 
     [data-testid="stMain"] div[data-testid="column"] button:focus,
     [data-testid="stMain"] div[data-testid="column"] button:hover {
-        transform: none !important; outline: none !important; box-shadow: none !important;
+        transform: none !important; outline: none !important; box-shadow: none !important; filter: none !important;
     }
     
     [data-testid="stMain"] div[data-testid="column"] button p {
@@ -157,17 +190,17 @@ st.markdown("""
         width: 100% !important; margin: 0 !important; line-height: 1 !important;
     }
     
-    /* OVERRIDES: Booked Slots (Red) */
-    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] { 
+    /* 🔥 SPECIFIC OVERRIDES FOR BOOKED/LOCKED SLOTS 🔥 
+       (Uses :nth-child(n) to beat the specificity of the background colors above) */
+    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[kind="primary"] { 
         background-color: #dc3545 !important; border: 2px solid #bd2130 !important;
     }
-    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p { color: #ffffff !important; }
+    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[kind="primary"] p { color: #ffffff !important; }
     
-    /* OVERRIDES: Locked Slots (Pale Red) */
-    [data-testid="stMain"] div[data-testid="column"] button[disabled] { 
+    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] { 
         background-color: #ffe5e5 !important; border: 1px solid #dc3545 !important; opacity: 1 !important; 
     }
-    [data-testid="stMain"] div[data-testid="column"] button[disabled] p { color: #dc3545 !important; }
+    [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] p { color: #dc3545 !important; }
 
     /* ---------------------------------------------------
        📱 100% FORCED 3-COLUMN MOBILE LAYOUT 
@@ -186,8 +219,8 @@ st.markdown("""
         .table-header { font-size: 10px !important; }
         [data-testid="stImage"] img { max-height: 50px !important; }
         
-        [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p,
-        [data-testid="stMain"] div[data-testid="column"] button[disabled] p {
+        [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[kind="primary"] p,
+        [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] p {
             font-size: 8px !important; letter-spacing: -0.5px !important;
         }
     }
@@ -347,7 +380,7 @@ if view_mode == "⚙️ Admin Dashboard":
 
 
 # ==========================================
-# 5. ADMIN EDIT DIALOG WINDOW
+# 5. ADMIN EDIT DIALOG WINDOW (Only for others' slots)
 # ==========================================
 @st.dialog("⚙️ Admin Control")
 def admin_modal(table, time, date, current_user, display_name):
@@ -414,7 +447,6 @@ for i, col in enumerate(cols):
         except: pass
     
     if not img_loaded:
-        # Invisible spacer matches image height to preserve perfect alignment
         col.markdown("<div style='height: 100%; width: 100%; border-radius: 4px; background: #e9ecef; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #adb5bd;'>No Image</div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
@@ -425,7 +457,6 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
             
-            # 1. Is it YOUR slot? INSTANT CANCEL (No Popup)
             if booked_user_email == st.session_state.logged_in_user:
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     df = load_bookings()
@@ -434,17 +465,14 @@ for i, col in enumerate(cols):
                     log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
                     st.rerun()
             
-            # 2. Are you an Admin clicking SOMEONE ELSE'S slot? OPEN ADMIN MODAL
             elif st.session_state.user_role == 'admin':
                 if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
                     admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
                     
-            # 3. Someone else's slot and you are NOT an admin. LOCKED.
             else:
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
-            # 4. Slot is FREE. INSTANT BOOK (No Popup)
             if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", type="secondary", use_container_width=True):
                 if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
                     st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
