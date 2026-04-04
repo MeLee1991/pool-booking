@@ -24,11 +24,10 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC COLOR BORDERS & PRIME TIME ENGINE
+# 1. DYNAMIC COLOR BORDERS & ALIGNMENT ENGINE
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 
-# 4-Row (2-Hour) Alternating Border Colors
 BORDER_COLORS = [
     "#ffee58", # Light Yellow (08:00 - 09:30)
     "#42a5f5", # Light Blue   (10:00 - 11:30)
@@ -46,58 +45,55 @@ mobile_css = "@media (max-width: 900px) {\n"
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
     is_prime = 18 <= hour <= 22
-    
-    # Determine the color block (every 4 rows)
     color_idx = idx // 4
     row_color = BORDER_COLORS[color_idx % len(BORDER_COLORS)]
     
-    child_idx = idx + 3 
+    child_idx = idx + 3 # 1: Header, 2: Image/Placeholder, 3+: Buttons
     
     if is_prime:
-        # 🌟 PRIME TIME (Bright backgrounds, slightly thicker borders)
         bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
         border = f"2px solid {row_color}"
         font_size = "13px"
         font_weight = "800"
         text_color = "#000000"
-        padding = "6px 1px"
+        height = "36px" # Strict Desktop Height
         
-        # Mobile specific prime time
-        m_font_size = "9px"
-        m_padding = "4px 0px"
+        m_font_size = "10px"
+        m_height = "30px" # Strict Mobile Height
     else:
-        # 🌙 OFF-HOURS (Dimmer backgrounds, standard borders)
         bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
         border = f"1px solid {row_color}"
         font_size = "11px"
         font_weight = "500"
         text_color = "#495057"
-        padding = "4px 1px"
+        height = "30px"
         
-        # Mobile specific off-hours
-        m_font_size = "8px"
-        m_padding = "2px 0px"
+        m_font_size = "9px"
+        m_height = "26px"
 
-    # --- APPLY TO DESKTOP ---
-    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
+    # --- DESKTOP ---
+    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    border: {border} !important;\n'
-    dynamic_css += f'    padding: {padding} !important;\n'
+    dynamic_css += f'    height: {height} !important;\n'
+    dynamic_css += f'    min-height: {height} !important;\n'
+    dynamic_css += f'    max-height: {height} !important;\n'
     dynamic_css += f'}}\n'
     
-    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
+    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
     dynamic_css += f'    color: {text_color} !important;\n'
     dynamic_css += f'}}\n'
 
-    # --- APPLY TO MOBILE ---
-    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
-    mobile_css += f'    padding: {m_padding} !important;\n'
+    # --- MOBILE ---
+    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    mobile_css += f'    height: {m_height} !important;\n'
+    mobile_css += f'    min-height: {m_height} !important;\n'
+    mobile_css += f'    max-height: {m_height} !important;\n'
     mobile_css += f'}}\n'
-    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
+    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     mobile_css += f'    font-size: {m_font_size} !important;\n'
-    mobile_css += f'    letter-spacing: -0.3px !important;\n' # Squeeze text slightly to fit names
     mobile_css += f'}}\n'
 
 mobile_css += "}\n</style>"
@@ -106,7 +102,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 STRUCTURAL CSS: FORCING 3-COLUMNS ON MOBILE
+# 1.5 STRUCTURAL CSS & ROW ALIGNMENT FIX
 # ==========================================
 st.markdown("""
 <style>
@@ -123,9 +119,7 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
-    /* ---------------------------------------------------
-       DATE RIBBON
-       --------------------------------------------------- */
+    /* DATE RIBBON */
     [data-testid="stMain"] div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
@@ -167,13 +161,11 @@ st.markdown("""
     [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
     [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
-    /* ---------------------------------------------------
-       MAIN AREA: TABLES & STICKY HEADERS
-       --------------------------------------------------- */
-    [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
-        gap: 10px !important; justify-content: center !important; 
+    /* TABLES & HEADERS */
+    [data-testid="stMain"] div[data-testid="stHorizontalBlock"] { 
+        gap: 8px !important; justify-content: center !important; 
     }
-    [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] { 
+    [data-testid="stMain"] div[data-testid="column"] { 
         display: flex !important; flex-direction: column !important; padding: 0 !important; 
     }
 
@@ -193,63 +185,73 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.4); 
     }
 
-    [data-testid="stMain"] [data-testid="stImage"] { margin-bottom: 8px !important; border-radius: 4px; overflow: hidden; }
+    [data-testid="stMain"] [data-testid="stImage"] { margin-bottom: 4px !important; border-radius: 4px; overflow: hidden; }
 
-    /* SNAPPY BUTTONS (No transitions) */
-    [data-testid="stMain"] div[data-testid="column"] .stButton > button, [data-testid="stMain"] div[data-testid="stColumn"] .stButton > button {
-        width: 100% !important; border-radius: 4px !important; 
-        text-align: center !important; margin-bottom: 4px !important; display: block !important;
+    /* ROW ALIGNMENT FIX: Prevent button expansion, format text to cut off smoothly */
+    [data-testid="stMain"] div[data-testid="column"] .stButton > button {
+        width: 100% !important; 
+        border-radius: 4px !important; 
+        margin-bottom: 4px !important; 
+        display: flex !important; 
+        align-items: center !important; 
+        justify-content: center !important;
         transition: none !important; 
+        animation: none !important;
+        padding: 0 4px !important;
+    }
+    [data-testid="stMain"] div[data-testid="column"] .stButton > button p {
+        white-space: nowrap !important; /* NEVER wrap to next line */
+        overflow: hidden !important;    /* Hide extra text */
+        text-overflow: ellipsis !important; /* Add "..." */
+        width: 100% !important;
+        margin: 0 !important;
+        line-height: 1 !important;
     }
     
     /* OVERRIDES: Active and Disabled Slots */
-    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"], [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] { 
+    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
         box-shadow: inset 0 0 5px rgba(0,0,0,0.2) !important;
     }
-    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p, [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] p { 
+    [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p { 
         color: #ffffff !important; font-weight: 700 !important; 
     }
     
-    [data-testid="stMain"] div[data-testid="column"] button[disabled], [data-testid="stMain"] div[data-testid="stColumn"] button[disabled] { 
+    [data-testid="stMain"] div[data-testid="column"] button[disabled] { 
         background-color: #ffe5e5 !important; 
         border: 1px solid #dc3545 !important;
         opacity: 1 !important; box-shadow: none !important;
     }
-    [data-testid="stMain"] div[data-testid="column"] button[disabled] p, [data-testid="stMain"] div[data-testid="stColumn"] button[disabled] p { 
+    [data-testid="stMain"] div[data-testid="column"] button[disabled] p { 
         color: #dc3545 !important; font-weight: 700 !important; 
     }
 
     /* ---------------------------------------------------
-       📱 100% FORCED 3-COLUMN MOBILE LAYOUT 
+       📱 STRICT 3-COLUMN MOBILE LAYOUT 
        --------------------------------------------------- */
     @media (max-width: 900px) {
-        [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns {
+        [data-testid="stMain"] div[data-testid="stHorizontalBlock"] {
             display: flex !important; 
-            flex-direction: row !important; 
-            flex-wrap: nowrap !important;
-            overflow-x: hidden !important; /* NO SWIPING, FORCE FIT */
+            flex-direction: row !important; /* FORCE SIDE-BY-SIDE */
+            flex-wrap: nowrap !important;   /* PREVENT STACKING */
+            width: 100% !important;
             padding-bottom: 5px !important; 
-            justify-content: center !important; 
-            gap: 2px !important; /* Tiny gap to fit 3 columns */
+            justify-content: flex-start !important; 
+            gap: 2px !important; 
         }
-        [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] {
-            width: 33% !important; 
-            min-width: 33% !important; 
-            max-width: 33% !important; 
-            flex: 1 1 33% !important; 
+        [data-testid="stMain"] div[data-testid="column"] {
+            width: 33.33% !important; 
+            min-width: 33.33% !important; 
+            max-width: 33.33% !important; 
+            flex: 0 0 33.33% !important; 
             margin: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
         }
         [data-testid="stMain"] .table-header { 
             font-size: 11px !important; 
             padding: 4px 0 !important; 
-        }
-        /* Extra override for Active/Disabled text size on mobile */
-        [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p,
-        [data-testid="stMain"] div[data-testid="column"] button[disabled] p {
-            font-size: 9px !important;
-            letter-spacing: -0.3px !important;
         }
     }
 </style>
@@ -432,8 +434,7 @@ st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsaf
 if os.path.exists("banner.jpg"):
     try:
         st.image("banner.jpg", use_container_width=True)
-    except Exception as e:
-        st.warning("⚠️ banner.jpg is corrupted or not a valid image format.")
+    except: pass
 
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(14)]
@@ -463,12 +464,18 @@ for i, col in enumerate(cols):
     
     col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
     
+    # THE MISSING IMAGE SAFETY FIX: Ensure child indexes stay consistent
+    img_loaded = False
     img_name = f"table{i+1}.jpg"
     if os.path.exists(img_name):
         try:
             col.image(img_name, use_container_width=True)
-        except:
-            pass
+            img_loaded = True
+        except: pass
+    
+    if not img_loaded:
+        # Invisible spacer acts as the "Image" so CSS row logic remains perfect
+        col.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
     
     for time_str in HOURS:
         booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
@@ -478,7 +485,6 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
             
-            # 1. Is it YOUR slot? INSTANT CANCEL (No Popup)
             if booked_user_email == st.session_state.logged_in_user:
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     df = load_bookings()
@@ -487,17 +493,14 @@ for i, col in enumerate(cols):
                     log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
                     st.rerun()
             
-            # 2. Are you an Admin clicking SOMEONE ELSE'S slot? OPEN ADMIN MODAL
             elif st.session_state.user_role == 'admin':
                 if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
                     admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
                     
-            # 3. Someone else's slot and you are NOT an admin. LOCKED.
             else:
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
-            # 4. Slot is FREE. INSTANT BOOK (No Popup)
             if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", use_container_width=True):
                 if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
                     st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
