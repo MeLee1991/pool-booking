@@ -24,19 +24,20 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC COLOR BORDERS & ALIGNMENT ENGINE
+# 1. DYNAMIC BACKGROUND COLORS & ALIGNMENT ENGINE
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
 
-BORDER_COLORS = [
-    "#ffee58", # Light Yellow (08:00 - 09:30)
-    "#42a5f5", # Light Blue   (10:00 - 11:30)
-    "#66bb6a", # Light Green  (12:00 - 13:30)
-    "#ef5350", # Light Red    (14:00 - 15:30)
-    "#ab47bc", # Purple       (16:00 - 17:30)
-    "#ffa726", # Orange       (18:00 - 19:30)
-    "#26a69a", # Teal         (20:00 - 21:30)
-    "#8d6e63"  # Brown/Gray   (22:00 - 23:30)
+# 4-Row (2-Hour) Color Blocks (Background, Border, Text)
+BLOCK_STYLES = [
+    {"bg": "#fff9c4", "border": "#fbc02d", "text": "#495057"}, # 08-09 Pale Yellow
+    {"bg": "#e3f2fd", "border": "#64b5f6", "text": "#495057"}, # 10-11 Pale Blue
+    {"bg": "#e8f5e9", "border": "#81c784", "text": "#495057"}, # 12-13 Pale Green
+    {"bg": "#ffebee", "border": "#e57373", "text": "#495057"}, # 14-15 Pale Red
+    {"bg": "#f3e5f5", "border": "#ba68c8", "text": "#495057"}, # 16-17 Pale Purple
+    {"bg": "#ff9800", "border": "#e65100", "text": "#ffffff"}, # 18-19 VIBRANT ORANGE (PRIME)
+    {"bg": "#00bfa5", "border": "#004d40", "text": "#ffffff"}, # 20-21 VIBRANT TEAL (PRIME)
+    {"bg": "#efebe9", "border": "#a1887f", "text": "#495057"}  # 22-23 Pale Brown
 ]
 
 dynamic_css = "<style>\n"
@@ -45,62 +46,61 @@ mobile_css = "@media (max-width: 900px) {\n"
 for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
     is_prime = 18 <= hour <= 22
-    color_idx = idx // 4
-    row_color = BORDER_COLORS[color_idx % len(BORDER_COLORS)]
+    
+    # Get styles for this specific 4-row block
+    style = BLOCK_STYLES[idx // 4]
     
     child_idx = idx + 3 # 1: Header, 2: Image/Placeholder, 3+: Buttons
     
     if is_prime:
-        # PRIME TIME BACKGROUNDS & BORDERS
-        bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
-        border = f"2px solid {row_color}"
-        font_size = "13px"
+        # 🔥 EXPLOSIVE PRIME TIME
+        height = "42px" 
+        font_size = "14px"
         font_weight = "800"
-        text_color = "#000000"
-        height = "34px" 
+        shadow = "0px 4px 8px rgba(0,0,0,0.3)"
         
-        m_font_size = "8px" # Ultra small for mobile
-        m_font_weight = "700" 
-        m_height = "24px" # Ultra compact rigid height
+        m_height = "34px" 
+        m_font_size = "10px" 
     else:
-        # OFF-HOURS BACKGROUNDS & BORDERS
-        bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
-        border = f"1px solid {row_color}"
+        # 🌙 TINY OFF-HOURS
+        height = "28px"
         font_size = "11px"
         font_weight = "500"
-        text_color = "#495057"
-        height = "28px"
+        shadow = "none"
         
-        m_font_size = "8px" # Ultra small for mobile
-        m_font_weight = "400" 
-        m_height = "24px" # Matches prime time for perfect rows
+        m_height = "24px" 
+        m_font_size = "8px" 
 
     # --- DESKTOP ---
-    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
-    dynamic_css += f'    background-color: {bg_color} !important;\n'
-    dynamic_css += f'    border: {border} !important;\n'
+    # Lock the exact height of Streamlit's invisible wrapper to guarantee row alignment
+    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) {{\n'
     dynamic_css += f'    height: {height} !important;\n'
     dynamic_css += f'    min-height: {height} !important;\n'
     dynamic_css += f'    max-height: {height} !important;\n'
+    dynamic_css += f'    margin-bottom: 6px !important;\n'
+    dynamic_css += f'}}\n'
+    
+    dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    dynamic_css += f'    background-color: {style["bg"]} !important;\n'
+    dynamic_css += f'    border: 2px solid {style["border"]} !important;\n'
+    dynamic_css += f'    box-shadow: {shadow} !important;\n'
     dynamic_css += f'}}\n'
     
     dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     dynamic_css += f'    font-size: {font_size} !important;\n'
     dynamic_css += f'    font-weight: {font_weight} !important;\n'
-    dynamic_css += f'    color: {text_color} !important;\n'
+    dynamic_css += f'    color: {style["text"]} !important;\n'
     dynamic_css += f'}}\n'
 
     # --- MOBILE ---
-    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
+    mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) {{\n'
     mobile_css += f'    height: {m_height} !important;\n'
     mobile_css += f'    min-height: {m_height} !important;\n'
     mobile_css += f'    max-height: {m_height} !important;\n'
-    mobile_css += f'    padding: 0px 1px !important;\n' # Absolute minimum padding
+    mobile_css += f'    margin-bottom: 4px !important;\n'
     mobile_css += f'}}\n'
     mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     mobile_css += f'    font-size: {m_font_size} !important;\n'
-    mobile_css += f'    font-weight: {m_font_weight} !important;\n'
-    mobile_css += f'    letter-spacing: -0.5px !important;\n' # Squeeze text hard
     mobile_css += f'}}\n'
 
 mobile_css += "}\n</style>"
@@ -109,7 +109,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 STRUCTURAL CSS & AGGRESSIVE MOBILE OVERRIDE
+# 1.5 GENERIC CSS & ANTI-STRETCH BUTTON LOGIC
 # ==========================================
 st.markdown("""
 <style>
@@ -172,7 +172,7 @@ st.markdown("""
     [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
         gap: 10px !important; justify-content: center !important; 
     }
-    [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] { 
+    [data-testid="stMain"] div[data-testid="column"] { 
         display: flex !important; flex-direction: column !important; padding: 0 !important; 
     }
 
@@ -194,28 +194,35 @@ st.markdown("""
 
     [data-testid="stMain"] [data-testid="stImage"] { margin-bottom: 4px !important; border-radius: 4px; overflow: hidden; }
 
-    /* ROW ALIGNMENT FIX: Prevent button expansion */
+    /* ---------------------------------------------------
+       PERFECT ROW ALIGNMENT CSS 
+       --------------------------------------------------- */
+    [data-testid="stMain"] div[data-testid="column"] .stButton {
+        height: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
     [data-testid="stMain"] div[data-testid="column"] .stButton > button {
+        height: 100% !important; 
         width: 100% !important; 
         border-radius: 4px !important; 
-        margin-bottom: 4px !important; 
+        margin: 0 !important; 
+        padding: 0 2px !important;
         display: flex !important; 
         align-items: center !important; 
         justify-content: center !important;
-        transition: none !important; 
+        transition: none !important; /* ZERO TRANSITIONS */
         animation: none !important;
-        overflow: hidden !important; 
     }
     
     [data-testid="stMain"] div[data-testid="column"] .stButton > button p {
-        white-space: nowrap !important; /* BANS WRAPPING */
+        white-space: nowrap !important; /* ABSOLUTELY BANS TEXT WRAPPING */
         overflow: hidden !important;    
         text-overflow: ellipsis !important; 
         width: 100% !important;
-        max-width: 100% !important;
-        display: inline-block !important;
         margin: 0 !important;
-        line-height: 1 !important;
     }
     
     /* OVERRIDES: Active and Disabled Slots */
@@ -238,10 +245,9 @@ st.markdown("""
     }
 
     /* ---------------------------------------------------
-       📱 AGGRESSIVE FORCE-FIT MOBILE LAYOUT 
+       📱 100% FORCED 3-COLUMN MOBILE LAYOUT 
        --------------------------------------------------- */
     @media (max-width: 900px) {
-        /* Erase the padding on the main screen to give columns room */
         .block-container {
             padding-left: 2px !important;
             padding-right: 2px !important;
@@ -255,13 +261,12 @@ st.markdown("""
             padding: 0 !important; 
             margin: 0 !important;
             justify-content: space-between !important; 
-            gap: 2px !important; /* Tiny gap */
-            overflow: hidden !important; /* BAN SCROLLING */
+            gap: 2px !important; 
+            overflow: hidden !important; 
         }
         
         [data-testid="stMain"] div[data-testid="column"] {
-            /* MAGIC BULLET: min-width: 0 prevents flexboxes from overflowing */
-            min-width: 0 !important; 
+            min-width: 0 !important; /* ALLOWS COLUMNS TO SHRINK */
             width: calc(33.33% - 2px) !important; 
             flex: 1 1 0 !important; 
             margin: 0 !important;
@@ -272,16 +277,9 @@ st.markdown("""
         }
 
         [data-testid="stMain"] .table-header { 
-            font-size: 10px !important; 
+            font-size: 11px !important; 
             padding: 2px 0 !important; 
             margin-bottom: 2px !important;
-        }
-
-        /* Further squish text inside the active/locked buttons */
-        [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p,
-        [data-testid="stMain"] div[data-testid="column"] button[disabled] p {
-            font-size: 8px !important;
-            letter-spacing: -0.5px !important;
         }
     }
 </style>
@@ -421,149 +419,4 @@ if view_mode == "⚙️ Admin Dashboard":
         st.write("### Current Future Bookings")
         st.dataframe(load_bookings(), use_container_width=True)
         
-    with tab3: 
-        st.write("### Past Bookings Archive")
-        st.dataframe(pd.read_csv(HISTORY_FILE), use_container_width=True)
-        with open(HISTORY_FILE, "rb") as file:
-            st.download_button(label="📥 Download History CSV", data=file, file_name="reservation_history.csv", mime="text/csv")
-            
-    with tab4: 
-        if st.session_state.user_role == 'admin':
-            st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
-        else:
-            st.error("⛔ Access Denied.")
-    st.stop()
-
-
-# ==========================================
-# 5. ADMIN EDIT DIALOG WINDOW (Only for others' slots)
-# ==========================================
-@st.dialog("⚙️ Admin Control")
-def admin_modal(table, time, date, current_user, display_name):
-    st.write(f"**Slot:** {table} at {time}")
-    new_name = st.text_input("Edit Player Name:", value=display_name)
-    c1, c2 = st.columns(2)
-    if c1.button("💾 Save Name", type="primary", use_container_width=True):
-        df = load_bookings()
-        df.loc[(df['Table'] == table) & (df['Time'] == time) & (df['Date'] == str(date)), 'User'] = new_name 
-        save_bookings(df)
-        log_action("EDITED", st.session_state.logged_in_user, current_user, f"{table} | {time} | New Name: {new_name}")
-        st.rerun()
-    if c2.button("🗑️ Free Slot", use_container_width=True):
-        df = load_bookings()
-        df = df[~((df['Table'] == table) & (df['Time'] == time) & (df['Date'] == str(date)))]
-        save_bookings(df)
-        log_action("CANCELLED", st.session_state.logged_in_user, current_user, f"{table} | {date} | {time}")
-        st.rerun()
-
-# ==========================================
-# 6. THE BOOKING SYSTEM UI
-# ==========================================
-st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
-
-if os.path.exists("banner.jpg"):
-    try:
-        st.image("banner.jpg", use_container_width=True)
-    except: pass
-
-today = datetime.now().date()
-upcoming_dates = [today + timedelta(days=i) for i in range(14)]
-date_labels = ["Today" if d == today else "Tomorrow" if d == today + timedelta(days=1) else d.strftime("%a %d") for d in upcoming_dates]
-
-selected_date_label_main = st.radio("Select Date:", date_labels, horizontal=True, label_visibility="collapsed")
-view_date = upcoming_dates[date_labels.index(selected_date_label_main)]
-
-users_df = load_users()
-name_lookup = dict(zip(users_df['Email'], users_df['Name']))
-
-user_max_hours = float(users_df[users_df['Email'] == st.session_state.logged_in_user]['Max_Hours_Day'].iloc[0])
-
-bookings_df = load_bookings()
-bookings_df['Date'] = bookings_df['Date'].astype(str) 
-relevant_bookings = bookings_df[bookings_df['Date'] == str(view_date)]
-user_today_hours = relevant_bookings[relevant_bookings['User'] == st.session_state.logged_in_user]['Duration'].sum()
-
-if st.session_state.user_role != 'admin':
-    st.caption(f"<div style='text-align:center; font-weight: 500; font-size: 15px;'>Your booked time: {user_today_hours} / {user_max_hours}h</div>", unsafe_allow_html=True)
-
-# --- THE GRID ---
-cols = st.columns(3)
-
-for i, col in enumerate(cols):
-    t_name = f"Table {i+1}"
-    
-    col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
-    
-    img_loaded = False
-    img_name = f"table{i+1}.jpg"
-    if os.path.exists(img_name):
-        try:
-            col.image(img_name, use_container_width=True)
-            img_loaded = True
-        except: pass
-    
-    if not img_loaded:
-        col.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
-    
-    for time_str in HOURS:
-        booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
-        button_key = f"T{i+1}_{time_str}_{view_date}"
-        
-        if not booked.empty:
-            booked_user_email = booked.iloc[0]['User']
-            short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
-            
-            # 1. Is it YOUR slot? INSTANT CANCEL (No Popup)
-            if booked_user_email == st.session_state.logged_in_user:
-                if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
-                    df = load_bookings()
-                    df = df[~((df['Table'] == f"Table {i+1}") & (df['Time'] == time_str) & (df['Date'] == str(view_date)))]
-                    save_bookings(df)
-                    log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
-                    st.rerun()
-            
-            # 2. Are you an Admin clicking SOMEONE ELSE'S slot? OPEN ADMIN MODAL
-            elif st.session_state.user_role == 'admin':
-                if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
-                    admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
-                    
-            # 3. Someone else's slot and you are NOT an admin. LOCKED.
-            else:
-                col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
-                
-        else:
-            # 4. Slot is FREE. INSTANT BOOK (No Popup)
-            if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", use_container_width=True):
-                if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
-                    st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
-                else:
-                    df = load_bookings()
-                    new_row = pd.DataFrame([[st.session_state.logged_in_user, str(view_date), f"Table {i+1}", time_str, 0.5]], columns=['User', 'Date', 'Table', 'Time', 'Duration'])
-                    save_bookings(pd.concat([df, new_row], ignore_index=True))
-                    log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
-                    st.rerun()
-
-# ==========================================
-# 7. SAFE AUTO-SCROLL SCRIPT
-# ==========================================
-if 'scroll_trigger_date' not in st.session_state:
-    st.session_state.scroll_trigger_date = None
-
-if st.session_state.scroll_trigger_date != view_date:
-    st.session_state.scroll_trigger_date = view_date
-    components.html(
-        """
-        <script>
-        setTimeout(function() {
-            const buttons = window.parent.document.querySelectorAll('button');
-            for (let btn of buttons) {
-                if (btn.innerText.includes('19:00')) {
-                    btn.scrollIntoView({behavior: 'smooth', block: 'nearest'});
-                    break;
-                }
-            }
-        }, 800); 
-        </script>
-        """,
-        height=0
-    )
+    with tab3:
