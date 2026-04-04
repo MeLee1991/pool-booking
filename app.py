@@ -79,11 +79,40 @@ body, .stApp {
 def db():
     return sqlite3.connect(DB, check_same_thread=False)
 
+
 def init():
     d = db()
-    d.execute("CREATE TABLE IF NOT EXISTS users(email TEXT PRIMARY KEY, name TEXT, pw TEXT, role TEXT, max_hours REAL)")
-    d.execute("CREATE TABLE IF NOT EXISTS bookings(user TEXT, date TEXT, table_name TEXT, time TEXT)")
+
+    # USERS TABLE
+    d.execute("""
+    CREATE TABLE IF NOT EXISTS users(
+        email TEXT PRIMARY KEY,
+        name TEXT,
+        pw TEXT,
+        role TEXT,
+        max_hours REAL DEFAULT 3.0
+    )
+    """)
+
+    # ADD COLUMN IF MISSING (important fix)
+    try:
+        d.execute("ALTER TABLE users ADD COLUMN max_hours REAL DEFAULT 3.0")
+    except:
+        pass  # column already exists
+
+    # BOOKINGS TABLE
+    d.execute("""
+    CREATE TABLE IF NOT EXISTS bookings(
+        user TEXT,
+        date TEXT,
+        table_name TEXT,
+        time TEXT
+    )
+    """)
+
     d.commit()
+
+
 
 init()
 
