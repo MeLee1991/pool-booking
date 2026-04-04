@@ -38,7 +38,6 @@ for idx, time_str in enumerate(HOURS):
     child_idx = idx + 3 
     
     if is_prime:
-        # 🌟 EYE-CATCHING PRIME TIME
         bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
         border = "2px solid #ffc107"
         font_size = "14px"
@@ -47,11 +46,9 @@ for idx, time_str in enumerate(HOURS):
         box_shadow = "0px 3px 6px rgba(0,0,0,0.15)"
         padding = "8px 2px"
         
-        # Mobile specific prime time
         m_font_size = "12px"
         m_padding = "6px 2px"
     else:
-        # 🌙 FLAT OFF-HOURS
         bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
         border = "1px solid #ced4da"
         font_size = "11px"
@@ -60,7 +57,6 @@ for idx, time_str in enumerate(HOURS):
         box_shadow = "none"
         padding = "4px 2px"
         
-        # Mobile specific off-hours
         m_font_size = "10px"
         m_padding = "2px 2px"
 
@@ -385,14 +381,17 @@ def admin_modal(table, time, date, current_user, display_name):
         log_action("CANCELLED", st.session_state.logged_in_user, current_user, f"{table} | {date} | {time}")
         st.rerun()
 
-
 # ==========================================
-# 6. THE BOOKING SYSTEM UI & LOCAL IMAGES
+# 6. THE BOOKING SYSTEM UI
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
 
+# SAFELY LOAD IMAGES
 if os.path.exists("banner.jpg"):
-    st.image("banner.jpg", use_container_width=True)
+    try:
+        st.image("banner.jpg", use_container_width=True)
+    except Exception as e:
+        st.warning("⚠️ banner.jpg is corrupted or not a valid image format.")
 
 today = datetime.now().date()
 upcoming_dates = [today + timedelta(days=i) for i in range(14)]
@@ -422,9 +421,13 @@ for i, col in enumerate(cols):
     
     col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
     
+    # SAFELY LOAD TABLE IMAGES
     img_name = f"table{i+1}.jpg"
     if os.path.exists(img_name):
-        col.image(img_name, use_container_width=True)
+        try:
+            col.image(img_name, use_container_width=True)
+        except Exception as e:
+            col.warning(f"⚠️ {img_name} is invalid.")
     
     for time_str in HOURS:
         booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
@@ -434,7 +437,7 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
             
-            # 1. Is it YOUR slot? INSTANT CANCEL (Even if you are an admin)
+            # 1. Is it YOUR slot? INSTANT CANCEL (No Popup)
             if booked_user_email == st.session_state.logged_in_user:
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     df = load_bookings()
@@ -453,7 +456,7 @@ for i, col in enumerate(cols):
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
-            # 4. Slot is FREE. INSTANT BOOK.
+            # 4. Slot is FREE. INSTANT BOOK (No Popup)
             if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", use_container_width=True):
                 if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
                     st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
