@@ -38,6 +38,7 @@ for idx, time_str in enumerate(HOURS):
     child_idx = idx + 3 
     
     if is_prime:
+        # 🌟 EYE-CATCHING PRIME TIME
         bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
         border = "2px solid #ffc107"
         font_size = "14px"
@@ -46,9 +47,11 @@ for idx, time_str in enumerate(HOURS):
         box_shadow = "0px 3px 6px rgba(0,0,0,0.15)"
         padding = "8px 2px"
         
+        # Mobile specific prime time
         m_font_size = "12px"
         m_padding = "6px 2px"
     else:
+        # 🌙 FLAT OFF-HOURS
         bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
         border = "1px solid #ced4da"
         font_size = "11px"
@@ -57,6 +60,7 @@ for idx, time_str in enumerate(HOURS):
         box_shadow = "none"
         padding = "4px 2px"
         
+        # Mobile specific off-hours
         m_font_size = "10px"
         m_padding = "2px 2px"
 
@@ -88,7 +92,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 CLEAN STRUCTURAL CSS & IRONCLAD MOBILE SWIPE
+# 1.5 CLEAN STRUCTURAL CSS (NO TRANSITIONS)
 # ==========================================
 st.markdown("""
 <style>
@@ -105,9 +109,6 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
-    /* ---------------------------------------------------
-       MAIN AREA: 2-ROW DATE RIBBON
-       --------------------------------------------------- */
     [data-testid="stMain"] div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
@@ -149,9 +150,6 @@ st.markdown("""
     [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
     [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
-    /* ---------------------------------------------------
-       MAIN AREA: TABLES & STICKY HEADERS
-       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
         gap: 10px !important; justify-content: center !important; 
     }
@@ -177,15 +175,13 @@ st.markdown("""
 
     [data-testid="stMain"] [data-testid="stImage"] { margin-bottom: 8px !important; border-radius: 4px; overflow: hidden; }
 
+    /* SNAPPY BUTTONS (No transitions) */
     [data-testid="stMain"] div[data-testid="column"] .stButton > button, [data-testid="stMain"] div[data-testid="stColumn"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
-        text-align: center !important; transition: all 0.1s ease;
-        margin-bottom: 4px !important; display: block !important;
+        text-align: center !important; margin-bottom: 4px !important; display: block !important;
+        transition: none !important; /* Forces instant snapping */
     }
     
-    /* ---------------------------------------------------
-       🔥 ACTIVE/BOOKED SLOTS OVERRIDES 🔥
-       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="column"] button[kind="primary"], [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
@@ -204,9 +200,6 @@ st.markdown("""
         color: #dc3545 !important; font-weight: 700 !important; 
     }
 
-    /* ---------------------------------------------------
-       📱 IRONCLAD MOBILE SCROLL FIX
-       --------------------------------------------------- */
     @media (max-width: 900px) {
         [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns {
             display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
@@ -296,7 +289,6 @@ if st.session_state.logged_in_user is None:
             elif len(email_input) < 5 or "@" not in email_input: st.sidebar.error("Valid email required.")
             elif len(display_name) < 2: st.sidebar.error("Display name required.")
             else:
-                # Bootstrap the first user as an admin if it's the owner, otherwise pending.
                 role = 'admin' if email_input == OWNER_EMAIL else 'pending'
                 new_user = pd.DataFrame([[email_input, display_name, password, role, 3.0]], columns=['Email', 'Name', 'Password', 'Role', 'Max_Hours_Day'])
                 save_users(pd.concat([users, new_user], ignore_index=True))
@@ -365,7 +357,6 @@ if view_mode == "⚙️ Admin Dashboard":
             st.download_button(label="📥 Download History CSV", data=file, file_name="reservation_history.csv", mime="text/csv")
             
     with tab4: 
-        # ALL admins can now see the audit log
         if st.session_state.user_role == 'admin':
             st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
         else:
@@ -374,7 +365,7 @@ if view_mode == "⚙️ Admin Dashboard":
 
 
 # ==========================================
-# 5. ADMIN DIALOG WINDOW
+# 5. ADMIN EDIT DIALOG WINDOW (Only for others' slots)
 # ==========================================
 @st.dialog("⚙️ Admin Control")
 def admin_modal(table, time, date, current_user, display_name):
@@ -443,24 +434,26 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
             
-            if st.session_state.user_role == 'admin':
-                # Admins click to open the Edit/Remove Modal
-                if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
-                    admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
-                    
-            elif booked_user_email == st.session_state.logged_in_user:
-                # Ordinary User clicks their own slot to instantly Cancel (No Popup)
+            # 1. Is it YOUR slot? INSTANT CANCEL (Even if you are an admin)
+            if booked_user_email == st.session_state.logged_in_user:
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     df = load_bookings()
                     df = df[~((df['Table'] == f"Table {i+1}") & (df['Time'] == time_str) & (df['Date'] == str(view_date)))]
                     save_bookings(df)
                     log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
                     st.rerun()
+            
+            # 2. Are you an Admin clicking SOMEONE ELSE'S slot? OPEN ADMIN MODAL
+            elif st.session_state.user_role == 'admin':
+                if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
+                    admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
+                    
+            # 3. Someone else's slot and you are NOT an admin. LOCKED.
             else:
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
-            # Ordinary User clicks FREE slot to instantly Book (No Popup)
+            # 4. Slot is FREE. INSTANT BOOK.
             if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", use_container_width=True):
                 if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
                     st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
