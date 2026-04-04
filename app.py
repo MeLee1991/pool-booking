@@ -1,176 +1,17 @@
-import streamlit as st
-import sqlite3
-import pandas as pd
-from datetime import datetime, timedelta
-import hashlib
-
-st.set_page_config(page_title="Poolhall", layout="wide")
-
-DB = "db.sqlite"
-
 # ==========================================
-# 🎨 UI (SCROLL + STICKY HEADERS)
+# SETTINGS (you can tweak later)
 # ==========================================
-st.markdown("""
-<style>
-/* GENERAL */
-body, .stApp {
-    background:#f5f5f7;
-    color:#1d1d1f;
-    font-family:-apple-system,BlinkMacSystemFont;
-}
+TABLES = ["Table 1", "Table 2", "Table 3"]
+START_HOUR = 8
+END_HOUR = 24
+STEP_MIN = 30  # 30 = half hour
 
-/* HORIZONTAL SCROLL CONTAINER */
-.scroll-x {
-    overflow-x: auto;
-    white-space: nowrap;
-}
-
-/* GRID TABLE */
-.grid {
-    min-width: 600px;
-}
-
-/* HEADER */
-.header {
-    position: sticky;
-    top: 0;
-    background: white;
-    z-index: 10;
-    font-weight: 600;
-    text-align: center;
-    padding: 6px;
-    border-bottom: 1px solid #ddd;
-}
-
-/* TIME COLUMN */
-.time {
-    font-size: 12px;
-    color: #555;
-}
-
-/* SLOT BUTTON */
-button {
-    border-radius: 8px !important;
-}
-
-/* PRIME TIME */
-.prime {
-    background: #fff3cd !important;
-}
-
-/* DATE SCROLL */
-.date-scroll {
-    overflow-x: auto;
-    white-space: nowrap;
-    padding-bottom: 10px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# DB
-# ==========================================
-def db():
-    return sqlite3.connect(DB, check_same_thread=False)
-
-def init():
-    d = db()
-    d.execute("""
-    CREATE TABLE IF NOT EXISTS users(
-        email TEXT PRIMARY KEY,
-        name TEXT,
-        pw TEXT
-    )
-    """)
-    d.execute("""
-    CREATE TABLE IF NOT EXISTS bookings(
-        user TEXT,
-        date TEXT,
-        table_name TEXT,
-        time TEXT
-    )
-    """)
-    d.commit()
-
-init()
-
-# ==========================================
-# AUTH (AUTO)
-# ==========================================
-def hash_pw(p): return hashlib.sha256(p.encode()).hexdigest()
-
-def login_or_register(email, name, pw):
-    d = db()
-    user = d.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-
-    if user:
-        if user[2] == hash_pw(pw):
-            return user
-        else:
-            return "wrong"
-    else:
-        d.execute("INSERT INTO users VALUES (?,?,?)",
-                  (email, name, hash_pw(pw)))
-        d.commit()
-        return d.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-
-# ==========================================
-# SESSION
-# ==========================================
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-# ==========================================
-# LOGIN
-# ==========================================
-if not st.session_state.user:
-
-    st.title("🎱 Poolhall")
-
-    email = st.text_input("Email")
-    name = st.text_input("Name (first time only)")
-    pw = st.text_input("Password", type="password")
-
-    if st.button("Continue", use_container_width=True):
-        result = login_or_register(email, name, pw)
-
-        if result == "wrong":
-            st.error("Wrong password")
-        else:
-            st.session_state.user = result[0]
-            st.rerun()
-
-    st.stop()
-
-# ==========================================
-# LOGOUT
-# ==========================================
-if st.button("Logout"):
-    st.session_state.clear()
-    st.rerun()
-
-# ==========================================
-# 📅 DATE (SCROLLABLE)
-# ==========================================
-today = datetime.now().date()
-dates = [today + timedelta(days=i) for i in range(14)]
-
-labels = [
-    "Today" if d == today else
-    "Tomorrow" if d == today + timedelta(days=1)
-    else d.strftime("%a %d")
-    for d in dates
+# TIME LIST
+times = [
+    f"{h:02d}:{m:02d}"
+    for h in range(START_HOUR, END_HOUR)
+    for m in range(0, 60, STEP_MIN)
 ]
-
-selected = st.radio("", labels, horizontal=True)
-date = dates[labels.index(selected)]
-
-# ==========================================
-# DATA
-# ==========================================
-times = [f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
-tables = ["Table 1","Table 2","Table 3"]
 
 df = pd.read_sql_query(
     "SELECT * FROM bookings WHERE date=?",
@@ -178,28 +19,75 @@ df = pd.read_sql_query(
 )
 
 # ==========================================
-# GRID (SCROLLABLE)
+# GRID CSS (IMPORTANT)
 # ==========================================
-st.markdown('<div class="scroll-x">', unsafe_allow_html=True)
+st.markdown("""
+<style>
+.grid-wrap {
+    overflow-x: auto;
+}
 
-# HEADER
-cols = st.columns([1,2,2,2])
-cols[0].markdown("**Time**")
-cols[1].markdown("**Table 1**")
-cols[2].markdown("**Table 2**")
-cols[3].markdown("**Table 3**")
+.grid {
+    display: grid;
+    grid-template-columns: 70px repeat(3, 90px);
+    gap: 6px;
+    min-width: 350px;
+}
+
+.cell {
+    text-align: center;
+    font-size: 12px;
+}
+
+.header {
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding: 4px;
+}
+
+.time {
+    text-align: right;
+    padding-right: 6px;
+    color: #666;
+}
+
+.slot button {
+    width: 100%;
+    height: 34px;
+    border-radius: 10px;
+}
+
+.prime button {
+    background: #ff9500 !important;
+    color: white !important;
+    font-weight: 700;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# GRID RENDER
+# ==========================================
+st.markdown('<div class="grid-wrap"><div class="grid">', unsafe_allow_html=True)
+
+# HEADER ROW
+st.markdown('<div class="cell header">Time</div>', unsafe_allow_html=True)
+for t in TABLES:
+    st.markdown(f'<div class="cell header">{t}</div>', unsafe_allow_html=True)
 
 # ROWS
 for t in times:
 
     hour = int(t[:2])
-    prime = 17 <= hour <= 22
+    is_prime = 17 <= hour <= 22
 
-    cols = st.columns([1,2,2,2])
+    # TIME CELL
+    st.markdown(f'<div class="cell time">{t}</div>', unsafe_allow_html=True)
 
-    cols[0].markdown(f"🔥 {t}" if prime else t)
-
-    for i, tbl in enumerate(tables):
+    for tbl in TABLES:
 
         slot = df[
             (df["table_name"] == tbl) &
@@ -208,11 +96,16 @@ for t in times:
 
         key = f"{tbl}_{t}"
 
+        # SLOT STYLE
+        css_class = "slot prime" if is_prime else "slot"
+
+        st.markdown(f'<div class="cell {css_class}">', unsafe_allow_html=True)
+
         if not slot.empty:
             u = slot.iloc[0]["user"]
 
             if u == st.session_state.user:
-                if cols[i+1].button("❌", key=key):
+                if st.button("❌", key=key):
                     db().execute(
                         "DELETE FROM bookings WHERE user=? AND date=? AND table_name=? AND time=?",
                         (u, str(date), tbl, t)
@@ -220,11 +113,10 @@ for t in times:
                     db().commit()
                     st.rerun()
             else:
-                cols[i+1].button("🔒", disabled=True, key=key)
+                st.button("🔒", key=key, disabled=True)
 
         else:
-            btn = cols[i+1].button("🟢", key=key)
-            if btn:
+            if st.button("🟢", key=key):
                 db().execute(
                     "INSERT INTO bookings VALUES (?,?,?,?)",
                     (st.session_state.user, str(date), tbl, t)
@@ -232,4 +124,6 @@ for t in times:
                 db().commit()
                 st.rerun()
 
-st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('</div></div>', unsafe_allow_html=True)
