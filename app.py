@@ -88,7 +88,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 CLEAN STRUCTURAL CSS
+# 1.5 CLEAN STRUCTURAL CSS & IRONCLAD MOBILE SWIPE
 # ==========================================
 st.markdown("""
 <style>
@@ -105,6 +105,9 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
+    /* ---------------------------------------------------
+       MAIN AREA: 2-ROW DATE RIBBON
+       --------------------------------------------------- */
     [data-testid="stMain"] div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
@@ -146,14 +149,14 @@ st.markdown("""
     [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
     [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
+    /* ---------------------------------------------------
+       MAIN AREA: TABLES & STICKY HEADERS
+       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
-        gap: 10px !important; 
-        justify-content: center !important; 
+        gap: 10px !important; justify-content: center !important; 
     }
     [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] { 
-        display: flex !important; 
-        flex-direction: column !important; 
-        padding: 0 !important; 
+        display: flex !important; flex-direction: column !important; padding: 0 !important; 
     }
 
     [data-testid="stMain"] .table-header {
@@ -177,10 +180,12 @@ st.markdown("""
     [data-testid="stMain"] div[data-testid="column"] .stButton > button, [data-testid="stMain"] div[data-testid="stColumn"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         text-align: center !important; transition: all 0.1s ease;
-        margin-bottom: 4px !important;
-        display: block !important;
+        margin-bottom: 4px !important; display: block !important;
     }
     
+    /* ---------------------------------------------------
+       🔥 ACTIVE/BOOKED SLOTS OVERRIDES 🔥
+       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="column"] button[kind="primary"], [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
@@ -193,36 +198,27 @@ st.markdown("""
     [data-testid="stMain"] div[data-testid="column"] button[disabled], [data-testid="stMain"] div[data-testid="stColumn"] button[disabled] { 
         background-color: #ffe5e5 !important; 
         border: 1px solid #dc3545 !important;
-        opacity: 1 !important; 
-        box-shadow: none !important;
+        opacity: 1 !important; box-shadow: none !important;
     }
     [data-testid="stMain"] div[data-testid="column"] button[disabled] p, [data-testid="stMain"] div[data-testid="stColumn"] button[disabled] p { 
         color: #dc3545 !important; font-weight: 700 !important; 
     }
 
+    /* ---------------------------------------------------
+       📱 IRONCLAD MOBILE SCROLL FIX
+       --------------------------------------------------- */
     @media (max-width: 900px) {
         [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns {
-            display: flex !important; 
-            flex-direction: row !important; 
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important; 
-            overflow-y: hidden !important; 
-            scroll-snap-type: x mandatory;
-            padding-bottom: 10px !important; 
-            justify-content: flex-start !important; 
-            -webkit-overflow-scrolling: touch !important;
-            gap: 6px !important;
+            display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
+            overflow-x: auto !important; overflow-y: hidden !important; scroll-snap-type: x mandatory;
+            padding-bottom: 10px !important; justify-content: flex-start !important; 
+            -webkit-overflow-scrolling: touch !important; gap: 6px !important;
         }
         [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] {
-            width: 45vw !important; 
-            min-width: 45vw !important; 
-            max-width: 45vw !important; 
-            flex: 0 0 45vw !important; 
-            scroll-snap-align: center; 
+            width: 45vw !important; min-width: 45vw !important; max-width: 45vw !important; 
+            flex: 0 0 45vw !important; scroll-snap-align: center; 
         }
-        [data-testid="stMain"] .table-header {
-            font-size: 12px !important;
-        }
+        [data-testid="stMain"] .table-header { font-size: 12px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -300,6 +296,7 @@ if st.session_state.logged_in_user is None:
             elif len(email_input) < 5 or "@" not in email_input: st.sidebar.error("Valid email required.")
             elif len(display_name) < 2: st.sidebar.error("Display name required.")
             else:
+                # Bootstrap the first user as an admin if it's the owner, otherwise pending.
                 role = 'admin' if email_input == OWNER_EMAIL else 'pending'
                 new_user = pd.DataFrame([[email_input, display_name, password, role, 3.0]], columns=['Email', 'Name', 'Password', 'Role', 'Max_Hours_Day'])
                 save_users(pd.concat([users, new_user], ignore_index=True))
@@ -338,23 +335,18 @@ if view_mode == "⚙️ Admin Dashboard":
     
     with tab1:
         st.write("### Manage Users")
-        st.info("💡 **Tip:** Click the **gray '+' row at the bottom** to add a new user. Select a row and press **Delete** on your keyboard (or use the trash icon) to remove a user.")
-        
         users_df = load_users()
-        # MAGIC FIX: num_rows="dynamic" enables Adding and Deleting!
-        # Removed disabled=True from Email and Password so you can edit them directly.
         edited_users = st.data_editor(
             users_df,
             column_config={
                 "Role": st.column_config.SelectboxColumn("User Role", options=["pending", "user", "admin"], required=True),
-                "Name": st.column_config.TextColumn("Display Name", required=True), 
-                "Email": st.column_config.TextColumn("Email Address", required=True), 
-                "Password": st.column_config.TextColumn("Password", required=True),
+                "Name": st.column_config.TextColumn("Display Name"), 
+                "Email": st.column_config.TextColumn("Email Address", disabled=False), 
+                "Password": st.column_config.TextColumn("Password", disabled=False),
                 "Max_Hours_Day": st.column_config.NumberColumn("Daily Max (Hours)", min_value=0.5, max_value=24.0, step=0.5)
             },
             num_rows="dynamic",
-            hide_index=True, 
-            use_container_width=True
+            hide_index=True, use_container_width=True
         )
         if st.button("💾 Save User Changes", type="primary"):
             save_users(edited_users)
@@ -373,15 +365,16 @@ if view_mode == "⚙️ Admin Dashboard":
             st.download_button(label="📥 Download History CSV", data=file, file_name="reservation_history.csv", mime="text/csv")
             
     with tab4: 
-        if st.session_state.logged_in_user == OWNER_EMAIL:
+        # ALL admins can now see the audit log
+        if st.session_state.user_role == 'admin':
             st.dataframe(pd.read_csv(AUDIT_FILE), use_container_width=True)
         else:
-            st.error("⛔ Access Denied. Only the Owner can view the Audit Log.")
+            st.error("⛔ Access Denied.")
     st.stop()
 
 
 # ==========================================
-# 5. PROTECTED POPUP DIALOG WINDOWS
+# 5. ADMIN DIALOG WINDOW
 # ==========================================
 @st.dialog("⚙️ Admin Control")
 def admin_modal(table, time, date, current_user, display_name):
@@ -399,35 +392,6 @@ def admin_modal(table, time, date, current_user, display_name):
         df = df[~((df['Table'] == table) & (df['Time'] == time) & (df['Date'] == str(date)))]
         save_bookings(df)
         log_action("CANCELLED", st.session_state.logged_in_user, current_user, f"{table} | {date} | {time}")
-        st.rerun()
-
-@st.dialog("❌ Cancel Booking")
-def user_cancel_modal(table, time, date):
-    st.write(f"Are you sure you want to cancel your reservation for **{table}** at **{time}**?")
-    c1, c2 = st.columns(2)
-    if c1.button("Yes, Cancel", type="primary", use_container_width=True):
-        df = load_bookings()
-        df = df[~((df['Table'] == table) & (df['Time'] == time) & (df['Date'] == str(date)))]
-        save_bookings(df)
-        log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"{table} | {date} | {time}")
-        st.rerun()
-    if c2.button("No, Keep it", use_container_width=True):
-        st.rerun()
-
-@st.dialog("🟢 Book Table")
-def book_modal(table, time, date, current_hours, max_allowed):
-    st.write(f"Reserve **{table}** at **{time}**?")
-    c1, c2 = st.columns(2)
-    if c1.button("Confirm", type="primary", use_container_width=True):
-        if current_hours + 0.5 > max_allowed and st.session_state.user_role != 'admin':
-            st.error(f"Limit reached! Your daily limit is {max_allowed}h.")
-        else:
-            df = load_bookings()
-            new_row = pd.DataFrame([[st.session_state.logged_in_user, str(date), table, time, 0.5]], columns=['User', 'Date', 'Table', 'Time', 'Duration'])
-            save_bookings(pd.concat([df, new_row], ignore_index=True))
-            log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"{table} | {date} | {time}")
-            st.rerun()
-    if c2.button("Cancel", use_container_width=True):
         st.rerun()
 
 
@@ -480,18 +444,32 @@ for i, col in enumerate(cols):
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
             
             if st.session_state.user_role == 'admin':
+                # Admins click to open the Edit/Remove Modal
                 if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
                     admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
                     
             elif booked_user_email == st.session_state.logged_in_user:
+                # Ordinary User clicks their own slot to instantly Cancel (No Popup)
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
-                    user_cancel_modal(f"Table {i+1}", time_str, view_date)
+                    df = load_bookings()
+                    df = df[~((df['Table'] == f"Table {i+1}") & (df['Time'] == time_str) & (df['Date'] == str(view_date)))]
+                    save_bookings(df)
+                    log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
+                    st.rerun()
             else:
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
+            # Ordinary User clicks FREE slot to instantly Book (No Popup)
             if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", use_container_width=True):
-                book_modal(f"Table {i+1}", time_str, view_date, user_today_hours, user_max_hours)
+                if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
+                    st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
+                else:
+                    df = load_bookings()
+                    new_row = pd.DataFrame([[st.session_state.logged_in_user, str(view_date), f"Table {i+1}", time_str, 0.5]], columns=['User', 'Date', 'Table', 'Time', 'Duration'])
+                    save_bookings(pd.concat([df, new_row], ignore_index=True))
+                    log_action("BOOKED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
+                    st.rerun()
 
 # ==========================================
 # 7. SAFE AUTO-SCROLL SCRIPT
