@@ -57,12 +57,12 @@ for idx, time_str in enumerate(HOURS):
         font_weight = "900"
         
         m_height = "32px" 
-        m_font_size = "12px" 
+        m_font_size = "11px" 
     else:
         # 🌙 SMALL, DIM OFF-HOURS
         height = "26px"
-        font_size = "10px"
-        font_weight = "400"
+        font_size = "11px"
+        font_weight = "500"
         
         m_height = "24px" 
         m_font_size = "8px" 
@@ -74,7 +74,7 @@ for idx, time_str in enumerate(HOURS):
     dynamic_css += f'    min-height: {height} !important;\n'
     dynamic_css += f'    max-height: {height} !important;\n'
     dynamic_css += f'    margin-bottom: 4px !important;\n'
-    dynamic_css += f'    overflow: hidden !important;\n'
+    dynamic_css += f'    overflow: visible !important;\n' # Allow scale animation to pop slightly
     dynamic_css += f'}}\n'
     
     # 2. Force the background color directly onto the button
@@ -107,7 +107,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 STRUCTURAL CSS: ZERO DRAMA & 3-COLUMNS
+# 1.5 STRUCTURAL CSS: TACTILE BUTTONS & 3-COLUMNS
 # ==========================================
 st.markdown("""
 <style>
@@ -159,7 +159,7 @@ st.markdown("""
     [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
     /* HEADER & IMAGE ALIGNMENT ANCHORS */
-    [data-testid="stMain"] div[data-testid="column"] { gap: 0 !important; } /* Strip internal spacing */
+    [data-testid="stMain"] div[data-testid="column"] { gap: 0 !important; } 
     [data-testid="stMain"] div[data-testid="column"] > div:nth-child(1) { height: 35px !important; margin-bottom: 4px !important; }
     [data-testid="stMain"] div[data-testid="column"] > div:nth-child(2) { height: 80px !important; margin-bottom: 8px !important; }
 
@@ -171,17 +171,24 @@ st.markdown("""
     [data-testid="stImage"] img { border-radius: 4px; max-height: 80px !important; object-fit: cover; }
 
     /* ---------------------------------------------------
-       💥 ZERO DRAMA (NO ANIMATIONS OR TRANSITIONS) 💥
+       💥 SNAPPY MICRO-INTERACTIONS (FAST TACTILE FEEDBACK) 💥
        --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="column"] button {
         height: 100% !important; width: 100% !important; border-radius: 4px !important; 
         margin: 0 !important; padding: 0 2px !important;
-        transition: none !important; transform: none !important; animation: none !important;
+        /* Fast 0.1s transition for that crisp app-like feel */
+        transition: transform 0.1s ease, filter 0.1s ease !important; 
     }
-    [data-testid="stMain"] div[data-testid="column"] button:active, 
-    [data-testid="stMain"] div[data-testid="column"] button:focus,
+    
+    /* Hover slightly darkens */
     [data-testid="stMain"] div[data-testid="column"] button:hover {
-        transform: none !important; outline: none !important; box-shadow: none !important; filter: none !important;
+        filter: brightness(0.92) !important;
+    }
+    
+    /* Active (Clicking) makes it dent inwards instantly */
+    [data-testid="stMain"] div[data-testid="column"] button:active {
+        transform: scale(0.94) !important; 
+        filter: brightness(0.85) !important;
     }
     
     [data-testid="stMain"] div[data-testid="column"] button p {
@@ -190,8 +197,7 @@ st.markdown("""
         width: 100% !important; margin: 0 !important; line-height: 1 !important;
     }
     
-    /* 🔥 SPECIFIC OVERRIDES FOR BOOKED/LOCKED SLOTS 🔥 
-       (Uses :nth-child(n) to beat the specificity of the background colors above) */
+    /* 🔥 SPECIFIC OVERRIDES FOR BOOKED/LOCKED SLOTS 🔥 */
     [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[kind="primary"] { 
         background-color: #dc3545 !important; border: 2px solid #bd2130 !important;
     }
@@ -199,6 +205,8 @@ st.markdown("""
     
     [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] { 
         background-color: #ffe5e5 !important; border: 1px solid #dc3545 !important; opacity: 1 !important; 
+        /* Disabled buttons shouldn't dent when clicked */
+        pointer-events: none !important;
     }
     [data-testid="stMain"] div[data-testid="column"] > div:nth-child(n) button[disabled] p { color: #dc3545 !important; }
 
@@ -457,6 +465,7 @@ for i, col in enumerate(cols):
             booked_user_email = booked.iloc[0]['User']
             short_name = name_lookup.get(booked_user_email, str(booked_user_email).split('@')[0]) if "@" in str(booked_user_email) else booked_user_email
             
+            # 1. Is it YOUR slot? INSTANT CANCEL (No Popup)
             if booked_user_email == st.session_state.logged_in_user:
                 if col.button(f"{time_str} ❌ {short_name}", key=f"del_{button_key}", type="primary", use_container_width=True):
                     df = load_bookings()
@@ -465,14 +474,17 @@ for i, col in enumerate(cols):
                     log_action("CANCELLED", st.session_state.logged_in_user, st.session_state.logged_in_user, f"Table {i+1} | {view_date} | {time_str}")
                     st.rerun()
             
+            # 2. Are you an Admin clicking SOMEONE ELSE'S slot? OPEN ADMIN MODAL
             elif st.session_state.user_role == 'admin':
                 if col.button(f"{time_str} 🔴 {short_name}", key=f"admin_{button_key}", type="primary", use_container_width=True):
                     admin_modal(f"Table {i+1}", time_str, view_date, booked_user_email, short_name)
                     
+            # 3. Someone else's slot and you are NOT an admin. LOCKED.
             else:
                 col.button(f"{time_str} 🔒 {short_name}", key=f"dis_{button_key}", disabled=True, use_container_width=True)
                 
         else:
+            # 4. Slot is FREE. INSTANT BOOK (No Popup)
             if col.button(f"{time_str} 🟢 FREE", key=f"add_{button_key}", type="secondary", use_container_width=True):
                 if user_today_hours + 0.5 > user_max_hours and st.session_state.user_role != 'admin':
                     st.error(f"Limit reached! Your daily limit is {user_max_hours}h.")
