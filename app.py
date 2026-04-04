@@ -11,16 +11,16 @@ import os
 st.set_page_config(page_title="Poolhall", layout="wide")
 
 DB = "db.sqlite"
-OWNER_EMAIL = "admin@pool.com"
+OWNER_EMAIL = "test@gmail.com"  # THIS WILL BE ADMIN
 
 # ==========================================
-# 🍏 UI
+# 🍏 LIGHT APPLE UI
 # ==========================================
 st.markdown("""
 <style>
 body, .stApp {
-    background:#0b0b0c;
-    color:#f5f5f7;
+    background:#f5f5f7;
+    color:#1d1d1f;
     font-family:-apple-system,BlinkMacSystemFont;
 }
 
@@ -28,48 +28,55 @@ body, .stApp {
 .header {
     position:sticky;
     top:0;
-    z-index:999;
-    background:#0b0b0c;
+    background:#ffffff;
     padding:8px;
     text-align:center;
     font-weight:600;
+    border-radius:8px;
+    margin-bottom:5px;
 }
 
 /* SLOT */
 .slot {
-    height:26px;
+    height:30px;
     border-radius:10px;
     margin-bottom:4px;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:11px;
+    font-size:12px;
 }
 
 /* NORMAL */
-.normal { background:#1c1c1e; color:#aaa; }
+.normal {
+    background:#e5e5ea;
+}
 
 /* PRIME */
 .prime {
-    background:#2c2c2e;
-    border:1px solid #ff9f0a;
-    box-shadow:0 0 10px rgba(255,159,10,0.4);
-    color:#fff;
+    background:#fff3cd;
+    border:1px solid #ff9500;
 }
 
 /* LOCK */
-.locked { opacity:0.4; }
+.locked {
+    opacity:0.4;
+}
 
 /* OWN */
-.mine { background:#ff453a !important; color:white; }
+.mine {
+    background:#ff3b30 !important;
+    color:white;
+}
 
 /* TOP BAR */
 .topbar {
-    background:#1c1c1e;
+    background:white;
     padding:10px;
     border-radius:12px;
     text-align:center;
     margin-bottom:15px;
+    border:1px solid #ddd;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -87,14 +94,6 @@ def init():
     d.commit()
 
 init()
-
-# ==========================================
-# EMAIL PREVIEW
-# ==========================================
-def send_email(to, subject, body):
-    st.markdown(f"📧 **Email → {to}**")
-    st.write(subject)
-    st.write(body)
 
 # ==========================================
 # AUTH
@@ -121,13 +120,13 @@ if "user" not in st.session_state:
     st.session_state.role=None
 
 # ==========================================
-# LOGIN SCREEN (FIXED)
+# LOGIN SCREEN
 # ==========================================
 if not st.session_state.user:
 
     st.title("🎱 Poolhall Reservations")
 
-    mode = st.radio("Select", ["Login", "Register"])
+    mode = st.radio("Login or Register", ["Login", "Register"])
 
     email = st.text_input("Email").strip().lower()
     name = st.text_input("Name") if mode=="Register" else ""
@@ -144,9 +143,9 @@ if not st.session_state.user:
         else:
             if mode == "Register":
                 if register(email, name, pw):
-                    st.success("Account created ✅")
+                    st.success("Account created ✅ → Now login")
                 else:
-                    st.error("User exists")
+                    st.error("User already exists")
 
             else:
                 user = login(email, pw)
@@ -157,7 +156,7 @@ if not st.session_state.user:
                     st.success("Logged in ✅")
                     st.rerun()
                 else:
-                    st.error("Wrong login")
+                    st.error("User does not exist → register first")
 
     st.stop()
 
@@ -169,7 +168,7 @@ if st.button("Logout"):
     st.rerun()
 
 # ==========================================
-# BANNER IMAGE
+# BANNER
 # ==========================================
 if os.path.exists("banner.jpg"):
     st.image("banner.jpg", use_container_width=True)
@@ -201,10 +200,9 @@ for i,tbl in enumerate(tables):
 
         st.markdown(f"<div class='header'>{tbl}</div>",unsafe_allow_html=True)
 
-        # TABLE IMAGE
-        img_path=f"table{i+1}.jpg"
-        if os.path.exists(img_path):
-            st.image(img_path, use_container_width=True)
+        img=f"table{i+1}.jpg"
+        if os.path.exists(img):
+            st.image(img, use_container_width=True)
 
         for t in times:
             hour=int(t[:2])
@@ -221,8 +219,6 @@ for i,tbl in enumerate(tables):
                         db().execute("DELETE FROM bookings WHERE user=? AND date=? AND table_name=? AND time=?",
                                      (u,str(date),tbl,t))
                         db().commit()
-
-                        send_email(OWNER_EMAIL,"Cancel",f"{u} cancelled {t}")
                         st.rerun()
                 else:
                     st.markdown(f"<div class='{cls} locked'>{t}</div>",unsafe_allow_html=True)
@@ -235,6 +231,4 @@ for i,tbl in enumerate(tables):
                         db().execute("INSERT INTO bookings VALUES (?,?,?,?)",
                                      (st.session_state.user,str(date),tbl,t))
                         db().commit()
-
-                        send_email(OWNER_EMAIL,"Booking",f"{email} booked {t}")
                         st.rerun()
