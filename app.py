@@ -13,41 +13,67 @@ OWNER_EMAIL = "tomaz@gmail.com"
 # ==========================================
 # 🎨 UI
 # ==========================================
+
+# ==========================================
+# 📱 SCROLLABLE GRID WRAPPER
+# ==========================================
 st.markdown("""
-<style>
-body, .stApp {
-    background:#f5f5f7;
-    color:#1d1d1f;
-}
-
-.header {
-    text-align:center;
-    font-weight:600;
-}
-
-.slot {
-    height:32px;
-    border-radius:10px;
-    margin-bottom:4px;
-}
-
-.normal { background:#e5e5ea; }
-
-.prime {
-    background:#fff3cd;
-    border:1px solid #ff9500;
-}
-
-.topbar {
-    background:white;
-    padding:10px;
-    border-radius:12px;
-    text-align:center;
-    margin-bottom:15px;
-    border:1px solid #ddd;
-}
-</style>
+<div style="overflow-x:auto;">
 """, unsafe_allow_html=True)
+
+# HEADER
+cols = st.columns([1,2,2,2])
+cols[0].markdown("**Time**")
+cols[1].markdown("**Table 1**")
+cols[2].markdown("**Table 2**")
+cols[3].markdown("**Table 3**")
+
+# ROWS
+for t in times:
+
+    hour = int(t[:2])
+    prime = 17 <= hour <= 22
+
+    cols = st.columns([1,2,2,2])
+
+    # TIME
+    cols[0].markdown(f"🔥 {t}" if prime else t)
+
+    for i, tbl in enumerate(tables):
+
+        slot = df[
+            (df["table_name"] == tbl) &
+            (df["time"] == t)
+        ]
+
+        key = f"{tbl}_{t}"
+
+        # BOOKED
+        if not slot.empty:
+            u = slot.iloc[0]["user"]
+
+            if u == st.session_state.user:
+                if cols[i+1].button(f"❌", key=key):
+                    db().execute(
+                        "DELETE FROM bookings WHERE user=? AND date=? AND table_name=? AND time=?",
+                        (u, str(date), tbl, t)
+                    )
+                    db().commit()
+                    st.rerun()
+            else:
+                cols[i+1].button("🔒", disabled=True, key=key)
+
+        # FREE
+        else:
+            if cols[i+1].button("🟢", key=key):
+                db().execute(
+                    "INSERT INTO bookings VALUES (?,?,?,?)",
+                    (st.session_state.user, str(date), tbl, t)
+                )
+                db().commit()
+                st.rerun()
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
 # DB
