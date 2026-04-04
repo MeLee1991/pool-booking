@@ -11,10 +11,10 @@ import os
 st.set_page_config(page_title="Poolhall", layout="wide")
 
 DB = "db.sqlite"
-OWNER_EMAIL = "test@gmail.com"  # THIS WILL BE ADMIN
+OWNER_EMAIL = "tomaz@gmail.com"  # YOUR EMAIL = ADMIN
 
 # ==========================================
-# 🍏 LIGHT APPLE UI
+# 🍏 LIGHT UI
 # ==========================================
 st.markdown("""
 <style>
@@ -24,33 +24,27 @@ body, .stApp {
     font-family:-apple-system,BlinkMacSystemFont;
 }
 
-/* HEADER */
 .header {
-    position:sticky;
-    top:0;
-    background:#ffffff;
+    background:white;
     padding:8px;
     text-align:center;
     font-weight:600;
-    border-radius:8px;
+    border-radius:10px;
     margin-bottom:5px;
 }
 
-/* SLOT */
 .slot {
-    height:30px;
+    height:32px;
     border-radius:10px;
     margin-bottom:4px;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:12px;
+    font-size:13px;
 }
 
 /* NORMAL */
-.normal {
-    background:#e5e5ea;
-}
+.normal { background:#e5e5ea; }
 
 /* PRIME */
 .prime {
@@ -59,9 +53,7 @@ body, .stApp {
 }
 
 /* LOCK */
-.locked {
-    opacity:0.4;
-}
+.locked { opacity:0.4; }
 
 /* OWN */
 .mine {
@@ -89,74 +81,71 @@ def db():
 
 def init():
     d = db()
-    d.execute("CREATE TABLE IF NOT EXISTS users(email TEXT, name TEXT, pw TEXT, role TEXT, max_hours REAL)")
+    d.execute("CREATE TABLE IF NOT EXISTS users(email TEXT PRIMARY KEY, name TEXT, pw TEXT, role TEXT, max_hours REAL)")
     d.execute("CREATE TABLE IF NOT EXISTS bookings(user TEXT, date TEXT, table_name TEXT, time TEXT)")
     d.commit()
 
 init()
 
 # ==========================================
-# AUTH
+# AUTH (AUTO LOGIN)
 # ==========================================
 def hash_pw(p): return hashlib.sha256(p.encode()).hexdigest()
 
-def login(email,pw):
-    return db().execute("SELECT * FROM users WHERE email=? AND pw=?", (email,hash_pw(pw))).fetchone()
+def login_or_register(email, name, pw):
+    d = db()
+    user = d.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
 
-def register(e,n,p):
-    try:
-        role="admin" if e==OWNER_EMAIL else "user"
-        db().execute("INSERT INTO users VALUES (?,?,?,?,?)",(e,n,hash_pw(p),role,3.0))
-        db().commit()
-        return True
-    except:
-        return False
+    if user:
+        # LOGIN
+        if user[2] == hash_pw(pw):
+            return user
+        else:
+            return "wrong_password"
+    else:
+        # REGISTER
+        role = "admin" if email == OWNER_EMAIL else "user"
+        d.execute("INSERT INTO users VALUES (?,?,?,?,?)",
+                  (email, name, hash_pw(pw), role, 3.0))
+        d.commit()
+        return d.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
 
 # ==========================================
 # SESSION
 # ==========================================
 if "user" not in st.session_state:
-    st.session_state.user=None
-    st.session_state.role=None
+    st.session_state.user = None
+    st.session_state.role = None
 
 # ==========================================
-# LOGIN SCREEN
+# LOGIN SCREEN (SUPER SIMPLE)
 # ==========================================
 if not st.session_state.user:
 
     st.title("🎱 Poolhall Reservations")
 
-    mode = st.radio("Login or Register", ["Login", "Register"])
-
     email = st.text_input("Email").strip().lower()
-    name = st.text_input("Name") if mode=="Register" else ""
+    name = st.text_input("Name (first time only)")
     pw = st.text_input("Password", type="password")
 
     if st.button("Continue", use_container_width=True):
 
-        if "@" not in email or "." not in email:
+        if "@" not in email:
             st.error("Enter valid email")
 
         elif len(pw) < 3:
             st.error("Password too short")
 
         else:
-            if mode == "Register":
-                if register(email, name, pw):
-                    st.success("Account created ✅ → Now login")
-                else:
-                    st.error("User already exists")
+            result = login_or_register(email, name, pw)
 
+            if result == "wrong_password":
+                st.error("Wrong password")
             else:
-                user = login(email, pw)
-
-                if user:
-                    st.session_state.user = email
-                    st.session_state.role = user[3]
-                    st.success("Logged in ✅")
-                    st.rerun()
-                else:
-                    st.error("User does not exist → register first")
+                st.session_state.user = result[0]
+                st.session_state.role = result[3]
+                st.success("Welcome ✅")
+                st.rerun()
 
     st.stop()
 
