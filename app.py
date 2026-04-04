@@ -3,8 +3,6 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
 import hashlib
-import smtplib
-from email.mime.text import MIMEText
 
 # ==========================================
 # CONFIG
@@ -12,10 +10,10 @@ from email.mime.text import MIMEText
 st.set_page_config(page_title="Poolhall", layout="wide")
 
 DB = "db.sqlite"
-OWNER_EMAIL = "your@email.com"
+OWNER_EMAIL = "admin@pool.com"
 
 # ==========================================
-# 🍏 APPLE UI
+# 🍏 APPLE STYLE UI
 # ==========================================
 st.markdown("""
 <style>
@@ -72,22 +70,45 @@ body, .stApp {
     background:#ff453a !important;
     color:white;
 }
+
+/* TOP BAR */
+.topbar {
+    background:#1c1c1e;
+    padding:10px;
+    border-radius:12px;
+    text-align:center;
+    margin-bottom:15px;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# DB
+# DATABASE
 # ==========================================
 def db():
     return sqlite3.connect(DB, check_same_thread=False)
 
 def init():
     d = db()
-    d.execute("CREATE TABLE IF NOT EXISTS users(email TEXT, name TEXT, pw TEXT, role TEXT)")
+    d.execute("CREATE TABLE IF NOT EXISTS users(email TEXT, name TEXT, pw TEXT, role TEXT, max_hours REAL)")
     d.execute("CREATE TABLE IF NOT EXISTS bookings(user TEXT, date TEXT, table_name TEXT, time TEXT)")
     d.commit()
 
 init()
+
+# ==========================================
+# EMAIL PREVIEW (NO SECURITY)
+# ==========================================
+def send_email(to, subject, body):
+    st.markdown("### 📧 Email Preview")
+    st.markdown(f"""
+    **To:** {to}  
+    **Subject:** {subject}  
+
+    ---
+    {body}
+    ---
+    """)
 
 # ==========================================
 # AUTH
@@ -100,23 +121,10 @@ def login(email,pw):
 def register(e,n,p):
     try:
         role="admin" if e==OWNER_EMAIL else "user"
-        db().execute("INSERT INTO users VALUES (?,?,?,?)",(e,n,hash_pw(p),role))
+        db().execute("INSERT INTO users VALUES (?,?,?,?,?)",(e,n,hash_pw(p),role,3.0))
         db().commit()
         return True
     except: return False
-
-# ==========================================
-# EMAIL
-# ==========================================
-def send_email(to, subject, body):
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = st.secrets["EMAIL"]
-    msg['To'] = to
-
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
-        s.login(st.secrets["EMAIL"], st.secrets["EMAIL_PASS"])
-        s.send_message(msg)
 
 # ==========================================
 # SESSION
@@ -138,7 +146,7 @@ pw=st.sidebar.text_input("Password",type="password")
 if st.sidebar.button("Go"):
     if mode=="Register":
         if register(email,name,pw):
-            st.success("Created")
+            st.success("Account created")
     else:
         u=login(email,pw)
         if u:
@@ -147,12 +155,38 @@ if st.sidebar.button("Go"):
             st.rerun()
 
 if not st.session_state.user:
+    st.title("🎱 Poolhall Reservations")
+    st.stop()
+
+if st.sidebar.button("Logout"):
+    st.session_state.clear()
+    st.rerun()
+
+# ==========================================
+# NAV
+# ==========================================
+view="Schedule"
+if st.session_state.role=="admin":
+    view=st.sidebar.radio("View",["Schedule","Admin"])
+
+# ==========================================
+# ADMIN PANEL
+# ==========================================
+if view=="Admin":
+    st.title("⚙️ Admin Panel")
+
+    st.subheader("Users")
+    st.dataframe(pd.read_sql_query("SELECT * FROM users",db()))
+
+    st.subheader("Bookings")
+    st.dataframe(pd.read_sql_query("SELECT * FROM bookings",db()))
+
     st.stop()
 
 # ==========================================
 # SCHEDULE
 # ==========================================
-st.title("Reservations")
+st.title("🎱 Reservations")
 
 today=datetime.now().date()
 date=st.selectbox("Date",[today+timedelta(days=i) for i in range(7)])
@@ -161,6 +195,13 @@ times=[f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
 tables=["Table 1","Table 2","Table 3"]
 
 df=pd.read_sql_query("SELECT * FROM bookings WHERE date=?", db(), params=(str(date),))
+
+# user limit
+user_df=pd.read_sql_query("SELECT * FROM users WHERE email=?",db(),params=(st.session_state.user,))
+max_hours=float(user_df.iloc[0]["max_hours"])
+used=df[df["user"]==st.session_state.user].shape[0]*0.5
+
+st.markdown(f"<div class='topbar'>Your time: {used} / {max_hours}h</div>",unsafe_allow_html=True)
 
 cols=st.columns(3)
 
@@ -173,9 +214,9 @@ for i,tbl in enumerate(tables):
             prime=17<=hour<=22
 
             slot=df[(df["table_name"]==tbl)&(df["time"]==t)]
-
             cls="slot prime" if prime else "slot normal"
 
+            # BOOKED
             if not slot.empty:
                 u=slot.iloc[0]["user"]
 
@@ -184,17 +225,29 @@ for i,tbl in enumerate(tables):
                         db().execute("DELETE FROM bookings WHERE user=? AND date=? AND table_name=? AND time=?",
                                      (u,str(date),tbl,t))
                         db().commit()
-                        send_email(OWNER_EMAIL,"Booking Cancelled",f"{u} cancelled {t}")
+
+                        send_email(OWNER_EMAIL,"❌ Cancelled",
+                                   f"{u} cancelled {tbl} at {t}")
+
                         st.rerun()
                 else:
                     st.markdown(f"<div class='{cls} locked'>{t}</div>",unsafe_allow_html=True)
 
+            # FREE
             else:
-                if st.button(f"{t}",key=f"{tbl}{t}"):
-                    db().execute("INSERT INTO bookings VALUES (?,?,?,?)",
-                                 (st.session_state.user,str(date),tbl,t))
-                    db().commit()
+                if used>=max_hours and st.session_state.role!="admin":
+                    st.markdown(f"<div class='{cls} locked'>{t}</div>",unsafe_allow_html=True)
+                else:
+                    if st.button(f"{t}",key=f"{tbl}{t}"):
+                        db().execute("INSERT INTO bookings VALUES (?,?,?,?)",
+                                     (st.session_state.user,str(date),tbl,t))
+                        db().commit()
 
-                    send_email(OWNER_EMAIL,"New Booking",f"{email} booked {t}")
+                        send_email(OWNER_EMAIL,"🎱 New Booking",
+                                   f"{email} booked {tbl} at {t}")
 
-                    st.rerun()
+                        # reminder preview
+                        send_email(email,"⏰ Reminder",
+                                   f"You have {tbl} at {t} (in real app → 1h before)")
+
+                        st.rerun()
