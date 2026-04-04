@@ -24,9 +24,21 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# 1. DYNAMIC "PRIME TIME" SPOTLIGHT ENGINE
+# 1. DYNAMIC COLOR BORDERS & PRIME TIME ENGINE
 # ==========================================
 HOURS = [f"{h:02d}:{m}" for h in range(8, 24) for m in ("00", "30")] 
+
+# 4-Row (2-Hour) Alternating Border Colors
+BORDER_COLORS = [
+    "#ffee58", # Light Yellow (08:00 - 09:30)
+    "#42a5f5", # Light Blue   (10:00 - 11:30)
+    "#66bb6a", # Light Green  (12:00 - 13:30)
+    "#ef5350", # Light Red    (14:00 - 15:30)
+    "#ab47bc", # Purple       (16:00 - 17:30)
+    "#ffa726", # Orange       (18:00 - 19:30)
+    "#26a69a", # Teal         (20:00 - 21:30)
+    "#8d6e63"  # Brown/Gray   (22:00 - 23:30)
+]
 
 dynamic_css = "<style>\n"
 mobile_css = "@media (max-width: 900px) {\n" 
@@ -35,36 +47,41 @@ for idx, time_str in enumerate(HOURS):
     hour = int(time_str[:2])
     is_prime = 18 <= hour <= 22
     
+    # Determine the color block (every 4 rows)
+    color_idx = idx // 4
+    row_color = BORDER_COLORS[color_idx % len(BORDER_COLORS)]
+    
     child_idx = idx + 3 
     
     if is_prime:
+        # 🌟 PRIME TIME (Bright backgrounds, slightly thicker borders)
         bg_color = "#ffffff" if hour % 2 == 0 else "#fffde7"
-        border = "2px solid #ffc107"
-        font_size = "14px"
+        border = f"2px solid {row_color}"
+        font_size = "13px"
         font_weight = "800"
         text_color = "#000000"
-        box_shadow = "0px 3px 6px rgba(0,0,0,0.15)"
-        padding = "8px 2px"
+        padding = "6px 1px"
         
-        m_font_size = "12px"
-        m_padding = "6px 2px"
+        # Mobile specific prime time
+        m_font_size = "9px"
+        m_padding = "4px 0px"
     else:
+        # 🌙 OFF-HOURS (Dimmer backgrounds, standard borders)
         bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
-        border = "1px solid #ced4da"
+        border = f"1px solid {row_color}"
         font_size = "11px"
-        font_weight = "400"
-        text_color = "#6c757d"
-        box_shadow = "none"
-        padding = "4px 2px"
+        font_weight = "500"
+        text_color = "#495057"
+        padding = "4px 1px"
         
-        m_font_size = "10px"
-        m_padding = "2px 2px"
+        # Mobile specific off-hours
+        m_font_size = "8px"
+        m_padding = "2px 0px"
 
     # --- APPLY TO DESKTOP ---
     dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button {{\n'
     dynamic_css += f'    background-color: {bg_color} !important;\n'
     dynamic_css += f'    border: {border} !important;\n'
-    dynamic_css += f'    box-shadow: {box_shadow} !important;\n'
     dynamic_css += f'    padding: {padding} !important;\n'
     dynamic_css += f'}}\n'
     
@@ -80,6 +97,7 @@ for idx, time_str in enumerate(HOURS):
     mobile_css += f'}}\n'
     mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p, [data-testid="stMain"] div[data-testid="stColumn"] > div:nth-child({child_idx}) button p {{\n'
     mobile_css += f'    font-size: {m_font_size} !important;\n'
+    mobile_css += f'    letter-spacing: -0.3px !important;\n' # Squeeze text slightly to fit names
     mobile_css += f'}}\n'
 
 mobile_css += "}\n</style>"
@@ -88,7 +106,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 CLEAN STRUCTURAL CSS (NO TRANSITIONS)
+# 1.5 STRUCTURAL CSS: FORCING 3-COLUMNS ON MOBILE
 # ==========================================
 st.markdown("""
 <style>
@@ -105,6 +123,9 @@ st.markdown("""
         padding-right: 0.5rem !important;
     }
 
+    /* ---------------------------------------------------
+       DATE RIBBON
+       --------------------------------------------------- */
     [data-testid="stMain"] div[role="radiogroup"] {
         display: grid !important;
         grid-template-columns: max-content repeat(7, max-content) !important;
@@ -146,6 +167,9 @@ st.markdown("""
     [data-testid="stMain"] div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; }
     [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
+    /* ---------------------------------------------------
+       MAIN AREA: TABLES & STICKY HEADERS
+       --------------------------------------------------- */
     [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
         gap: 10px !important; justify-content: center !important; 
     }
@@ -175,9 +199,10 @@ st.markdown("""
     [data-testid="stMain"] div[data-testid="column"] .stButton > button, [data-testid="stMain"] div[data-testid="stColumn"] .stButton > button {
         width: 100% !important; border-radius: 4px !important; 
         text-align: center !important; margin-bottom: 4px !important; display: block !important;
-        transition: none !important; /* Forces instant snapping */
+        transition: none !important; 
     }
     
+    /* OVERRIDES: Active and Disabled Slots */
     [data-testid="stMain"] div[data-testid="column"] button[kind="primary"], [data-testid="stMain"] div[data-testid="stColumn"] button[kind="primary"] { 
         background-color: #dc3545 !important; 
         border: 2px solid #bd2130 !important;
@@ -196,18 +221,36 @@ st.markdown("""
         color: #dc3545 !important; font-weight: 700 !important; 
     }
 
+    /* ---------------------------------------------------
+       📱 100% FORCED 3-COLUMN MOBILE LAYOUT 
+       --------------------------------------------------- */
     @media (max-width: 900px) {
         [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns {
-            display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-            overflow-x: auto !important; overflow-y: hidden !important; scroll-snap-type: x mandatory;
-            padding-bottom: 10px !important; justify-content: flex-start !important; 
-            -webkit-overflow-scrolling: touch !important; gap: 6px !important;
+            display: flex !important; 
+            flex-direction: row !important; 
+            flex-wrap: nowrap !important;
+            overflow-x: hidden !important; /* NO SWIPING, FORCE FIT */
+            padding-bottom: 5px !important; 
+            justify-content: center !important; 
+            gap: 2px !important; /* Tiny gap to fit 3 columns */
         }
         [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] {
-            width: 45vw !important; min-width: 45vw !important; max-width: 45vw !important; 
-            flex: 0 0 45vw !important; scroll-snap-align: center; 
+            width: 33% !important; 
+            min-width: 33% !important; 
+            max-width: 33% !important; 
+            flex: 1 1 33% !important; 
+            margin: 0 !important;
         }
-        [data-testid="stMain"] .table-header { font-size: 12px !important; }
+        [data-testid="stMain"] .table-header { 
+            font-size: 11px !important; 
+            padding: 4px 0 !important; 
+        }
+        /* Extra override for Active/Disabled text size on mobile */
+        [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p,
+        [data-testid="stMain"] div[data-testid="column"] button[disabled] p {
+            font-size: 9px !important;
+            letter-spacing: -0.3px !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -386,7 +429,6 @@ def admin_modal(table, time, date, current_user, display_name):
 # ==========================================
 st.markdown("<h1>RESERVE <span style='color: #dc3545;'>TABLE</span></h1>", unsafe_allow_html=True)
 
-# SAFELY LOAD IMAGES
 if os.path.exists("banner.jpg"):
     try:
         st.image("banner.jpg", use_container_width=True)
@@ -421,13 +463,12 @@ for i, col in enumerate(cols):
     
     col.markdown(f"<div class='table-header'>Tbl {i+1}</div>", unsafe_allow_html=True)
     
-    # SAFELY LOAD TABLE IMAGES
     img_name = f"table{i+1}.jpg"
     if os.path.exists(img_name):
         try:
             col.image(img_name, use_container_width=True)
-        except Exception as e:
-            col.warning(f"⚠️ {img_name} is invalid.")
+        except:
+            pass
     
     for time_str in HOURS:
         booked = relevant_bookings[(relevant_bookings['Table'] == f"Table {i+1}") & (relevant_bookings['Time'] == time_str)]
