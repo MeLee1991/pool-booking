@@ -206,25 +206,41 @@ df = pd.read_sql_query(
 )
 
 # ==========================================
-# GRID (WORKING VERSION)
+# GRID (CORRECT STRUCTURE)
 # ==========================================
-# HEADER
-cols = st.columns([1,2,2,2])
-cols[0].markdown("**Time**")
-cols[1].markdown("**Table 1**")
-cols[2].markdown("**Table 2**")
-cols[3].markdown("**Table 3**")
 
-# ROWS
+TABLES = ["Table 1", "Table 2", "Table 3"]
+
+times = [
+    f"{h:02d}:{m:02d}"
+    for h in range(8,24)
+    for m in (0,30)
+]
+
+df = pd.read_sql_query(
+    "SELECT * FROM bookings WHERE date=?",
+    db(), params=(str(date),)
+)
+
+# HEADER
+cols = st.columns(4)
+
+cols[0].markdown("**Time**")
+for i, t in enumerate(TABLES):
+    cols[i+1].markdown(f"**{t}**")
+
+# ROWS (THIS IS THE KEY FIX)
 for t in times:
 
     hour = int(t[:2])
     prime = 17 <= hour <= 22
 
-    cols = st.columns([1,2,2,2])
+    cols = st.columns(4)
 
+    # TIME
     cols[0].markdown(f"🔥 {t}" if prime else t)
 
+    # TABLES
     for i, tbl in enumerate(TABLES):
 
         slot = df[
@@ -234,12 +250,12 @@ for t in times:
 
         key = f"{tbl}_{t}"
 
+        # BOOKED
         if not slot.empty:
             u = slot.iloc[0]["user"]
 
             if u == st.session_state.user:
-                cols[i+1].button("Booked", key=key, type="primary")
-                if cols[i+1].button("Cancel", key=key+"c"):
+                if cols[i+1].button(f"❌", key=key):
                     db().execute(
                         "DELETE FROM bookings WHERE user=? AND date=? AND table_name=? AND time=?",
                         (u, str(date), tbl, t)
@@ -247,10 +263,11 @@ for t in times:
                     db().commit()
                     st.rerun()
             else:
-                cols[i+1].button("Taken", disabled=True, key=key)
+                cols[i+1].button("🔒", disabled=True, key=key)
 
+        # FREE
         else:
-            if cols[i+1].button("Book", key=key, type="secondary"):
+            if cols[i+1].button("🟢", key=key):
                 db().execute(
                     "INSERT INTO bookings VALUES (?,?,?,?)",
                     (st.session_state.user, str(date), tbl, t)
