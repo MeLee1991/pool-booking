@@ -59,9 +59,9 @@ for idx, time_str in enumerate(HOURS):
         text_color = "#000000"
         height = "34px" 
         
-        m_font_size = "9px"
-        m_font_weight = "600" # Less bold on mobile
-        m_height = "26px" # Strict rigid height
+        m_font_size = "8px" # Ultra small for mobile
+        m_font_weight = "700" 
+        m_height = "24px" # Ultra compact rigid height
     else:
         # OFF-HOURS BACKGROUNDS & BORDERS
         bg_color = "#e9ecef" if hour % 2 == 0 else "#dee2e6"
@@ -71,9 +71,9 @@ for idx, time_str in enumerate(HOURS):
         text_color = "#495057"
         height = "28px"
         
-        m_font_size = "8px"
-        m_font_weight = "400" # Unbolded on mobile
-        m_height = "26px" # Strict rigid height matching prime time for perfect rows
+        m_font_size = "8px" # Ultra small for mobile
+        m_font_weight = "400" 
+        m_height = "24px" # Matches prime time for perfect rows
 
     # --- DESKTOP ---
     dynamic_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button {{\n'
@@ -95,11 +95,12 @@ for idx, time_str in enumerate(HOURS):
     mobile_css += f'    height: {m_height} !important;\n'
     mobile_css += f'    min-height: {m_height} !important;\n'
     mobile_css += f'    max-height: {m_height} !important;\n'
-    mobile_css += f'    padding: 0 2px !important;\n' # Tiny padding to maximize text space
+    mobile_css += f'    padding: 0px 1px !important;\n' # Absolute minimum padding
     mobile_css += f'}}\n'
     mobile_css += f'[data-testid="stMain"] div[data-testid="column"] > div:nth-child({child_idx}) button p {{\n'
     mobile_css += f'    font-size: {m_font_size} !important;\n'
     mobile_css += f'    font-weight: {m_font_weight} !important;\n'
+    mobile_css += f'    letter-spacing: -0.5px !important;\n' # Squeeze text hard
     mobile_css += f'}}\n'
 
 mobile_css += "}\n</style>"
@@ -108,7 +109,7 @@ st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
 # ==========================================
-# 1.5 STRUCTURAL CSS & ROW ALIGNMENT FIX
+# 1.5 STRUCTURAL CSS & AGGRESSIVE MOBILE OVERRIDE
 # ==========================================
 st.markdown("""
 <style>
@@ -168,10 +169,10 @@ st.markdown("""
     [data-testid="stMain"] div[role="radiogroup"] div[role="radio"] > div:first-child { display: none !important; }
 
     /* TABLES & HEADERS */
-    [data-testid="stMain"] div[data-testid="stHorizontalBlock"] { 
-        gap: 8px !important; justify-content: center !important; 
+    [data-testid="stMain"] div[data-testid="stHorizontalBlock"], [data-testid="stMain"] div.stColumns { 
+        gap: 10px !important; justify-content: center !important; 
     }
-    [data-testid="stMain"] div[data-testid="column"] { 
+    [data-testid="stMain"] div[data-testid="column"], [data-testid="stMain"] div[data-testid="stColumn"] { 
         display: flex !important; flex-direction: column !important; padding: 0 !important; 
     }
 
@@ -193,9 +194,7 @@ st.markdown("""
 
     [data-testid="stMain"] [data-testid="stImage"] { margin-bottom: 4px !important; border-radius: 4px; overflow: hidden; }
 
-    /* ---------------------------------------------------
-       ROW ALIGNMENT FIX: Prevent button expansion 
-       --------------------------------------------------- */
+    /* ROW ALIGNMENT FIX: Prevent button expansion */
     [data-testid="stMain"] div[data-testid="column"] .stButton > button {
         width: 100% !important; 
         border-radius: 4px !important; 
@@ -205,13 +204,13 @@ st.markdown("""
         justify-content: center !important;
         transition: none !important; 
         animation: none !important;
-        overflow: hidden !important; /* Prevents physical box from expanding */
+        overflow: hidden !important; 
     }
     
     [data-testid="stMain"] div[data-testid="column"] .stButton > button p {
-        white-space: nowrap !important; /* BANS TEXT FROM WRAPPING TO 2nd LINE */
-        overflow: hidden !important;    /* Hides extra text */
-        text-overflow: ellipsis !important; /* Adds '...' if text is too long */
+        white-space: nowrap !important; /* BANS WRAPPING */
+        overflow: hidden !important;    
+        text-overflow: ellipsis !important; 
         width: 100% !important;
         max-width: 100% !important;
         display: inline-block !important;
@@ -239,30 +238,50 @@ st.markdown("""
     }
 
     /* ---------------------------------------------------
-       📱 STRICT 3-COLUMN MOBILE LAYOUT 
+       📱 AGGRESSIVE FORCE-FIT MOBILE LAYOUT 
        --------------------------------------------------- */
     @media (max-width: 900px) {
+        /* Erase the padding on the main screen to give columns room */
+        .block-container {
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+        }
+
         [data-testid="stMain"] div[data-testid="stHorizontalBlock"] {
             display: flex !important; 
-            flex-direction: row !important; /* FORCE SIDE-BY-SIDE */
-            flex-wrap: nowrap !important;   /* PREVENT STACKING */
+            flex-direction: row !important; /* FORCE SIDE BY SIDE */
+            flex-wrap: nowrap !important;   /* BAN STACKING */
             width: 100% !important;
-            padding-bottom: 5px !important; 
-            justify-content: flex-start !important; 
-            gap: 2px !important; /* Tiny gap to maximize width */
-        }
-        [data-testid="stMain"] div[data-testid="column"] {
-            width: 33.33% !important; 
-            min-width: 33.33% !important; 
-            max-width: 33.33% !important; 
-            flex: 0 0 33.33% !important; 
+            padding: 0 !important; 
             margin: 0 !important;
+            justify-content: space-between !important; 
+            gap: 2px !important; /* Tiny gap */
+            overflow: hidden !important; /* BAN SCROLLING */
+        }
+        
+        [data-testid="stMain"] div[data-testid="column"] {
+            /* MAGIC BULLET: min-width: 0 prevents flexboxes from overflowing */
+            min-width: 0 !important; 
+            width: calc(33.33% - 2px) !important; 
+            flex: 1 1 0 !important; 
+            margin: 0 !important;
+            padding: 0 !important;
             display: flex !important;
             flex-direction: column !important;
+            overflow: hidden !important;
         }
+
         [data-testid="stMain"] .table-header { 
-            font-size: 11px !important; 
-            padding: 4px 0 !important; 
+            font-size: 10px !important; 
+            padding: 2px 0 !important; 
+            margin-bottom: 2px !important;
+        }
+
+        /* Further squish text inside the active/locked buttons */
+        [data-testid="stMain"] div[data-testid="column"] button[kind="primary"] p,
+        [data-testid="stMain"] div[data-testid="column"] button[disabled] p {
+            font-size: 8px !important;
+            letter-spacing: -0.5px !important;
         }
     }
 </style>
