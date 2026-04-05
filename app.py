@@ -45,7 +45,7 @@ st.markdown("""
 /* 3. MAIN TABLE: Fixed widths, no stretching */
 .table-section [data-testid="stHorizontalBlock"] {
     display: grid !important;
-    grid-template-columns: 45px 75px 75px 75px !important; /* TIME | T1 | T2 | T3 */
+    grid-template-columns: 20px 20px 20px 20px !important; /* TIME | T1 | T2 | T3 */
     gap: 2px !important;
     justify-content: start !important;
     margin-bottom: -22px !important;
