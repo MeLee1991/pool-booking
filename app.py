@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# 1. PAGE SETUP
+# 1. SETUP
 st.set_page_config(page_title="Pool", layout="wide", initial_sidebar_state="collapsed")
 
 # 2. DATA
@@ -21,67 +21,72 @@ bookings = load_data(BOOKINGS_FILE, ["User", "Name", "Date", "Table", "Time"])
 
 # 3. SESSION STATE
 if "user" not in st.session_state: st.session_state.user = None
-if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
-# 4. ADVANCED CSS (FORCING HORIZONTAL & ALTERNATING COLORS)
+# 4. ULTRA-COMPACT CSS
 st.markdown("""
 <style>
-/* --- FORCE HORIZONTAL LAYOUT IN PORTRAIT --- */
+/* FORCE 4-COLUMN ROW (Time + 3 Tables) - NO STACKING */
 [data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 1px !important;
+    display: grid !important;
+    grid-template-columns: 42px 60px 60px 60px !important; /* FIXED NARROW WIDTHS */
+    gap: 0px !important; /* ZERO SPACE BETWEEN COLUMNS */
+    width: fit-content !important;
+    border-left: 1px solid #ddd;
 }
 
-[data-testid="column"] {
-    flex: 0 0 auto !important;
-    min-width: 0px !important;
-    padding: 0px !important;
+/* REMOVE ALL INTERNAL PADDING */
+[data-testid="column"] { padding: 0px !important; flex: none !important; }
+
+/* ROW STYLING: Borders and Padding */
+.row-wrap { 
+    border-bottom: 1px solid #ccc; 
+    border-right: 1px solid #ddd;
+    padding: 2px 0;
 }
 
-/* --- DATES: Fixed Widths --- */
-.date-section [data-testid="column"] { width: 42px !important; }
+/* ALTERNATE ROW COLORS (Whole Row) */
+.hour-even { background-color: #f9f9f9 !important; }
+.hour-odd { background-color: #ffffff !important; }
 
-/* --- TABLE: Fixed Widths (Time + 3 Tables) --- */
-.table-section [data-testid="column"]:nth-child(1) { width: 45px !important; } /* Time */
-.table-section [data-testid="column"]:not(:nth-child(1)) { width: 62px !important; } /* Tables */
-
-/* --- BUTTONS: Shrunk & Tight --- */
+/* BUTTONS: Shrunk height, exact width */
 .stButton > button {
-    width: 100% !important;
-    height: 30px !important;
+    width: 58px !important; /* Slightly less than 60px to allow for borders */
+    height: 28px !important;
     font-size: 9px !important;
     padding: 0px !important;
-    border-radius: 2px !important;
+    border-radius: 0px !important; /* Square for grid look */
+    margin: 1px !important;
 }
 
-/* --- ALTERNATING HOUR BACKGROUNDS --- */
-.time-bg-grey { background-color: #f0f2f6; border-radius: 2px; }
-.time-bg-white { background-color: transparent; }
+/* TIME BUTTON/LABEL: Extra narrow */
+.time-col .stButton > button { width: 40px !important; font-weight: bold; background: none !important; border: none !important; color: #333 !important; }
 
-.time-label {
-    font-size: 10px; font-weight: bold; line-height: 30px; 
-    text-align: center; width: 100%; display: block;
+/* HEADERS: Fixed width black boxes */
+.header-box { 
+    background: #000; color: #fff; text-align: center; 
+    font-size: 9px; height: 20px; line-height: 20px;
+    width: 60px; border: 1px solid #444;
 }
 
-/* Black Headers */
-.header-box { background: #000; color: #fff; text-align: center; font-size: 8px; padding: 2px 0; border-radius: 1px; }
+/* DATE GRID: 7-Column */
+.date-section [data-testid="stHorizontalBlock"] {
+    grid-template-columns: repeat(7, 44px) !important;
+    margin-bottom: -15px !important;
+}
+.date-section .stButton > button { width: 42px !important; height: 32px !important; }
 
-/* Fixed Login */
+/* LOGIN */
 .login-box .stButton > button { width: 120px !important; height: 40px !important; margin: 0 auto; }
 
-/* Global Cleanup */
+/* PAGE CLEANUP */
 [data-testid="stAppViewBlockContainer"] { padding: 0.5rem 0.2rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # 5. LOGIN
 if st.session_state.user is None:
-    st.title("🎱 POOL")
+    st.title("🎱 RESERVE")
     e = st.text_input("Email").lower().strip()
     p = st.text_input("Password", type="password")
     st.markdown('<div class="login-box">', unsafe_allow_html=True)
@@ -93,7 +98,7 @@ if st.session_state.user is None:
     st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# 6. DATES (2 Rows of 7, Horizontal)
+# 6. DATES (7-Column Grid)
 st.write("### 📅 Dates")
 today = datetime.now().date()
 for r in range(2):
@@ -111,39 +116,44 @@ for r in range(2):
 
 st.divider()
 
-# 7. BOOKING TABLE (4 Columns: Time | T1 | T2 | T3)
-st.markdown('<div class="table-section">', unsafe_allow_html=True)
-# Headers
+# 7. BOOKING TABLE
+# Header Row
+st.markdown('<div class="row-wrap">', unsafe_allow_html=True)
 h_cols = st.columns(4)
-t_labels = ["T1", "T2", "T3"]
-for i, name in enumerate(t_labels):
+h_cols[0].write("") # Empty corner
+for i, name in enumerate(["T1", "T2", "T3"]):
     h_cols[i+1].markdown(f'<div class="header-box">{name}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Hours 08:00 to 03:00
+# Schedule
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
 
 for idx, t in enumerate(HOURS):
-    # Logic: Toggle background every 2 rows (every hour)
-    bg_class = "time-bg-grey" if (idx // 2) % 2 == 0 else "time-bg-white"
+    # Toggle color every 2 rows (every full hour)
+    row_class = "hour-even" if (idx // 2) % 2 == 0 else "hour-odd"
     
+    st.markdown(f'<div class="row-wrap {row_class}">', unsafe_allow_html=True)
     r_cols = st.columns(4)
-    # Column 1: Time with alternating background
-    r_cols[0].markdown(f'<div class="{bg_class}"><span class="time-label">{t}</span></div>', unsafe_allow_html=True)
     
-    # Columns 2-4: Tables
+    # Time Column
+    with r_cols[0]:
+        st.markdown('<div class="time-col">', unsafe_allow_html=True)
+        st.button(t, key=f"t_{t}", disabled=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    # Table Columns
     for i in range(3):
         t_n = f"Table {i+1}"
         match = bookings[(bookings["Table"] == t_n) & (bookings["Time"] == t) & (bookings["Date"] == st.session_state.sel_date)]
         with r_cols[i+1]:
             if not match.empty:
                 b_user, b_name = match.iloc[0]["User"], match.iloc[0]["Name"]
-                btn_label = f"❌{b_name[:3]}"
                 if st.session_state.role == "admin" or b_user == st.session_state.user:
-                    if st.button(btn_label, key=f"b_{t}_{i}"):
+                    if st.button(f"❌{b_name[:3]}", key=f"b_{t}_{i}"):
                         bookings = bookings.drop(match.index); save_data(bookings, BOOKINGS_FILE); st.rerun()
                 else: st.button(f"🔒{b_name[:3]}", key=f"b_{t}_{i}", disabled=True)
             else:
                 if st.button("Free", key=f"b_{t}_{i}"):
                     new_b = pd.DataFrame([{"User":st.session_state.user, "Name":st.session_state.name, "Date":st.session_state.sel_date, "Table":t_n, "Time":t}])
                     save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE); st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
