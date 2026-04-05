@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# 1. FORCED MOBILE LAYOUT
+# 1. SETUP
 st.set_page_config(page_title="Pool Booking", layout="wide", initial_sidebar_state="collapsed")
 
 # 2. DATA LOADERS
@@ -27,59 +27,77 @@ if "role" not in st.session_state: st.session_state.role = None
 if "name" not in st.session_state: st.session_state.name = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
-# 4. STRICT CSS: 3-COLUMNS + BIG BUTTONS + TIGHT HEADERS
+# 4. CUSTOM CSS: SHRINK WIDTH & LOCK BUTTON SIZES
 st.markdown("""
 <style>
-/* FORCE 3 COLUMNS SIDE-BY-SIDE */
+/* 1. SHRINK THE ENTIRE TABLE AREA */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    gap: 4px !important;
+    justify-content: flex-start !important;
+    gap: 2px !important;
+    width: min-content !important; /* Forces columns to hug the buttons */
 }
+
+/* 2. FIXED COLUMN WIDTH (Shrinks the table) */
 [data-testid="column"] {
-    flex: 1 1 33% !important;
-    min-width: 0 !important;
+    flex: 0 0 85px !important; /* Fixed width: adjust this number to go even smaller */
+    min-width: 85px !important;
+    max-width: 85px !important;
+    padding: 0px !important;
 }
 
-/* BIG CLICKABLE BUTTONS */
+/* 3. LOCKED BUTTON SIZE (Same for Free or Booked) */
 .stButton > button {
-    width: 100% !important;
-    height: 75px !important;
-    font-size: 11px !important;
+    width: 85px !important;
+    height: 70px !important; /* Tall enough for 3 lines, but uniform */
+    font-size: 10px !important;
     font-weight: bold !important;
-    padding: 2px !important;
-    margin-bottom: -15px !important;
-    border-radius: 8px !important;
+    padding: 0px !important;
+    margin-bottom: -12px !important;
+    border-radius: 6px !important;
     white-space: pre-wrap !important;
+    display: block !important;
 }
 
-/* COMPACT HEADERS */
+/* 4. HEADERS */
 .tbl-header {
-    background: #1a202c; color: white; text-align: center; 
-    font-size: 11px; padding: 6px 0; border-radius: 4px; margin-bottom: 10px;
+    background: #000; color: #fff; text-align: center; 
+    font-size: 10px; padding: 4px 0; border-radius: 4px; margin-bottom: 10px;
+    width: 85px !important;
 }
 
-/* DATE STRIP BUTTONS */
-.date-btn > div > button { height: 45px !important; font-size: 10px !important; }
-
-/* COLORS */
+/* 5. COLORS */
+/* Free */
 div.stButton > button:not(:disabled) { background-color: #f6ffed !important; color: #389e0d !important; border: 1px solid #b7eb8f !important; }
+/* Booked */
 div.stButton > button:disabled { background-color: #fff1f0 !important; color: #cf1322 !important; border: 1px solid #ffa39e !important; opacity: 1 !important; }
+
+/* DATE STRIP STYLING */
+.date-row [data-testid="column"] {
+    flex: 0 0 45px !important;
+    min-width: 45px !important;
+}
+.date-row button {
+    height: 40px !important;
+    width: 45px !important;
+    font-size: 9px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# 5. AUTHENTICATION
+# 5. AUTH FLOW (Standard Logic)
 if st.session_state.user is None:
-    st.title("🎱 RESERVE")
+    st.title("🎱 LOGIN")
     t1, t2 = st.tabs(["Login", "Register"])
     with t1:
         e = st.text_input("Email", key="le").lower()
         p = st.text_input("Password", type="password", key="lp")
         if st.button("Log In"):
-            match = users[(users["Email"] == e) & (users["Password"] == p)]
-            if not match.empty:
-                st.session_state.user, st.session_state.name, st.session_state.role = e, match.iloc[0]["Name"], match.iloc[0]["Role"]
+            m = users[(users["Email"] == e) & (users["Password"] == p)]
+            if not m.empty:
+                st.session_state.user, st.session_state.name, st.session_state.role = e, m.iloc[0]["Name"], m.iloc[0]["Role"]
                 st.rerun()
     with t2:
         re, rn, rp = st.text_input("Email", key="re"), st.text_input("Name"), st.text_input("Pass", type="password")
@@ -92,29 +110,42 @@ if st.session_state.user is None:
 # 6. APP MAIN
 st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
 
-# --- 2-WEEK DIRECT DATE PICKER ---
+# --- SMALLER DATE PICKER (2 WEEKS) ---
 st.write("### 📅 Select Date")
-date_cols = st.columns(7) # 7 days per row
+today_str = str(datetime.now().date())
+
+# Row 1 (Week 1)
+d_cols1 = st.columns(7)
+# Row 2 (Week 2)
+d_cols2 = st.columns(7)
+
 for i in range(14):
     d = datetime.now().date() + timedelta(days=i)
     d_str = str(d)
-    with date_cols[i % 7]:
+    target_cols = d_cols1 if i < 7 else d_cols2
+    with target_cols[i % 7]:
         label = d.strftime("%a\n%d")
-        # Highlight selected date
-        if st.button(label, key=f"date_{d_str}", use_container_width=True, type="primary" if st.session_state.sel_date == d_str else "secondary"):
+        
+        # Determine Color Logic
+        is_sel = st.session_state.sel_date == d_str
+        is_today = d_str == today_str
+        
+        # Primary for selected, Today has special text in this version
+        btn_type = "primary" if is_sel else "secondary"
+        btn_label = f"⭐\n{label}" if is_today else label
+        
+        if st.button(btn_label, key=f"d_{d_str}", use_container_width=True, type=btn_type):
             st.session_state.sel_date = d_str
             st.rerun()
 
 st.divider()
 
-# --- THE 3-COLUMN GRID ---
-# Table Headers
+# --- THE NARROW 3-COLUMN GRID ---
 h_cols = st.columns(3)
 tables = ["Table 1", "Table 2", "Table 3"]
 for i in range(3):
     h_cols[i].markdown(f"<div class='tbl-header'>{tables[i]}</div>", unsafe_allow_html=True)
 
-# Time Slots
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
 
 for t in HOURS:
@@ -129,6 +160,7 @@ for t in HOURS:
                 b_user, b_name = match.iloc[0]["User"], match.iloc[0]["Name"]
                 # Admin or Owner can delete
                 if b_user == st.session_state.user or st.session_state.role == "admin":
+                    # LOCKED SIZE: 3 lines of text to match "Free" button height
                     if st.button(f"{t}\n❌\n{b_name[:6]}", key=key):
                         bookings = bookings.drop(match.index)
                         save_data(bookings, BOOKINGS_FILE)
@@ -136,6 +168,7 @@ for t in HOURS:
                 else:
                     st.button(f"{t}\n🔒\n{b_name[:6]}", key=key, disabled=True)
             else:
+                # LOCKED SIZE: 3 lines of text to match "Booked" button height
                 if st.button(f"{t}\n🟢\nFree", key=key):
                     new_b = pd.DataFrame([{"User":st.session_state.user, "Name":st.session_state.name, "Date":st.session_state.sel_date, "Table":t_name, "Time":t}])
                     save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
