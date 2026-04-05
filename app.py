@@ -19,75 +19,82 @@ def save_bookings(df):
     df.to_csv(BOOKINGS_FILE, index=False)
 
 # =========================
-# 2. CSS (ULTRA-SLIM NO-SCROLL)
+# 2. CSS (NARROW COLUMNS & DEFINED SLOTS)
 # =========================
 st.markdown("""
 <style>
-/* PREVENT HORIZONTAL SCROLL & FORCE 3 COLUMNS */
+/* CENTER THE TABLE & MAKE COLUMNS NARROW */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
-    flex-wrap: nowrap !important;
-    width: 100vw !important; /* Exactly screen width */
-    gap: 1px !important;
-    margin: 0 !important;
+    justify-content: center !important; /* Centers the narrow table */
+    gap: 2px !important;
+    width: 100% !important;
 }
 
 [data-testid="column"] {
-    flex: 1 1 33% !important;
-    width: 32vw !important; /* Force columns to be slim */
-    max-width: 32vw !important;
+    flex: 0 0 80px !important; /* STRICT NARROW WIDTH (Adjust this number to go even narrower) */
+    min-width: 80px !important;
+    max-width: 80px !important;
     padding: 0px !important;
 }
 
-/* TIGHTEN ROWS */
+/* TIGHTEN VERTICAL SPACING */
 [data-testid="column"] > div {
     padding: 0px !important;
-    margin-bottom: -18px !important; 
+    margin-bottom: -15px !important; 
 }
 
-/* SLIM SLOTS (SMALLER WIDTH) */
+/* BUTTON "SLOTS" WITH BORDERS */
 .stButton button {
-    width: 95% !important; 
-    height: 24px !important; 
+    width: 75px !important; /* Fixed width slightly smaller than column */
+    height: 32px !important; /* Height for 2 rows of text */
     font-size: 9px !important;
-    padding: 0px !important;
+    line-height: 1.1 !important;
+    padding: 2px !important;
     margin: 0 auto !important;
     display: block !important;
-    border-radius: 2px !important;
-    border: none !important;
+    border-radius: 4px !important;
+    border: 1px solid #ccc !important; /* Visible border */
+    text-align: center !important;
+    white-space: normal !important; /* Allows 2 rows */
+    word-wrap: break-word !important;
 }
 
-/* COLORS: LIGHT RED vs GREEN */
+/* LIGHT RED SLOT (BOOKED) */
 div.stButton > button:disabled {
-    background-color: #ffcdd2 !important; /* Lighter Red */
-    color: #b71c1c !important; 
+    background-color: #ffdee2 !important; 
+    color: #a71d2a !important; 
+    border: 1px solid #ebccd1 !important;
     opacity: 1 !important;
 }
 
+/* GREEN SLOT (AVAILABLE) */
 div.stButton > button:not(:disabled) {
-    background-color: #c8e6c9 !important; /* Light Green */
-    color: #1b5e20 !important;
+    background-color: #e6ffed !important;
+    color: #1a7f37 !important;
+    border: 1px solid #acf2bd !important;
+}
+
+/* HEADER STYLE */
+.table-header-box {
+    text-align: center;
+    font-weight: bold;
+    font-size: 10px;
+    background-color: #111;
+    color: #fff;
+    padding: 5px 0;
+    margin-bottom: 25px;
+    border-radius: 4px;
+    width: 75px;
+    margin: 0 auto;
 }
 
 /* DATE BAR SCROLL */
 [data-testid="stRadio"] > div {
     display: flex !important;
     overflow-x: auto !important;
-    white-space: nowrap !important;
-    gap: 8px !important;
-}
-
-/* HEADER */
-.table-header-box {
-    text-align: center;
-    font-weight: bold;
-    font-size: 10px;
-    background-color: #000;
-    color: #fff;
-    padding: 4px 0;
-    margin-bottom: 25px;
-    width: 95%;
-    margin: 0 auto;
+    gap: 10px !important;
+    padding: 10px 0;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -96,7 +103,9 @@ div.stButton > button:not(:disabled) {
 # 3. APP LOGIC
 # =========================
 if "table_names" not in st.session_state:
-    st.session_state.table_names = ["T1", "T2", "T3"]
+    st.session_state.table_names = ["Table 1", "Table 2", "Table 3"]
+
+st.title("RESERVE TABLE")
 
 # Date Selection
 today = datetime.now().date()
@@ -129,10 +138,9 @@ for t in HOURS:
         
         if not match.empty:
             user_name = match.iloc[0]["Name"]
-            # BOOKED (Light Red)
-            col.button(f"{t} {user_name[:5]}", key=key, disabled=True)
+            # 2 Rows: Time on top, Name on bottom
+            col.button(f"{t}\n{user_name[:7]}", key=key, disabled=True)
         else:
-            # FREE (Green)
-            if col.button(f"{t} 🟢", key=key):
+            if col.button(f"{t}\n🟢", key=key):
                 # Add booking logic...
                 st.rerun()
