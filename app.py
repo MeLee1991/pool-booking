@@ -43,7 +43,7 @@ st.markdown("""
 
 /* 3. TABLE GRID (Exact Widths) */
 .table-row [data-testid="column"]:nth-child(1) { width: 25px !important; flex: none !important; }
-.table-row [data-testid="column"]:nth-child(n+2) { width: 60px !important; flex: none !important; }
+.table-row [data-testid="column"]:nth-child(n+2) { width: 25px !important; flex: none !important; }
 
 /* 4. ROW ALTERNATION (Every 2 rows = 1 hour) */
 .bg-even { background-color: #f0f2f6 !important; border-bottom: 1px solid #ddd; }
@@ -51,7 +51,7 @@ st.markdown("""
 
 /* 5. BUTTON COLORS (Red & Green) */
 .stButton > button {
-    width: 100% !important; height: 32px !important;
+    width: 100% !important; height: 20px !important;
     padding: 0px !important; border-radius: 4px !important; font-weight: bold !important;
 }
 /* Free Slots (Secondary) -> Light Green */
