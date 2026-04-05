@@ -3,179 +3,215 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Pool Booking", layout="wide")
+# Set page to wide to maximize screen space
+st.set_page_config(page_title="Pool Booking", layout="wide", initial_sidebar_state="collapsed")
 
 # =========================
-# 1. DATABASE SETUP
+# 1. DATABASE HELPERS
 # =========================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
 def load_data(file, columns):
-    if os.path.exists(file): return pd.read_csv(file)
+    if os.path.exists(file):
+        return pd.read_csv(file)
     return pd.DataFrame(columns=columns)
 
 def save_data(df, file):
     df.to_csv(file, index=False)
+
+# Initialize data
+users = load_data(USERS_FILE, ["Email", "Name", "Password", "Role"])
+bookings = load_data(BOOKINGS_FILE, ["User", "Name", "Date", "Table", "Time"])
 
 # =========================
 # 2. SESSION STATE
 # =========================
 if "user" not in st.session_state: st.session_state.user = None
 if "role" not in st.session_state: st.session_state.role = None
+if "name" not in st.session_state: st.session_state.name = None
 if "table_names" not in st.session_state: st.session_state.table_names = ["Table 1", "Table 2", "Table 3"]
 
 # =========================
-# 3. CSS (PROFESSIONAL FIX)
+# 3. STRICT MOBILE CSS
 # =========================
 st.markdown("""
 <style>
-/* FORCE 3 COLUMNS WITHOUT OVERFLOW */
+/* 1. FORCE 3 COLUMNS TO FIT SCREEN WIDTH EXACTLY */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    justify-content: center !important;
+    flex-wrap: nowrap !important; /* absolutely prevents vertical stacking */
+    gap: 2px !important;
     width: 100% !important;
-    gap: 4px !important;
+    padding: 0 !important;
 }
 
+/* 2. FORCE EACH COLUMN TO BE EXACTLY 33% */
 [data-testid="column"] {
-    flex: 1 1 30% !important;
-    min-width: 0px !important;
-    max-width: 110px !important;
+    flex: 1 1 33.33% !important;
+    width: 33.33% !important;
+    min-width: 0 !important; /* Critical for narrow screens */
+    padding: 0 2px !important;
 }
 
-/* SLOTS: 2-ROW DESIGN */
-.stButton button {
+/* 3. BUTTON DESIGN (FIXED HEIGHT, 2 ROWS) */
+.stButton > button {
     width: 100% !important;
-    height: 44px !important;
-    font-size: 10px !important;
-    border-radius: 6px !important;
-    border: 1px solid #e0e0e0 !important;
-    white-space: pre-wrap !important;
+    height: 45px !important;
+    font-size: 11px !important;
     line-height: 1.2 !important;
-    margin-bottom: -12px !important;
+    padding: 0 !important;
+    margin-bottom: -10px !important; /* Pulls rows tighter vertically */
+    border-radius: 4px !important;
+    border: 1px solid #ccc !important;
+    white-space: pre-wrap !important;
+    overflow: hidden !important;
 }
 
-/* BOOKED SLOT (LIGHT RED) */
+/* 4. BUTTON COLORS BASED ON STATE */
 div.stButton > button:disabled {
-    background-color: #ffebee !important;
-    color: #c62828 !important;
-    border-color: #ffcdd2 !important;
+    background-color: #f8d7da !important; /* Red for locked */
+    color: #721c24 !important;
     opacity: 1 !important;
 }
-
-/* AVAILABLE SLOT (LIGHT GREEN) */
 div.stButton > button:not(:disabled) {
-    background-color: #e8f5e9 !important;
-    color: #2e7d32 !important;
-    border-color: #c8e6c9 !important;
+    background-color: #d4edda !important; /* Green for free / clickable */
+    color: #155724 !important;
 }
 
-/* HORIZONTAL DATE PILLS */
-div[data-testid="stExpander"] { border: none !important; }
-.date-container {
-    display: flex;
-    overflow-x: auto;
-    gap: 10px;
-    padding: 10px 0;
-}
-
-.table-header {
+/* 5. HEADER DESIGN */
+.tbl-header {
+    background-color: #212529;
+    color: white;
     text-align: center;
     font-weight: bold;
-    font-size: 10px;
-    background: black;
-    color: white;
-    padding: 6px 0;
-    border-radius: 4px;
-    margin-bottom: 25px;
+    font-size: 12px;
+    padding: 5px 0;
+    border-radius: 3px;
+    margin-bottom: 15px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================
-# 4. LOGIN LOGIC (FIRST)
+# 4. LOGIN & AUTH FLOW
 # =========================
-users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
-
 if st.session_state.user is None:
-    st.title("RESERVE TABLE")
-    with st.container():
-        st.subheader("Login / Register")
-        email = st.text_input("Email").lower()
-        password = st.text_input("Password", type="password")
-        col1, col2 = st.columns(2)
+    st.title("🎱 Pool Booking")
+    st.subheader("Login or Register")
+    
+    tab1, tab2 = st.tabs(["Login", "Register"])
+    
+    with tab1:
+        # Added strip() to prevent hidden spaces from breaking login
+        email_in = st.text_input("Email").strip().lower()
+        pass_in = st.text_input("Password", type="password").strip()
         
-        if col1.button("Login", use_container_width=True):
-            u = users[(users["Email"]==email) & (users["Password"]==password)]
-            if not u.empty:
-                st.session_state.user = email
-                st.session_state.name = u.iloc[0]["Name"]
-                st.session_state.role = u.iloc[0]["Role"]
+        if st.button("Log In", use_container_width=True):
+            # Find user
+            match = users[(users["Email"] == email_in) & (users["Password"] == pass_in)]
+            if not match.empty:
+                st.session_state.user = match.iloc[0]["Email"]
+                st.session_state.name = match.iloc[0]["Name"]
+                st.session_state.role = match.iloc[0]["Role"]
                 st.rerun()
-            else: st.error("Invalid credentials")
-            
-        if col2.button("Register", use_container_width=True):
-            if email and password:
-                role = "admin" if users.empty else "pending"
-                new_u = pd.DataFrame([[email, "Guest", password, role]], columns=users.columns)
-                save_data(pd.concat([users, new_u]), USERS_FILE)
-                st.success("Registered! Now Login.")
-    st.stop()
+            else:
+                st.error("Invalid credentials. Please try again.")
+
+    with tab2:
+        new_email = st.text_input("New Email").strip().lower()
+        new_name = st.text_input("Full Name").strip()
+        new_pass = st.text_input("New Password", type="password").strip()
+        
+        if st.button("Register", use_container_width=True):
+            if new_email and new_name and new_pass:
+                # First user becomes admin, others become user
+                assigned_role = "admin" if users.empty else "user"
+                new_row = pd.DataFrame([[new_email, new_name, new_pass, assigned_role]], columns=users.columns)
+                users = pd.concat([users, new_row], ignore_index=True)
+                save_data(users, USERS_FILE)
+                st.success("Registered! You can now log in.")
+            else:
+                st.warning("Please fill in all fields.")
+    st.stop() # Stops the rest of the app from loading until logged in
 
 # =========================
-# 5. MAIN CONTENT (AFTER LOGIN)
+# 5. MAIN APP UI
 # =========================
-bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
-
-# Sidebar for Stats/Admin
-st.sidebar.title(f"Hi, {st.session_state.name}")
-if st.sidebar.button("Logout"):
+# Sidebar Controls
+st.sidebar.markdown(f"👤 **{st.session_state.name}** ({st.session_state.role})")
+if st.sidebar.button("Log Out"):
     st.session_state.user = None
+    st.session_state.role = None
     st.rerun()
 
+# Admin Actions
 if st.session_state.role == "admin":
-    view = st.sidebar.selectbox("Navigate", ["Grid", "Users", "Stats"])
-    if view == "Users":
-        st.title("User Admin")
-        save_data(st.data_editor(users), USERS_FILE)
-        st.stop()
-    if view == "Stats":
-        st.title("Stats")
-        st.bar_chart(bookings["Table"].value_counts())
-        st.stop()
+    st.sidebar.divider()
+    st.sidebar.markdown("🛠️ **Admin Controls**")
+    if st.sidebar.checkbox("Show Users Database"):
+        st.write("### User Management")
+        edited_users = st.data_editor(users)
+        if st.button("Save User Changes"):
+            save_data(edited_users, USERS_FILE)
+            st.success("Users updated.")
 
-# Grid View
 st.title("RESERVE TABLE")
 
-# Professional Date Picker (Selectbox used for mobile stability)
+# Date Selector (Selectbox is completely bug-proof on mobile)
 today = datetime.now().date()
-date_options = [(today + timedelta(days=i)) for i in range(14)]
-date_labels = [d.strftime("%a %d %b") for d in date_options]
-selected_date_label = st.selectbox("Select Date", date_labels)
-sel_date = str(date_options[date_labels.index(selected_date_label)])
+date_list = [today + timedelta(days=i) for i in range(14)]
+date_strings = [d.strftime("%A, %d %b") for d in date_list]
 
-# Table Headers
+selected_date_str = st.selectbox("📅 Choose Date", date_strings)
+selected_date = str(date_list[date_strings.index(selected_date_str)])
+
+# =========================
+# 6. THE 3-COLUMN GRID
+# =========================
+# Render headers
 h_cols = st.columns(3)
-for i, col in enumerate(h_cols):
-    col.markdown(f"<div class='table-header'>{st.session_state.table_names[i]}</div>", unsafe_allow_html=True)
+for i in range(3):
+    h_cols[i].markdown(f"<div class='tbl-header'>{st.session_state.table_names[i]}</div>", unsafe_allow_html=True)
 
-# Grid
-HOURS = [f"{h:02d}:{m}" for h in (list(range(8,24)) + list(range(0,3))) for m in ["00","30"]]
+# Generate Time Slots
+HOURS = []
+for h in list(range(8, 24)) + list(range(0, 3)):
+    for m in ["00", "30"]:
+        HOURS.append(f"{h:02d}:{m}")
+
+# Render rows
 for t in HOURS:
     t_cols = st.columns(3)
-    for i, col in enumerate(t_cols):
+    for i in range(3):
         t_name = st.session_state.table_names[i]
-        match = bookings[(bookings["Table"] == t_name) & (bookings["Time"] == t) & (bookings["Date"] == sel_date)]
-        key = f"s_{i}_{t}_{sel_date}"
         
-        if not match.empty:
-            name = match.iloc[0]["Name"]
-            col.button(f"{t}\n{name[:7]}", key=key, disabled=True)
-        else:
-            if col.button(f"{t}\n🟢", key=key):
-                new_b = pd.DataFrame([[st.session_state.user, st.session_state.name, sel_date, t_name, t]], columns=bookings.columns)
-                save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
-                st.rerun()
+        # Check if slot is booked
+        match = bookings[(bookings["Table"] == t_name) & (bookings["Time"] == t) & (bookings["Date"] == selected_date)]
+        key = f"btn_{i}_{t}_{selected_date}"
+        
+        with t_cols[i]:
+            if not match.empty:
+                b_user = match.iloc[0]["User"]
+                b_name = match.iloc[0]["Name"]
+                
+                # PERMISSIONS LOGIC
+                if b_user == st.session_state.user or st.session_state.role == "admin":
+                    # I booked it OR I am admin -> Click to CANCEL/RELEASE
+                    if st.button(f"{t}\n❌ {b_name[:6]}", key=key):
+                        bookings = bookings.drop(match.index) # Remove the booking
+                        save_data(bookings, BOOKINGS_FILE)
+                        st.rerun()
+                else:
+                    # Someone else booked it -> Locked
+                    st.button(f"{t}\n🔒 {b_name[:6]}", key=key, disabled=True)
+            else:
+                # SLOT IS FREE
+                if st.button(f"{t}\n🟢 Free", key=key):
+                    # Create new booking
+                    new_b = pd.DataFrame([[st.session_state.user, st.session_state.name, selected_date, t_name, t]], 
+                                         columns=["User","Name","Date","Table","Time"])
+                    bookings = pd.concat([bookings, new_b], ignore_index=True)
+                    save_data(bookings, BOOKINGS_FILE)
+                    st.rerun()
