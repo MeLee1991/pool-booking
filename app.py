@@ -22,71 +22,87 @@ bookings = load_data(BOOKINGS_FILE, ["User", "Name", "Date", "Table", "Time"])
 # 3. SESSION STATE
 if "user" not in st.session_state: st.session_state.user = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
+if "confirm_delete" not in st.session_state: st.session_state.confirm_delete = None
 
-# 4. FIXED GRID CSS
+# 4. PRO CSS (ADJACENT SIBLING TARGETING)
 st.markdown("""
 <style>
-/* FORCE 4-COLUMN ALIGNMENT */
-[data-testid="stHorizontalBlock"] {
+/* Clean up global padding */
+[data-testid="stAppViewBlockContainer"] { padding: 1rem 0.5rem !important; }
+[data-testid="column"] { padding: 0px !important; }
+
+/* --- DATES GRID (Exactly 7 columns) --- */
+.date-marker + div[data-testid="stHorizontalBlock"] {
+    display: grid !important;
+    grid-template-columns: repeat(7, 46px) !important;
+    gap: 2px !important;
+    margin-bottom: 5px !important;
+    justify-content: left !important;
+}
+.date-marker + div[data-testid="stHorizontalBlock"] .stButton > button {
+    width: 100% !important; height: 35px !important; 
+    border-radius: 4px !important; font-size: 10px !important; padding: 0 !important;
+}
+/* Selected Date Color */
+button[kind="primary"] { background-color: #2c3e50 !important; color: #fff !important; border: none !important; }
+
+/* --- TABLE GRID (Exactly 4 columns: 45px + 65px + 65px + 65px) --- */
+.table-marker + div[data-testid="stHorizontalBlock"] {
     display: grid !important;
     grid-template-columns: 45px 65px 65px 65px !important;
     gap: 0px !important;
-    width: fit-content !important;
+    width: 240px !important; /* Locked width to prevent stretching */
     align-items: center !important;
+    border-bottom: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    border-left: 1px solid #ddd;
+}
+/* Header Styling */
+.table-marker.header-row + div[data-testid="stHorizontalBlock"] {
+    border-top: 1px solid #ddd;
+    background-color: #222 !important;
+}
+/* Alternating Row Colors */
+.table-marker.even-row + div[data-testid="stHorizontalBlock"] { background-color: #f8f9fa !important; }
+.table-marker.odd-row + div[data-testid="stHorizontalBlock"] { background-color: #ffffff !important; }
+
+/* Table Buttons */
+.table-marker + div[data-testid="stHorizontalBlock"] .stButton > button {
+    width: 65px !important; height: 32px !important;
+    font-size: 11px !important; padding: 0px !important;
+    border-radius: 0px !important; margin: 0px !important;
+    border: none !important; border-left: 1px solid #ddd !important;
 }
 
-/* REMOVE ALL PADDING */
-[data-testid="column"] { padding: 0px !important; flex: none !important; }
-
-/* ROW WRAPPER: Full width background and border */
-.row-container {
-    display: flex !important;
-    border-bottom: 1px solid #eee;
-    border-right: 1px solid #eee;
+/* --- LIGHT GREEN / LIGHT RED LOGIC --- */
+/* Free (Light Green) */
+.table-marker + div[data-testid="stHorizontalBlock"] button:not(:disabled) {
+    background-color: #f6ffed !important;
+    color: #389e0d !important;
+    font-weight: bold !important;
+}
+.table-marker + div[data-testid="stHorizontalBlock"] button:not(:disabled):hover {
+    background-color: #d9f7be !important;
 }
 
-/* ALTERNATING COLORS (Whole Row) */
-.bg-even { background-color: #f7f7f7 !important; }
-.bg-odd { background-color: #ffffff !important; }
-
-/* BUTTONS: Shrunk & Locked */
-.stButton > button {
-    width: 63px !important;
-    height: 30px !important;
-    font-size: 10px !important;
-    padding: 0px !important;
-    border-radius: 0px !important;
-    border: 1px solid #ddd !important;
-    margin: 0px !important;
+/* Booked/Locked (Light Red) */
+.table-marker + div[data-testid="stHorizontalBlock"] button:disabled {
+    background-color: #fff1f0 !important;
+    color: #cf1322 !important;
+    opacity: 1 !important;
 }
 
-/* TIME LABEL: Locked to same height as buttons */
-.time-box {
-    width: 45px;
-    height: 30px;
-    line-height: 30px;
-    font-size: 10px;
-    font-weight: bold;
-    text-align: center;
-    border-left: 1px solid #eee;
+/* Override for Admin Cancel (Light Red but Clickable) */
+.admin-cancel button {
+    background-color: #fff1f0 !important;
+    color: #cf1322 !important;
+    font-weight: bold !important;
 }
 
-/* HEADERS: Fixed Black Boxes */
-.header-box { 
-    background: #000; color: #fff; text-align: center; 
-    font-size: 9px; height: 20px; line-height: 20px;
-    width: 65px; border: 1px solid #333;
-}
-
-/* DATES: 7-Column Grid */
-.date-section [data-testid="stHorizontalBlock"] {
-    grid-template-columns: repeat(7, 45px) !important;
-    margin-bottom: -10px !important;
-}
-.date-section .stButton > button { width: 43px !important; height: 35px !important; border-radius: 4px !important; }
-
-/* Global Cleanup */
-[data-testid="stAppViewBlockContainer"] { padding: 0.5rem 0.2rem !important; }
+/* Text Alignment inside Table */
+.time-text { font-size: 11px; font-weight: bold; text-align: center; color: #333; height: 32px; line-height: 32px; }
+.header-text { font-size: 11px; font-weight: bold; text-align: center; color: #fff; height: 25px; line-height: 25px; border-left: 1px solid #444; }
+.header-text.no-border { border-left: none; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -106,56 +122,76 @@ if st.session_state.user is None:
 st.write("### 📅 Dates")
 today = datetime.now().date()
 for r in range(2):
-    st.markdown('<div class="date-section">', unsafe_allow_html=True)
+    # Hidden marker tells CSS to style the NEXT st.columns as a 7-day grid
+    st.markdown('<div class="date-marker"></div>', unsafe_allow_html=True)
     cols = st.columns(7)
     for i in range(7):
         d = today + timedelta(days=i + (r * 7))
         d_str = str(d)
         with cols[i]:
-            lbl = f"{d.strftime('%a')}\n{d.day}"
             is_active = (st.session_state.sel_date == d_str)
-            if st.button(lbl, key=f"d_{d_str}", type="primary" if is_active else "secondary"):
+            if st.button(f"{d.strftime('%a')}\n{d.day}", key=f"d_{d_str}", type="primary" if is_active else "secondary"):
                 st.session_state.sel_date = d_str; st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+
+# 7. ADMIN CONFIRMATION DIALOG (Top of table)
+if st.session_state.confirm_delete:
+    idx_to_del, b_name = st.session_state.confirm_delete
+    st.warning(f"Admin Action: Cancel booking for {b_name}?")
+    c1, c2 = st.columns(2)
+    if c1.button("Yes, Cancel It"):
+        bookings = bookings.drop(index=int(idx_to_del)); save_data(bookings, BOOKINGS_FILE)
+        st.session_state.confirm_delete = None; st.rerun()
+    if c2.button("No, Keep It"):
+        st.session_state.confirm_delete = None; st.rerun()
 
 st.divider()
 
-# 7. TABLE
-# Header
-st.markdown('<div class="row-container">', unsafe_allow_html=True)
+# 8. BOOKING TABLE
+# Header Row
+st.markdown('<div class="table-marker header-row"></div>', unsafe_allow_html=True)
 h_cols = st.columns(4)
-h_cols[0].write("") # Corner
-for i, name in enumerate(["T1", "T2", "T3"]):
-    h_cols[i+1].markdown(f'<div class="header-box">{name}</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+with h_cols[0]: st.markdown('<div class="header-text no-border"></div>', unsafe_allow_html=True)
+with h_cols[1]: st.markdown('<div class="header-text">T1</div>', unsafe_allow_html=True)
+with h_cols[2]: st.markdown('<div class="header-text">T2</div>', unsafe_allow_html=True)
+with h_cols[3]: st.markdown('<div class="header-text">T3</div>', unsafe_allow_html=True)
 
-# Rows
+# Hours Schedule
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
 
 for idx, t in enumerate(HOURS):
-    # Whole row background toggle every hour (2 slots)
-    bg_style = "bg-even" if (idx // 2) % 2 == 0 else "bg-odd"
+    # Alternating row logic (changes every 2 slots = 1 hour)
+    row_class = "even-row" if (idx // 2) % 2 == 0 else "odd-row"
     
-    st.markdown(f'<div class="row-container {bg_style}">', unsafe_allow_html=True)
+    # Hidden marker tells CSS to style the NEXT st.columns as a 4-column table row
+    st.markdown(f'<div class="table-marker {row_class}"></div>', unsafe_allow_html=True)
     r_cols = st.columns(4)
     
-    # Time
+    # Time Column
     with r_cols[0]:
-        st.markdown(f'<div class="time-box">{t}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="time-text">{t}</div>', unsafe_allow_html=True)
         
-    # Tables
+    # Table Columns
     for i in range(3):
         t_n = f"Table {i+1}"
         match = bookings[(bookings["Table"] == t_n) & (bookings["Time"] == t) & (bookings["Date"] == st.session_state.sel_date)]
         with r_cols[i+1]:
             if not match.empty:
                 b_user, b_name = match.iloc[0]["User"], match.iloc[0]["Name"]
-                if st.session_state.role == "admin" or b_user == st.session_state.user:
-                    if st.button(f"❌{b_name[:3]}", key=f"b_{t}_{i}"):
+                if st.session_state.user == b_user:
+                    # User cancels their own (Instant)
+                    if st.button(f"❌ {b_name[:3]}", key=f"b_{t}_{i}"):
                         bookings = bookings.drop(match.index); save_data(bookings, BOOKINGS_FILE); st.rerun()
-                else: st.button(f"🔒{b_name[:3]}", key=f"b_{t}_{i}", disabled=True)
+                elif st.session_state.role == "admin":
+                    # Admin cancels someone else's (Requires Confirmation)
+                    st.markdown('<div class="admin-cancel">', unsafe_allow_html=True)
+                    if st.button(f"🛡️ {b_name[:3]}", key=f"b_{t}_{i}"):
+                        st.session_state.confirm_delete = (match.index[0], b_name); st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    # Booked by someone else (Locked)
+                    st.button(f"🔒 {b_name[:3]}", key=f"b_{t}_{i}", disabled=True)
             else:
+                # Free Slot
                 if st.button("Free", key=f"b_{t}_{i}"):
                     new_b = pd.DataFrame([{"User":st.session_state.user, "Name":st.session_state.name, "Date":st.session_state.sel_date, "Table":t_n, "Time":t}])
                     save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE); st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
