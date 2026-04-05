@@ -37,13 +37,13 @@ st.markdown("""
 
 /* 2. DATES GRID (7 Columns No-Stack) */
 .date-row [data-testid="column"] {
-    width: 45px !important;
+    width: 25px !important;
     flex: none !important;
 }
 
 /* 3. TABLE GRID (Exact Widths) */
-.table-row [data-testid="column"]:nth-child(1) { width: 55px !important; flex: none !important; }
-.table-row [data-testid="column"]:nth-child(n+2) { width: 80px !important; flex: none !important; }
+.table-row [data-testid="column"]:nth-child(1) { width: 25px !important; flex: none !important; }
+.table-row [data-testid="column"]:nth-child(n+2) { width: 60px !important; flex: none !important; }
 
 /* 4. ROW ALTERNATION (Every 2 rows = 1 hour) */
 .bg-even { background-color: #f0f2f6 !important; border-bottom: 1px solid #ddd; }
@@ -63,7 +63,7 @@ button[kind="primary"], .table-row button:disabled {
 }
 
 .time-label { font-size: 11px; font-weight: bold; text-align: center; }
-.header-box { background: #000; color: #fff; text-align: center; font-size: 11px; height: 22px; line-height: 22px; }
+.header-box { background: #000; color: #fff; text-align: center; font-size: 11px; height: 18px; line-height: 18px; }
 [data-testid="stAppViewBlockContainer"] { padding: 1rem 0.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
