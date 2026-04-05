@@ -6,153 +6,159 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Pool Booking", layout="wide")
 
 # =========================
-# 1. DATABASE & SESSION
+# 1. FILES & DATA
 # =========================
+USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
-def load_bookings():
-    if os.path.exists(BOOKINGS_FILE):
-        return pd.read_csv(BOOKINGS_FILE)
-    return pd.DataFrame(columns=["User","Name","Date","Table","Time"])
+def load_data(file, columns):
+    if os.path.exists(file):
+        return pd.read_csv(file)
+    return pd.DataFrame(columns=columns)
 
-def save_bookings(df):
-    df.to_csv(BOOKINGS_FILE, index=False)
+def save_data(df, file):
+    df.to_csv(file, index=False)
 
+# Initial Load
+users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
+bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
+
+# =========================
+# 2. SESSION & AUTH
+# =========================
 if "user" not in st.session_state:
-    st.session_state.user = "user@example.com"
-    st.session_state.name = "Player"
+    st.session_state.user = None
 if "table_names" not in st.session_state:
     st.session_state.table_names = ["Table 1", "Table 2", "Table 3"]
 
+# Sidebar Login/Register
+st.sidebar.title("🔐 Access")
+if st.session_state.user is None:
+    mode = st.sidebar.radio("Mode", ["Login","Register"])
+    email = st.sidebar.text_input("Email").strip().lower()
+    pw = st.sidebar.text_input("Password", type="password")
+    
+    if mode == "Register":
+        reg_name = st.sidebar.text_input("Name")
+        if st.sidebar.button("Register"):
+            role = "admin" if users.empty else "pending"
+            new_u = pd.DataFrame([[email, reg_name, pw, role]], columns=users.columns)
+            save_data(pd.concat([users, new_u]), USERS_FILE)
+            st.sidebar.success("Registered!")
+    else:
+        if st.sidebar.button("Login"):
+            u = users[(users["Email"]==email) & (users["Password"]==pw)]
+            if not u.empty:
+                st.session_state.user = email
+                st.session_state.name = u.iloc[0]["Name"]
+                st.session_state.role = u.iloc[0]["Role"]
+                st.rerun()
+    st.stop()
+
 # =========================
-# 2. CSS (HARD OVERRIDE)
+# 3. CSS (PRO DATE BAR & GRID)
 # =========================
 st.markdown("""
 <style>
-/* FORCE 3 COLUMNS - NO STACKING ON MOBILE */
+/* PRO DATE BAR */
+[data-testid="stRadio"] > div {
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    gap: 8px !important;
+    padding: 10px 5px !important;
+}
+[data-testid="stRadio"] label {
+    background: #f0f2f6;
+    padding: 8px 16px !important;
+    border-radius: 20px !important;
+    border: 1px solid #ddd !important;
+    font-size: 12px !important;
+    font-weight: 600;
+}
+[data-testid="stRadio"] label[data-baseweb="radio"] div:first-child { display: none; } /* Hide the circle */
+
+/* FORCE 3 COLUMNS */
 [data-testid="stHorizontalBlock"] {
     display: grid !important;
-    grid-template-columns: repeat(3, 85px) !important; /* STRICT NARROW COLUMNS */
+    grid-template-columns: repeat(3, 85px) !important;
     justify-content: center !important;
     gap: 4px !important;
-    width: 100% !important;
 }
 
-[data-testid="column"] {
-    width: 85px !important;
-    flex: none !important;
-}
-
-/* SLOTS / BUTTONS STYLE */
+/* BUTTON SLOTS */
 .stButton button {
     width: 80px !important; 
-    height: 40px !important;
+    height: 42px !important;
     font-size: 10px !important;
-    line-height: 1.1 !important;
-    padding: 0px !important;
-    border-radius: 4px !important;
-    border: 1.5px solid #d1d1d1 !important; /* Visible button border */
+    border: 1.5px solid #d1d1d1 !important;
     white-space: pre-wrap !important;
-    display: block !important;
-    margin-bottom: -15px !important; /* Tightens rows */
+    margin-bottom: -15px !important;
 }
 
-/* BUTTON COLORS */
-div.stButton > button:not(:disabled) {
-    background-color: #f0fdf4 !important; /* Light Green */
-    color: #166534 !important;
-    border-color: #dcfce7 !important;
-}
+/* COLORS */
+div.stButton > button:not(:disabled) { background-color: #f0fdf4 !important; color: #166534 !important; }
+div.stButton > button:disabled { background-color: #fee2e2 !important; color: #991b1b !important; opacity: 1 !important; }
 
-div.stButton > button:disabled {
-    background-color: #fee2e2 !important; /* Lighter Red */
-    color: #991b1b !important;
-    opacity: 1 !important;
-    border-color: #fecaca !important;
-}
-
-/* HEADER STYLE */
-.table-header {
-    text-align: center;
-    font-weight: bold;
-    font-size: 10px;
-    background: #000;
-    color: #fff;
-    padding: 5px 0;
-    margin-bottom: 30px; /* Space between header and rows */
-    border-radius: 4px;
-    width: 80px;
-}
-
-/* 4-HOUR GROUP BACKGROUNDS */
-.bg-group {
-    background-color: rgba(0,0,0,0.04);
-    border-radius: 5px;
-}
+.table-header { text-align: center; font-weight: bold; font-size: 10px; background: #000; color: #fff; padding: 5px 0; margin-bottom: 30px; border-radius: 4px; }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================
-# 3. UI & DATE
+# 4. ADMIN & STATS
+# =========================
+if st.session_state.role == "admin":
+    admin_mode = st.sidebar.selectbox("Admin Tools", ["Booking Grid", "Manage Users", "Stats"])
+    
+    if admin_mode == "Manage Users":
+        st.title("Users Management")
+        edited = st.data_editor(users)
+        if st.button("Save Users"):
+            save_data(edited, USERS_FILE)
+        st.stop()
+        
+    if admin_mode == "Stats":
+        st.title("Booking Stats")
+        st.bar_chart(bookings["Name"].value_counts())
+        st.stop()
+
+# =========================
+# 5. BOOKING GRID
 # =========================
 st.title("RESERVE TABLE")
 
+# Professional Date Picker
 today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
 labels = [d.strftime("%a %d") for d in dates]
 selected_label = st.radio("", labels, horizontal=True)
-selected_date = dates[labels.index(selected_label)]
+sel_date = str(dates[labels.index(selected_label)])
 
-# Table Renaming
-with st.expander("⚙️ Rename Tables"):
-    for i in range(3):
-        st.session_state.table_names[i] = st.text_input(f"Name {i+1}", st.session_state.table_names[i])
+# Table Rename
+if st.session_state.role == "admin":
+    with st.expander("⚙️ Rename Tables"):
+        for i in range(3):
+            st.session_state.table_names[i] = st.text_input(f"Name {i+1}", st.session_state.table_names[i])
 
-# =========================
-# 4. GRID GENERATION
-# =========================
-df = load_bookings()
-
-# Render Table Headers
+# Headers
 h_cols = st.columns(3)
 for i, col in enumerate(h_cols):
     col.markdown(f"<div class='table-header'>{st.session_state.table_names[i]}</div>", unsafe_allow_html=True)
 
-# Generate Time Slots
-HOURS = []
-for h in list(range(8, 24)) + list(range(0, 3)):
-    for m in ["00", "30"]:
-        HOURS.append(f"{h:02d}:{m}")
+# Slots
+HOURS = [f"{h:02d}:{m}" for h in (list(range(8,24)) + list(range(0,3))) for m in ["00","30"]]
 
 for t in HOURS:
-    # 4-Hour Zebra Striping Logic
-    hour_int = int(t.split(":")[0])
-    # Shifts 0-3 AM to end of day logic
-    adjusted_h = hour_int if hour_int >= 8 else hour_int + 24
-    is_alt_bg = ((adjusted_h - 8) // 4) % 2 == 0
-    
-    # Render the 3 buttons for this time slot
     t_cols = st.columns(3)
     for i, col in enumerate(t_cols):
         t_name = st.session_state.table_names[i]
-        match = df[(df["Table"] == t_name) & (df["Time"] == t) & (df["Date"] == str(selected_date))]
-        btn_key = f"slot_{i}_{t}_{selected_date}"
-        
-        # Apply zebra striping to the column div if needed via custom class, 
-        # but here we use the button colors to differentiate.
+        match = bookings[(bookings["Table"] == t_name) & (bookings["Time"] == t) & (bookings["Date"] == sel_date)]
         
         if not match.empty:
             u_name = match.iloc[0]["Name"]
-            col.button(f"{t}\n{u_name[:7]}", key=btn_key, disabled=True)
+            col.button(f"{t}\n{u_name[:7]}", key=f"s_{i}_{t}_{sel_date}", disabled=True)
         else:
-            if col.button(f"{t}\n🟢", key=btn_key):
-                new_entry = pd.DataFrame([{
-                    "User": st.session_state.user,
-                    "Name": st.session_state.name,
-                    "Date": str(selected_date),
-                    "Table": t_name,
-                    "Time": t
-                }])
-                df = pd.concat([df, new_entry], ignore_index=True)
-                save_bookings(df)
+            if col.button(f"{t}\n🟢", key=f"s_{i}_{t}_{sel_date}"):
+                new_b = pd.DataFrame([[st.session_state.user, st.session_state.name, sel_date, t_name, t]], columns=bookings.columns)
+                save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
                 st.rerun()
