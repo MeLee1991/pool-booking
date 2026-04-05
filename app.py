@@ -25,8 +25,8 @@ def send_pending_email(new_user_email):
         server.login(EMAIL_SENDER, EMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
-    except Exception as e:
-        print("Email error:", e)
+    except:
+        pass
 
 # ==========================================
 # FILES
@@ -87,7 +87,7 @@ if st.sidebar.button("Go"):
         name = name.strip()
 
         if email in users["Email"].values:
-            st.sidebar.error("User already exists")
+            st.sidebar.error("User exists")
         else:
             role = "admin" if users.empty else "pending"
 
@@ -100,7 +100,7 @@ if st.sidebar.button("Go"):
             if role == "pending":
                 send_pending_email(email)
 
-            st.sidebar.success("Registered! Await admin approval.")
+            st.sidebar.success("Registered! Await approval.")
 
     else:
         users = load_users()
@@ -110,7 +110,7 @@ if st.sidebar.button("Go"):
             role = u.iloc[0]["Role"]
 
             if role == "pending":
-                st.sidebar.warning("⏳ Awaiting admin approval")
+                st.sidebar.warning("Awaiting approval")
             else:
                 st.session_state.user = email
                 st.session_state.name = u.iloc[0]["Name"]
@@ -124,46 +124,91 @@ if st.session_state.user is None:
     st.info("Login or register from sidebar")
     st.stop()
 
-st.sidebar.success(f"Logged in as {st.session_state.name}")
+# ==========================================
+# ADMIN PANEL
+# ==========================================
+if st.session_state.role == "admin":
+    st.sidebar.markdown("---")
+    admin_view = st.sidebar.radio("Admin", ["Booking","Users","Stats"])
 
-if st.sidebar.button("Logout"):
-    st.session_state.user = None
-    st.rerun()
+    if admin_view == "Users":
+        st.subheader("Users")
+        users = load_users()
+
+        for i, row in users.iterrows():
+            c1, c2, c3 = st.columns([3,2,2])
+
+            c1.write(f"{row['Name']} ({row['Email']})")
+            c2.write(row["Role"])
+
+            if row["Role"] == "pending":
+                if c3.button("Approve", key=f"a{i}"):
+                    users.at[i,"Role"]="user"
+                    save_users(users)
+                    st.rerun()
+
+            elif row["Role"] == "user":
+                if c3.button("Admin", key=f"b{i}"):
+                    users.at[i,"Role"]="admin"
+                    save_users(users)
+                    st.rerun()
+
+            elif row["Role"] == "admin" and row["Email"] != st.session_state.user:
+                if c3.button("Demote", key=f"c{i}"):
+                    users.at[i,"Role"]="user"
+                    save_users(users)
+                    st.rerun()
+
+        st.stop()
+
+    if admin_view == "Stats":
+        st.subheader("Stats")
+        df = load_bookings()
+
+        if not df.empty:
+            st.bar_chart(df["User"].value_counts())
+            st.bar_chart(df["Table"].value_counts())
+        else:
+            st.info("No data")
+
+        st.stop()
 
 # ==========================================
-# CSS (FINAL FIXED)
+# CSS
 # ==========================================
 st.markdown("""
 <style>
 
 /* DATE GRID */
+[data-testid="stRadio"] {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 50;
+}
+
 [data-testid="stRadio"] > div {
     display: grid !important;
-    grid-template-columns: auto repeat(7, auto);
+    grid-template-columns: 70px repeat(7, minmax(70px,1fr));
     grid-template-rows: auto auto;
     gap: 6px;
+    width: 100%;
 }
 
-[data-testid="stRadio"] > div::before {
-    content: "Week 1:";
-    grid-row: 1;
+[data-testid="stRadio"] label {
+    white-space: nowrap !important;
+    text-align: center;
+    font-size: 12px;
 }
-[data-testid="stRadio"] > div::after {
-    content: "Week 2:";
-    grid-row: 2;
-}
-
-[data-testid="stRadio"] label:nth-of-type(-n+7) { grid-row: 1; }
-[data-testid="stRadio"] label:nth-of-type(n+8) { grid-row: 2; }
 
 /* HEADER */
 .table-header {
     position: sticky;
-    top: 0;
+    top: 90px;
+    z-index: 40;
     background: #212529;
     color: white;
     text-align: center;
-    font-size: 12px;
     padding: 4px;
     border-radius: 6px;
 }
@@ -172,31 +217,25 @@ st.markdown("""
 .block-container { max-width: 720px; }
 [data-testid="stHorizontalBlock"] { gap: 4px !important; }
 
-/* MOBILE */
-@media (max-width:900px){
-[data-testid="column"]{ width:32%!important; flex:0 0 32%!important; }
-button p{ font-size:7px!important; }
-}
-
-/* BUTTONS */
+/* BUTTON */
 button {
     border-radius: 999px !important;
-    transition: all 0.08s ease !important;
+    transition: all .08s ease !important;
 }
-button:active { transform: scale(0.93); }
 
-/* STATES */
+button:active { transform: scale(.93); }
+
 button[kind="secondary"] {
     background:#f1f3f5!important;
-    border:1px solid #dee2e6!important;
 }
+
 button[kind="primary"] {
-    background:linear-gradient(180deg,#ff4d4f,#dc3545)!important;
+    background:#dc3545!important;
     color:white!important;
 }
+
 button[disabled] {
     background:#f8d7da!important;
-    color:#842029!important;
 }
 
 </style>
@@ -210,13 +249,21 @@ st.title("RESERVE TABLE")
 today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
 
-labels = ["Today" if d==today else "Tomorrow" if d==today+timedelta(days=1) else d.strftime("%a %d") for d in dates]
+labels = [
+    "Today" if d==today else
+    "Tomorrow" if d==today+timedelta(days=1)
+    else d.strftime("%a %d")
+    for d in dates
+]
 
 selected = st.radio("Date", labels, horizontal=True, label_visibility="collapsed")
 selected_date = dates[labels.index(selected)]
 
 df = load_bookings()
+
 HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
+
+BLOCK_COLORS = ["#f8f9fa","#eef7ff","#eefaf0","#fff5f5","#f6f0ff"]
 
 cols = st.columns(3)
 
@@ -224,38 +271,36 @@ for i, col in enumerate(cols):
     col.markdown(f"<div class='table-header'>Table {i+1}</div>", unsafe_allow_html=True)
 
     for t in HOURS:
-        hour = int(t[:2])
-        is_prime = 17 <= hour <= 23
+        idx = HOURS.index(t)
+        bg = BLOCK_COLORS[(idx//4)%len(BLOCK_COLORS)]
 
         booked = df[(df.Table==f"Table {i+1}") & (df.Time==t) & (df.Date==str(selected_date))]
         key=f"{i}_{t}"
 
+        hour = int(t[:2])
+        is_prime = 17 <= hour <= 23
+
         label = f"{t} 🟢"
         if is_prime:
-            label = f"🔥 {t} 🟢"
+            label = f"🔥 {t}"
+
+        col.markdown(f"<div style='background:{bg};padding:2px;border-radius:999px;'>", unsafe_allow_html=True)
 
         if not booked.empty:
             owner = booked.iloc[0]["User"]
-            name_display = owner.split("@")[0]
 
             if owner == st.session_state.user:
-                if col.button(f"{t} ❌ {name_display}", key=key, type="primary"):
+                if col.button(f"{t} ❌", key=key, type="primary"):
                     df=df[~((df.Table==f"Table {i+1}")&(df.Time==t)&(df.Date==str(selected_date)))]
                     save_bookings(df)
                     st.rerun()
-
-            elif st.session_state.role=="admin":
-                if col.button(f"{t} 🔴 {name_display}", key=key, type="primary"):
-                    df=df[~((df.Table==f"Table {i+1}")&(df.Time==t)&(df.Date==str(selected_date)))]
-                    save_bookings(df)
-                    st.rerun()
-
             else:
-                col.button(f"{t} 🔒 {name_display}", key=key, disabled=True)
-
+                col.button(f"{t} 🔒", key=key, disabled=True)
         else:
-            if col.button(label, key=key, type="secondary"):
+            if col.button(label, key=key):
                 new = pd.DataFrame([[st.session_state.user,str(selected_date),f"Table {i+1}",t]],
                                    columns=["User","Date","Table","Time"])
                 save_bookings(pd.concat([df,new],ignore_index=True))
                 st.rerun()
+
+        col.markdown("</div>", unsafe_allow_html=True)
