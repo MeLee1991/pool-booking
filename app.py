@@ -28,58 +28,67 @@ if "name" not in st.session_state: st.session_state.name = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 if "confirm_delete" not in st.session_state: st.session_state.confirm_delete = None
 
-# 4. COMPACT CSS
+# 4. CUSTOM CSS: THE "TIGHT FIT" FIX
 st.markdown("""
 <style>
-/* FORCE COLUMNS TO TOUCH */
-[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    justify-content: center !important; /* Centered table */
-    gap: 1px !important; /* Micro gap */
-}
-
+/* 1. FORCE THE 3 TABLE COLUMNS TO BE TIGHTLY PACKED */
 [data-testid="column"] {
-    flex: 0 0 92px !important; /* Tight fixed width */
-    min-width: 92px !important;
-    max-width: 92px !important;
-    padding: 0px !important;
+    flex: 0 0 105px !important; /* Fixed width to keep them close */
+    min-width: 105px !important;
+    max-width: 105px !important;
+    padding: 1px !important;
 }
 
-/* BUTTON PADDING FIX (Keeps text inside) */
+/* 2. CENTER THE WHOLE GRID AREA */
+[data-testid="stHorizontalBlock"] {
+    justify-content: center !important;
+    gap: 2px !important;
+}
+
+/* 3. BUTTON STYLING (Clock | Symbol | Name) */
 .stButton > button {
-    width: 92px !important;
-    height: 75px !important;
-    font-size: 11px !important;
-    padding: 4px !important; /* Added padding to keep name inside */
-    margin-bottom: -14px !important;
-    border-radius: 6px !important;
-    line-height: 1.2 !important;
+    width: 105px !important;
+    height: 50px !important;
+    padding: 0px 4px !important;
+    margin-bottom: -15px !important;
+    border-radius: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
 }
 
-/* COMPACT HEADERS */
+/* FONT LOGIC: Hour vs Name */
+.btn-text-hour { font-size: 13px !important; font-weight: bold; }
+.btn-text-name { font-size: 11px !important; opacity: 0.9; } /* 2px smaller than hour */
+.btn-symbol { font-size: 14px !important; }
+
+/* 4. HEADERS */
 .tbl-header {
     background: #000; color: #fff; text-align: center; 
-    font-size: 11px; padding: 6px 0; border-radius: 4px; margin-bottom: 12px;
-    width: 92px;
+    font-size: 11px; padding: 4px 0; border-radius: 4px; margin-bottom: 10px;
+    width: 105px;
 }
 
-/* DATE PICKER GRID (Independent narrow columns) */
-.date-grid [data-testid="column"] {
-    flex: 0 0 42px !important;
-    min-width: 42px !important;
+/* 5. INDEPENDENT DATE GRID (7 columns) */
+.date-section [data-testid="column"] {
+    flex: 0 0 44px !important;
+    min-width: 44px !important;
 }
-.date-grid button {
-    height: 45px !important;
-    width: 42px !important;
+.date-section button {
+    height: 42px !important;
+    width: 44px !important;
     font-size: 10px !important;
-    padding: 0px !important;
 }
+
+/* COLORS */
+div.stButton > button:not(:disabled) { background-color: #f6ffed !important; color: #389e0d !important; border: 1px solid #b7eb8f !important; }
+div.stButton > button:disabled { background-color: #fff1f0 !important; color: #cf1322 !important; border: 1px solid #ffa39e !important; opacity: 1 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# 5. AUTH (Simplified)
+# 5. AUTH / LOGIN (Standard logic from your previous steps)
 if st.session_state.user is None:
     st.title("🎱 RESERVE")
     auth = st.radio("", ["Login", "Register"], horizontal=True)
@@ -102,41 +111,41 @@ if st.session_state.user is None:
 # 6. ADMIN CONFIRMATION DIALOGUE
 if st.session_state.confirm_delete:
     idx, b_name = st.session_state.confirm_delete
-    st.warning(f"Are you sure you want to cancel {b_name}'s booking?")
+    st.warning(f"⚠️ Cancel {b_name}?")
     c1, c2 = st.columns(2)
-    if c1.button("YES, Cancel"):
+    if c1.button("Confirm Cancel"):
         bookings = bookings.drop(idx)
         save_data(bookings, BOOKINGS_FILE)
         st.session_state.confirm_delete = None
         st.rerun()
-    if c2.button("NO, Keep it"):
+    if c2.button("Keep"):
         st.session_state.confirm_delete = None
         st.rerun()
     st.stop()
 
-# 7. MAIN APP
+# 7. MAIN INTERFACE
 st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
 
-# DATE PICKER (7x2 Grid)
-st.write("### 📅 Select Date")
+# DATE PICKER GRID (Independent 7-column grid)
+st.write("### 📅 Dates")
 today_str = str(datetime.now().date())
-for row in range(2):
-    d_cols = st.columns(7)
-    for i in range(7):
-        day_idx = i + (row * 7)
-        d = datetime.now().date() + timedelta(days=day_idx)
-        d_str = str(d)
-        with d_cols[i]:
-            label = d.strftime("%a\n%d")
-            is_today = d_str == today_str
-            btn_label = f"⭐\n{label}" if is_today else label
-            if st.button(btn_label, key=f"d_{d_str}", type="primary" if st.session_state.sel_date == d_str else "secondary"):
-                st.session_state.sel_date = d_str
-                st.rerun()
+with st.container():
+    for row_idx in range(2):
+        d_cols = st.columns(7)
+        for i in range(7):
+            d = datetime.now().date() + timedelta(days=i + (row_idx * 7))
+            d_str = str(d)
+            with d_cols[i]:
+                # Custom label for Today
+                lbl = d.strftime("%a\n%d")
+                if d_str == today_str: lbl = f"⭐\n{d.strftime('%d')}"
+                if st.button(lbl, key=f"dt_{d_str}", type="primary" if st.session_state.sel_date == d_str else "secondary"):
+                    st.session_state.sel_date = d_str
+                    st.rerun()
 
 st.divider()
 
-# TABLE GRID
+# TABLE DATA GRID (Closer Columns)
 h_cols = st.columns(3)
 tables = ["Table 1", "Table 2", "Table 3"]
 for i in range(3):
@@ -149,26 +158,9 @@ for t in HOURS:
     for i in range(3):
         t_name = tables[i]
         match = bookings[(bookings["Table"] == t_name) & (bookings["Time"] == t) & (bookings["Date"] == st.session_state.sel_date)]
-        key = f"b_{i}_{t}_{st.session_state.sel_date}"
+        key = f"slot_{i}_{t}_{st.session_state.sel_date}"
         
         with t_cols[i]:
             if not match.empty:
                 b_user, b_name = match.iloc[0]["User"], match.iloc[0]["Name"]
-                # Admin or Owner can delete
-                if st.session_state.role == "admin" or b_user == st.session_state.user:
-                    # Uniform display with ❌
-                    if st.button(f"{t}\n❌\n{b_name[:8]}", key=key):
-                        if st.session_state.role == "admin":
-                            st.session_state.confirm_delete = (match.index, b_name)
-                            st.rerun()
-                        else:
-                            bookings = bookings.drop(match.index)
-                            save_data(bookings, BOOKINGS_FILE)
-                            st.rerun()
-                else:
-                    st.button(f"{t}\n🔒\n{b_name[:8]}", key=key, disabled=True)
-            else:
-                if st.button(f"{t}\n🟢\nFree", key=key):
-                    new_b = pd.DataFrame([{"User":st.session_state.user, "Name":st.session_state.name, "Date":st.session_state.sel_date, "Table":t_name, "Time":t}])
-                    save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
-                    st.rerun()
+                # HTML injection inside button label
