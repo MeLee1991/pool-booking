@@ -14,13 +14,21 @@ BOOKINGS_FILE = "bookings.csv"
 def load_users():
     if os.path.exists(USERS_FILE):
         df = pd.read_csv(USERS_FILE)
+
+        # ensure required columns
         for col in ["Email","Name","Password","Role"]:
             if col not in df.columns:
                 df[col] = ""
-        df["Email"] = df["Email"].astype(str).str.strip().str.lower()
-        return df
-    return pd.DataFrame(columns=["Email","Name","Password","Role"])
 
+        # CLEAN DATA (THIS FIXES YOUR ISSUE)
+        df["Email"] = df["Email"].astype(str).str.strip().str.lower()
+        df["Password"] = df["Password"].astype(str).str.strip()
+        df["Name"] = df["Name"].astype(str).str.strip()
+        df["Role"] = df["Role"].astype(str).str.strip()
+
+        return df
+
+    return pd.DataFrame(columns=["Email","Name","Password","Role"])
 def save_users(df): df.to_csv(USERS_FILE,index=False)
 
 def load_bookings():
