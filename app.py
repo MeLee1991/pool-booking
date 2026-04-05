@@ -6,35 +6,266 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# FILES + AUTO FIX
+# FILES + SAFE LOAD
 # ==========================================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
-def ensure_files():
-    if not os.path.exists(USERS_FILE):
-        pd.DataFrame(columns=["Email","Name","Password","Role"]).to_csv(USERS_FILE,index=False)
+def load_users():
+    if os.path.exists(USERS_FILE):
+        df = pd.read_csv(USERS_FILE)
 
-    if not os.path.exists(BOOKINGS_FILE):
-        pd.DataFrame(columns=["User","Name","Date","Table","Time"]).to_csv(BOOKINGS_FILE,index=False)
+        # ensure required columns exist
+        for col in ["Email","Name","Password","Role"]:
+            if col not in df.columns:
+                df[col] = ""
 
-    df = pd.read_csv(BOOKINGS_FILE)
-    if "Name" not in df.columns:
-        df["Name"] = df["User"].astype(str).str.split("@").str[0]
-        df.to_csv(BOOKINGS_FILE,index=False)
+        df["Email"] = df["Email"].astype(str).str.strip().str.lower()
+        df["Password"] = df["Password"].astype(str).str.strip()
 
-ensure_files()
+        return df
 
-def load_users(): return pd.read_csv(USERS_FILE)
-def save_users(df): df.to_csv(USERS_FILE,index=False)
+    return pd.DataFrame(columns=["Email","Name","Password","Role"])
 
-def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
-def save_bookings(df): df.to_csv(BOOKINGS_FILE,index=False)
+def save_users(df):
+    df.to_csv(USERS_FILE, index=False)
+
+def load_bookings():
+    if os.path.exists(BOOKINGS_FILE):
+        df = pd.read_csv(BOOKINGS_FILE)
+
+        # ensure Name column exists
+        if "Name" not in df.columns:
+            df["Name"] = df["User"].astype(str).str.split("@").str[0]
+
+        return df
+
+    return pd.DataFrame(columns=["User","Name","Date","Table","Time"])
+
+def save_bookings(df):
+    df.to_csv(BOOKINGS_FILE, index=False)
 
 # ==========================================
 # SESSION
 # ==========================================
 if "user" not in st.session_state:
+    st.session_state.user = None
+
+# ==========================================
+# SIDEBAR (FIXED)
+# ==========================================
+st.sidebar.title("🔐 Access")
+
+mode = st.sidebar.radio("Mode", ["Login","Register"])
+
+email = st.sidebar.text_input("Email")
+password = st.sidebar.text_input("Password", type="password")
+name = st.sidebar.text_input("Name") if mode=="Register" else ""
+
+users = load_users()
+
+if st.sidebar.button("Go"):
+    email = email.strip().lower()
+    password = password.strip()
+
+    # REGISTER
+    if mode == "Register":
+        name = name.strip()
+
+        if email in users["Email"].values:
+            st.sidebar.error("User already exists")
+        else:
+            role = "admin" if users.empty else "pending"
+
+            new = pd.DataFrame([[email,name,password,role]],
+                               columns=["Email","Name","Password","Role"])
+
+            save_users(pd.concat([users,new],ignore_index=True))
+            st.sidebar.success("Registered")
+
+    # LOGIN
+    else:
+        u = users[(users["Email"]==email)&(users["Password"]==password)]
+
+        if not u.empty:
+            role = u.iloc[0]["Role"]
+
+            if role == "pending":
+                st.sidebar.warning("Waiting for approval")
+            else:
+                st.session_state.user = email
+                st.session_state.name = u.iloc[0]["Name"]
+                st.session_state.role = role
+                st.rerun()
+        else:
+            st.sidebar.error("Invalid login")
+
+if st.session_state.user is None:
+    st.title("POOL TABLE BOOKING")
+    st.stop()
+
+# ==========================================
+# ADMIN PANEL
+# ==========================================
+if st.session_state.role == "admin":
+    st.sidebar.markdown("---")
+    admin = st.sidebar.radio("Admin", ["Booking","Users","Stats"])
+
+    # USERS
+    if admin == "Users":
+        st.title("User Management")
+
+        users = load_users()
+        edited = st.data_editor(users, num_rows="dynamic", use_container_width=True)
+
+        if st.button("💾 Save Users"):
+            save_users(edited)
+            st.success("Saved")
+
+        st.stop()
+
+    # STATS
+    if admin == "Stats":
+        st.title("Statistics")
+
+        if st.button("Load stats"):
+            df = load_bookings()
+
+            if not df.empty:
+                st.subheader("Bookings per user")
+                st.bar_chart(df["Name"].value_counts())
+
+                st.subheader("Bookings per table")
+                st.bar_chart(df["Table"].value_counts())
+            else:
+                st.info("No data")
+
+        st.stop()
+
+# ==========================================
+# CSS (STABLE)
+# ==========================================
+st.markdown("""
+<style>
+
+/* DATE BAR */
+[data-testid="stRadio"]{
+position:sticky;
+top:0;
+z-index:100;
+background:#f8f9fa;
+padding:6px;
+}
+
+/* FORCE 2 ROWS */
+[data-testid="stRadio"] > div{
+display:grid!important;
+grid-template-columns:repeat(7,1fr)!important;
+grid-template-rows:auto auto!important;
+gap:6px;
+}
+
+/* HEADER */
+.table-header{
+position:sticky;
+top:70px;
+z-index:90;
+background:#212529;
+color:white;
+padding:6px;
+border-radius:6px;
+text-align:center;
+margin-bottom:6px;
+}
+
+/* BUTTON */
+button{
+border-radius:999px!important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# DATE PICKER
+# ==========================================
+today = datetime.now().date()
+dates = [today + timedelta(days=i) for i in range(14)]
+
+labels = ["Today","Tomorrow"] + [d.strftime("%a %d") for d in dates[2:]]
+
+selected = st.radio("", labels, horizontal=True)
+selected_date = dates[labels.index(selected)]
+
+# ==========================================
+# TIME RANGE (08 → 02:30)
+# ==========================================
+HOURS=[]
+for h in list(range(8,24)) + list(range(0,3)):
+    for m in ["00","30"]:
+        HOURS.append(f"{h:02d}:{m}")
+
+# ==========================================
+# GRID
+# ==========================================
+st.title("RESERVE TABLE")
+
+df = load_bookings()
+
+BLOCKS = ["#f8f9fa","#eef7ff"]
+
+cols = st.columns(3)
+
+for i, col in enumerate(cols):
+    col.markdown(f"<div class='table-header'>Table {i+1}</div>", unsafe_allow_html=True)
+
+    for t in HOURS:
+        idx = HOURS.index(t)
+        bg = BLOCKS[(idx//4)%2]
+
+        booked = df[
+            (df.Table==f"Table {i+1}") &
+            (df.Time==t) &
+            (df.Date==str(selected_date))
+        ]
+
+        key = f"{i}_{t}"
+
+        hour = int(t[:2])
+        is_prime = 17 <= hour <= 23
+
+        style = f"background:{bg};padding:3px;border-radius:999px;"
+        if is_prime:
+            style += "border:2px solid #ffa94d;"
+
+        col.markdown(f"<div style='{style}'>", unsafe_allow_html=True)
+
+        if not booked.empty:
+            owner = booked.iloc[0]["User"]
+            name_display = booked.iloc[0]["Name"]
+
+            if owner == st.session_state.user:
+                if col.button(f"{t} ❌ {name_display}", key=key):
+                    df = df.drop(booked.index)
+                    save_bookings(df)
+                    st.rerun()
+            else:
+                col.button(f"{t} 🔒 {name_display}", key=key, disabled=True)
+
+        else:
+            if col.button(f"{t} 🟢", key=key):
+                new = pd.DataFrame([[
+                    st.session_state.user,
+                    st.session_state.name,
+                    str(selected_date),
+                    f"Table {i+1}",
+                    t
+                ]], columns=["User","Name","Date","Table","Time"])
+
+                save_bookings(pd.concat([df,new],ignore_index=True))
+                st.rerun()
+
+        col.markdown("</div>", unsafe_allow_html=True)if "user" not in st.session_state:
     st.session_state.user=None
 
 # ==========================================
