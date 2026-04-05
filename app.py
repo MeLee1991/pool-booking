@@ -3,10 +3,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# 1. NASTAVITEV STRANI
+# 1. PAGE SETUP
 st.set_page_config(page_title="Pool Booking", layout="wide", initial_sidebar_state="collapsed")
 
-# 2. PODATKI
+# 2. DATA HANDLING
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
@@ -19,93 +19,111 @@ def save_data(df, file): df.to_csv(file, index=False)
 users = load_data(USERS_FILE, ["Email", "Name", "Password", "Role"])
 bookings = load_data(BOOKINGS_FILE, ["User", "Name", "Date", "Table", "Time"])
 
-# 3. STANJE SEJE
+# 3. SESSION STATE
 if "user" not in st.session_state: st.session_state.user = None
 if "name" not in st.session_state: st.session_state.name = None
 if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 if "pending_cancel" not in st.session_state: st.session_state.pending_cancel = None
 
-# 4. FIKSNI CSS (PREPREČI ZLAGANJE V EN STOLPEC)
+# 4. CSS TO FORCE HORIZONTAL COLUMNS ON MOBILE
 st.markdown("""
 <style>
-/* DATUMI: Prisili 7 stolpcev v vrsti */
-.date-grid [data-testid="stHorizontalBlock"] {
-    display: grid !important;
-    grid-template-columns: repeat(7, 1fr) !important;
+/* FORCE COLUMNS TO STAY SIDE-BY-SIDE (NO STACKING) */
+[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
     gap: 2px !important;
-    width: 100% !important;
 }
 
-/* TABELA: Prisili 4 stolpce (Ura + 3 Mize) */
-.data-grid [data-testid="stHorizontalBlock"] {
-    display: grid !important;
-    grid-template-columns: 50px 1fr 1fr 1fr !important;
-    gap: 1px !important;
-    width: 100% !important;
-    align-items: center;
+/* DATE GRID: 7 items per row */
+.date-section [data-testid="column"] {
+    flex: 1 1 0% !important;
+    min-width: 0px !important;
 }
 
-/* GUMBI IN NAPISI */
+/* DATA GRID: Time (fixed) + 3 Tables (equal) */
+.data-section [data-testid="column"]:nth-child(1) {
+    flex: 0 0 50px !important;
+    min-width: 50px !important;
+}
+.data-section [data-testid="column"]:not(:nth-child(1)) {
+    flex: 1 1 0% !important;
+    min-width: 0px !important;
+}
+
+/* BUTTONS STYLING */
 .stButton > button {
     width: 100% !important;
-    height: 45px !important;
+    height: 42px !important;
     padding: 0px !important;
-    margin-bottom: -15px !important;
-    border-radius: 4px !important;
     font-size: 10px !important;
+    border-radius: 4px !important;
+}
+
+/* LOGIN BUTTON: Fixed size, not expanding */
+.login-btn-container .stButton > button {
+    width: 120px !important;
+    margin: 0 auto !important;
+    display: block !important;
 }
 
 .time-label { font-size: 12px; font-weight: bold; text-align: center; }
 .header-box { background: #000; color: #fff; text-align: center; font-size: 9px; padding: 4px 0; border-radius: 4px; }
 
-/* BARVE */
+/* COLORS */
 div.stButton > button:not(:disabled) { background-color: #f6ffed !important; color: #389e0d !important; border: 1px solid #b7eb8f !important; }
 div.stButton > button:disabled { background-color: #fff1f0 !important; color: #cf1322 !important; border: 1px solid #ffa39e !important; opacity: 1 !important; }
 
-/* ODSTRANI ODVEČEN PROSTOR */
-[data-testid="stAppViewBlockContainer"] { padding: 1rem 0.2rem !important; }
+/* APP PADDING */
+[data-testid="stAppViewBlockContainer"] { padding: 1rem 0.3rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# 5. PRIJAVA (Login)
+# 5. LOGIN SCREEN
 if st.session_state.user is None:
-    st.title("🎱 REZERVACIJA")
-    e = st.text_input("Email").lower().strip()
-    p = st.text_input("Geslo", type="password")
-    if st.button("Prijava"):
-        m = users[(users["Email"] == e) & (users["Password"] == p)]
-        if not m.empty:
-            st.session_state.user, st.session_state.name, st.session_state.role = e, m.iloc[0]["Name"], m.iloc[0]["Role"]
+    st.title("🎱 POOL RESERVE")
+    email = st.text_input("Email").lower().strip()
+    password = st.text_input("Password", type="password")
+    st.markdown('<div class="login-btn-container">', unsafe_allow_html=True)
+    if st.button("Login"):
+        match = users[(users["Email"] == email) & (users["Password"] == password)]
+        if not match.empty:
+            st.session_state.user = email
+            st.session_state.name = match.iloc[0]["Name"]
+            st.session_state.role = match.iloc[0]["Role"]
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# 6. POTRDITEV PREKLICA (Admin/User)
+# 6. ADMIN CANCELLATION OVERLAY
 if st.session_state.pending_cancel:
     idx, b_name = st.session_state.pending_cancel
-    st.warning(f"Prekliči rezervacijo: {b_name}?")
-    if st.button("DA, PREKLIČI"):
+    st.warning(f"Cancel booking for: {b_name}?")
+    if st.button("YES, CANCEL"):
         bookings = bookings.drop(idx)
         save_data(bookings, BOOKINGS_FILE)
         st.session_state.pending_cancel = None
         st.rerun()
-    if st.button("Nazaj"):
+    if st.button("Back"):
         st.session_state.pending_cancel = None
         st.rerun()
     st.stop()
 
-# 7. DATUMSKI IZBIRNIK (2 vrstici po 7 dni)
-st.write("### 📅 Izberi datum")
+# 7. DATE PICKER (2 rows of 7 columns)
+st.write("### 📅 Select Date")
 today = datetime.now().date()
 for row_idx in range(2):
-    st.markdown('<div class="date-grid">', unsafe_allow_html=True)
+    st.markdown('<div class="date-section">', unsafe_allow_html=True)
     cols = st.columns(7)
     for i in range(7):
         d = today + timedelta(days=i + (row_idx * 7))
         d_str = str(d)
         with cols[i]:
             lbl = d.strftime("%a\n%d")
-            if d_str == str(today): lbl = f"Danes\n{d.day}"
+            if d_str == str(today): lbl = f"Today\n{d.day}"
             is_sel = (st.session_state.sel_date == d_str)
             if st.button(lbl, key=f"d_{d_str}", type="primary" if is_sel else "secondary"):
                 st.session_state.sel_date = d_str
@@ -114,14 +132,15 @@ for row_idx in range(2):
 
 st.divider()
 
-# 8. TABELA REZERVACIJ (Ura | Miza 1 | Miza 2 | Miza 3)
-st.markdown('<div class="data-grid">', unsafe_allow_html=True)
+# 8. BOOKING TABLE (Time | Table 1 | Table 2 | Table 3)
+st.markdown('<div class="data-section">', unsafe_allow_html=True)
 h_cols = st.columns(4)
-t_names = ["Miza 1", "Miza 2", "Miza 3"]
+h_cols[0].write("") # Empty corner
+t_names = ["Tbl 1", "Tbl 2", "Tbl 3"]
 for i in range(3):
     h_cols[i+1].markdown(f'<div class="header-box">{t_names[i]}</div>', unsafe_allow_html=True)
 
-# Urnik od 08:00 naprej
+# Time slots from 08:00
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
 
 for t in HOURS:
@@ -133,7 +152,6 @@ for t in HOURS:
         with r_cols[i+1]:
             if not match.empty:
                 b_user, b_name = match.iloc[0]["User"], match.iloc[0]["Name"]
-                # Če je admin ali lastnik, lahko kliče
                 if st.session_state.role == "admin" or b_user == st.session_state.user:
                     if st.button(f"❌ {b_name[:5]}", key=f"b_{t}_{i}"):
                         st.session_state.pending_cancel = (match.index, b_name)
@@ -141,7 +159,7 @@ for t in HOURS:
                 else:
                     st.button(f"🔒 {b_name[:5]}", key=f"b_{t}_{i}", disabled=True)
             else:
-                if st.button("🟢 Prosto", key=f"b_{t}_{i}"):
+                if st.button("🟢 Free", key=f"b_{t}_{i}"):
                     new_b = pd.DataFrame([{"User":st.session_state.user, "Name":st.session_state.name, "Date":st.session_state.sel_date, "Table":t_n, "Time":t}])
                     save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
                     st.rerun()
