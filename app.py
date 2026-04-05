@@ -23,63 +23,69 @@ bookings = load_data(BOOKINGS_FILE, ["User", "Name", "Date", "Table", "Time"])
 if "user" not in st.session_state: st.session_state.user = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
-# 4. ULTRA-COMPACT CSS
+# 4. FIXED GRID CSS
 st.markdown("""
 <style>
-/* FORCE 4-COLUMN ROW (Time + 3 Tables) - NO STACKING */
+/* FORCE 4-COLUMN ALIGNMENT */
 [data-testid="stHorizontalBlock"] {
     display: grid !important;
-    grid-template-columns: 42px 60px 60px 60px !important; /* FIXED NARROW WIDTHS */
-    gap: 0px !important; /* ZERO SPACE BETWEEN COLUMNS */
+    grid-template-columns: 45px 65px 65px 65px !important;
+    gap: 0px !important;
     width: fit-content !important;
-    border-left: 1px solid #ddd;
+    align-items: center !important;
 }
 
-/* REMOVE ALL INTERNAL PADDING */
+/* REMOVE ALL PADDING */
 [data-testid="column"] { padding: 0px !important; flex: none !important; }
 
-/* ROW STYLING: Borders and Padding */
-.row-wrap { 
-    border-bottom: 1px solid #ccc; 
-    border-right: 1px solid #ddd;
-    padding: 2px 0;
+/* ROW WRAPPER: Full width background and border */
+.row-container {
+    display: flex !important;
+    border-bottom: 1px solid #eee;
+    border-right: 1px solid #eee;
 }
 
-/* ALTERNATE ROW COLORS (Whole Row) */
-.hour-even { background-color: #f9f9f9 !important; }
-.hour-odd { background-color: #ffffff !important; }
+/* ALTERNATING COLORS (Whole Row) */
+.bg-even { background-color: #f7f7f7 !important; }
+.bg-odd { background-color: #ffffff !important; }
 
-/* BUTTONS: Shrunk height, exact width */
+/* BUTTONS: Shrunk & Locked */
 .stButton > button {
-    width: 58px !important; /* Slightly less than 60px to allow for borders */
-    height: 28px !important;
-    font-size: 9px !important;
+    width: 63px !important;
+    height: 30px !important;
+    font-size: 10px !important;
     padding: 0px !important;
-    border-radius: 0px !important; /* Square for grid look */
-    margin: 1px !important;
+    border-radius: 0px !important;
+    border: 1px solid #ddd !important;
+    margin: 0px !important;
 }
 
-/* TIME BUTTON/LABEL: Extra narrow */
-.time-col .stButton > button { width: 40px !important; font-weight: bold; background: none !important; border: none !important; color: #333 !important; }
+/* TIME LABEL: Locked to same height as buttons */
+.time-box {
+    width: 45px;
+    height: 30px;
+    line-height: 30px;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    border-left: 1px solid #eee;
+}
 
-/* HEADERS: Fixed width black boxes */
+/* HEADERS: Fixed Black Boxes */
 .header-box { 
     background: #000; color: #fff; text-align: center; 
     font-size: 9px; height: 20px; line-height: 20px;
-    width: 60px; border: 1px solid #444;
+    width: 65px; border: 1px solid #333;
 }
 
-/* DATE GRID: 7-Column */
+/* DATES: 7-Column Grid */
 .date-section [data-testid="stHorizontalBlock"] {
-    grid-template-columns: repeat(7, 44px) !important;
-    margin-bottom: -15px !important;
+    grid-template-columns: repeat(7, 45px) !important;
+    margin-bottom: -10px !important;
 }
-.date-section .stButton > button { width: 42px !important; height: 32px !important; }
+.date-section .stButton > button { width: 43px !important; height: 35px !important; border-radius: 4px !important; }
 
-/* LOGIN */
-.login-box .stButton > button { width: 120px !important; height: 40px !important; margin: 0 auto; }
-
-/* PAGE CLEANUP */
+/* Global Cleanup */
 [data-testid="stAppViewBlockContainer"] { padding: 0.5rem 0.2rem !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -89,16 +95,14 @@ if st.session_state.user is None:
     st.title("🎱 RESERVE")
     e = st.text_input("Email").lower().strip()
     p = st.text_input("Password", type="password")
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
     if st.button("Login"):
         match = users[(users["Email"] == e) & (users["Password"] == p)]
         if not match.empty:
             st.session_state.user, st.session_state.name, st.session_state.role = e, match.iloc[0]["Name"], match.iloc[0]["Role"]
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# 6. DATES (7-Column Grid)
+# 6. DATES (7 Columns, 2 Rows)
 st.write("### 📅 Dates")
 today = datetime.now().date()
 for r in range(2):
@@ -116,32 +120,30 @@ for r in range(2):
 
 st.divider()
 
-# 7. BOOKING TABLE
-# Header Row
-st.markdown('<div class="row-wrap">', unsafe_allow_html=True)
+# 7. TABLE
+# Header
+st.markdown('<div class="row-container">', unsafe_allow_html=True)
 h_cols = st.columns(4)
-h_cols[0].write("") # Empty corner
+h_cols[0].write("") # Corner
 for i, name in enumerate(["T1", "T2", "T3"]):
     h_cols[i+1].markdown(f'<div class="header-box">{name}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Schedule
+# Rows
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
 
 for idx, t in enumerate(HOURS):
-    # Toggle color every 2 rows (every full hour)
-    row_class = "hour-even" if (idx // 2) % 2 == 0 else "hour-odd"
+    # Whole row background toggle every hour (2 slots)
+    bg_style = "bg-even" if (idx // 2) % 2 == 0 else "bg-odd"
     
-    st.markdown(f'<div class="row-wrap {row_class}">', unsafe_allow_html=True)
+    st.markdown(f'<div class="row-container {bg_style}">', unsafe_allow_html=True)
     r_cols = st.columns(4)
     
-    # Time Column
+    # Time
     with r_cols[0]:
-        st.markdown('<div class="time-col">', unsafe_allow_html=True)
-        st.button(t, key=f"t_{t}", disabled=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="time-box">{t}</div>', unsafe_allow_html=True)
         
-    # Table Columns
+    # Tables
     for i in range(3):
         t_n = f"Table {i+1}"
         match = bookings[(bookings["Table"] == t_n) & (bookings["Time"] == t) & (bookings["Date"] == st.session_state.sel_date)]
