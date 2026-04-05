@@ -12,23 +12,15 @@ USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
 def ensure_files():
-    # USERS
     if not os.path.exists(USERS_FILE):
         pd.DataFrame(columns=["Email","Name","Password","Role"]).to_csv(USERS_FILE,index=False)
-    else:
-        df = pd.read_csv(USERS_FILE)
-        for col in ["Email","Name","Password","Role"]:
-            if col not in df.columns:
-                df[col] = ""
-        df.to_csv(USERS_FILE,index=False)
 
-    # BOOKINGS
     if not os.path.exists(BOOKINGS_FILE):
         pd.DataFrame(columns=["User","Name","Date","Table","Time"]).to_csv(BOOKINGS_FILE,index=False)
-    else:
-        df = pd.read_csv(BOOKINGS_FILE)
-        if "Name" not in df.columns:
-            df["Name"] = df["User"].astype(str).str.split("@").str[0]
+
+    df = pd.read_csv(BOOKINGS_FILE)
+    if "Name" not in df.columns:
+        df["Name"] = df["User"].astype(str).str.split("@").str[0]
         df.to_csv(BOOKINGS_FILE,index=False)
 
 ensure_files()
@@ -46,11 +38,11 @@ if "user" not in st.session_state:
     st.session_state.user=None
 
 # ==========================================
-# SIDEBAR (FIXED)
+# SIDEBAR (VERTICAL FIXED)
 # ==========================================
 st.sidebar.title("🔐 Access")
 
-mode = st.sidebar.radio("Choose", ["Login","Register"])
+mode = st.sidebar.radio("Mode", ["Login","Register"])  # ← vertical now
 
 email = st.sidebar.text_input("Email")
 password = st.sidebar.text_input("Password", type="password")
@@ -83,27 +75,45 @@ if st.session_state.user is None:
     st.stop()
 
 # ==========================================
-# ADMIN PANEL (FULL CRUD)
+# ADMIN PANEL
 # ==========================================
 if st.session_state.role=="admin":
     st.sidebar.markdown("---")
-    admin_view = st.sidebar.radio("Admin",["Booking","Users"])
+    admin_view = st.sidebar.radio("Admin panel", ["Booking","Users","Stats"])
 
+    # USERS
     if admin_view=="Users":
         st.title("User Management")
 
         users = load_users()
-
         edited = st.data_editor(users, num_rows="dynamic", use_container_width=True)
 
-        if st.button("💾 Save Changes"):
+        if st.button("💾 Save Users"):
             save_users(edited)
             st.success("Saved")
 
         st.stop()
 
+    # STATS
+    if admin_view=="Stats":
+        st.title("Statistics")
+
+        if st.button("Load statistics"):
+            df = load_bookings()
+
+            if not df.empty:
+                st.subheader("Bookings per user")
+                st.bar_chart(df["Name"].value_counts())
+
+                st.subheader("Bookings per table")
+                st.bar_chart(df["Table"].value_counts())
+            else:
+                st.info("No data")
+
+        st.stop()
+
 # ==========================================
-# CSS (STABLE)
+# CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -112,11 +122,12 @@ st.markdown("""
 [data-testid="stRadio"]{
 position:sticky;
 top:0;
-background:#f8f9fa;
 z-index:100;
+background:#f8f9fa;
+padding:8px;
 }
 
-/* FORCE 2 ROWS */
+/* 2 ROWS */
 [data-testid="stRadio"] > div{
 display:grid!important;
 grid-template-columns:repeat(7,1fr)!important;
@@ -128,16 +139,29 @@ gap:6px;
 .table-header{
 position:sticky;
 top:70px;
-z-index:90;
 background:#212529;
 color:white;
+text-align:center;
 padding:6px;
 border-radius:6px;
-text-align:center;
+margin-bottom:8px;
 }
 
-/* BUTTON */
-button{border-radius:999px!important;}
+/* BUTTON BASE */
+button{
+border-radius:999px!important;
+}
+
+/* PRIME TIME */
+button[data-prime="true"]{
+background:#ffe5b4!important;
+font-weight:700!important;
+}
+
+/* NORMAL */
+button[data-prime="false"]{
+background:#f1f3f5!important;
+}
 
 </style>
 """, unsafe_allow_html=True)
@@ -154,12 +178,21 @@ selected = st.radio("", labels, horizontal=True)
 selected_date = dates[labels.index(selected)]
 
 # ==========================================
+# TIME RANGE (08:00 → 02:30)
+# ==========================================
+HOURS=[]
+for h in list(range(8,24)) + list(range(0,3)):
+    for m in ["00","30"]:
+        HOURS.append(f"{h:02d}:{m}")
+
+# ==========================================
 # GRID
 # ==========================================
 st.title("RESERVE TABLE")
 
 df = load_bookings()
-HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
+
+BLOCK_COLORS = ["#f8f9fa","#eef7ff"]
 
 cols = st.columns(3)
 
@@ -167,6 +200,9 @@ for i, col in enumerate(cols):
     col.markdown(f"<div class='table-header'>Table {i+1}</div>", unsafe_allow_html=True)
 
     for t in HOURS:
+        idx = HOURS.index(t)
+        bg = BLOCK_COLORS[(idx//4)%2]
+
         booked = df[
             (df.Table==f"Table {i+1}") &
             (df.Time==t) &
@@ -174,6 +210,11 @@ for i, col in enumerate(cols):
         ]
 
         key=f"{i}_{t}"
+
+        hour=int(t[:2])
+        is_prime = 17 <= hour <= 23
+
+        col.markdown(f"<div style='background:{bg};padding:3px;border-radius:999px;'>", unsafe_allow_html=True)
 
         if not booked.empty:
             owner = booked.iloc[0]["User"]
@@ -199,3 +240,5 @@ for i, col in enumerate(cols):
 
                 save_bookings(pd.concat([df,new],ignore_index=True))
                 st.rerun()
+
+        col.markdown("</div>", unsafe_allow_html=True)
