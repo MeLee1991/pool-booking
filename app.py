@@ -83,7 +83,6 @@ if st.sidebar.button("Go"):
     email = email.strip().lower()
     password = password.strip()
 
-    # REGISTER
     if mode == "Register":
         name = name.strip()
 
@@ -93,7 +92,7 @@ if st.sidebar.button("Go"):
             role = "admin" if users.empty else "pending"
 
             new_user = pd.DataFrame([[email, name, password, role]],
-                                    columns=["Email","Name","Password","Role"])
+                                   columns=["Email","Name","Password","Role"])
 
             users = pd.concat([users, new_user], ignore_index=True)
             save_users(users)
@@ -103,10 +102,8 @@ if st.sidebar.button("Go"):
 
             st.sidebar.success("Registered! Await admin approval.")
 
-    # LOGIN
     else:
         users = load_users()
-
         u = users[(users["Email"] == email) & (users["Password"] == password)]
 
         if not u.empty:
@@ -134,38 +131,76 @@ if st.sidebar.button("Logout"):
     st.rerun()
 
 # ==========================================
-# ADMIN PANEL
+# CSS (FINAL FIXED)
 # ==========================================
-if st.session_state.role == "admin":
-    st.sidebar.markdown("---")
-    if st.sidebar.checkbox("⚙️ Admin Panel"):
+st.markdown("""
+<style>
 
-        st.subheader("User Management")
-        users = load_users()
+/* DATE GRID */
+[data-testid="stRadio"] > div {
+    display: grid !important;
+    grid-template-columns: auto repeat(7, auto);
+    grid-template-rows: auto auto;
+    gap: 6px;
+}
 
-        for i, row in users.iterrows():
-            c1, c2, c3 = st.columns([3,2,2])
+[data-testid="stRadio"] > div::before {
+    content: "Week 1:";
+    grid-row: 1;
+}
+[data-testid="stRadio"] > div::after {
+    content: "Week 2:";
+    grid-row: 2;
+}
 
-            c1.write(f"{row['Name']} ({row['Email']})")
-            c2.write(f"Role: {row['Role']}")
+[data-testid="stRadio"] label:nth-of-type(-n+7) { grid-row: 1; }
+[data-testid="stRadio"] label:nth-of-type(n+8) { grid-row: 2; }
 
-            if row["Role"] == "pending":
-                if c3.button("Approve", key=f"a{i}"):
-                    users.at[i,"Role"]="user"
-                    save_users(users)
-                    st.rerun()
+/* HEADER */
+.table-header {
+    position: sticky;
+    top: 0;
+    background: #212529;
+    color: white;
+    text-align: center;
+    font-size: 12px;
+    padding: 4px;
+    border-radius: 6px;
+}
 
-            elif row["Role"] == "user":
-                if c3.button("Make Admin", key=f"b{i}"):
-                    users.at[i,"Role"]="admin"
-                    save_users(users)
-                    st.rerun()
+/* LAYOUT */
+.block-container { max-width: 720px; }
+[data-testid="stHorizontalBlock"] { gap: 4px !important; }
 
-            elif row["Role"] == "admin" and row["Email"] != st.session_state.user:
-                if c3.button("Demote", key=f"c{i}"):
-                    users.at[i,"Role"]="user"
-                    save_users(users)
-                    st.rerun()
+/* MOBILE */
+@media (max-width:900px){
+[data-testid="column"]{ width:32%!important; flex:0 0 32%!important; }
+button p{ font-size:7px!important; }
+}
+
+/* BUTTONS */
+button {
+    border-radius: 999px !important;
+    transition: all 0.08s ease !important;
+}
+button:active { transform: scale(0.93); }
+
+/* STATES */
+button[kind="secondary"] {
+    background:#f1f3f5!important;
+    border:1px solid #dee2e6!important;
+}
+button[kind="primary"] {
+    background:linear-gradient(180deg,#ff4d4f,#dc3545)!important;
+    color:white!important;
+}
+button[disabled] {
+    background:#f8d7da!important;
+    color:#842029!important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # BOOKING UI
@@ -176,6 +211,7 @@ today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
 
 labels = ["Today" if d==today else "Tomorrow" if d==today+timedelta(days=1) else d.strftime("%a %d") for d in dates]
+
 selected = st.radio("Date", labels, horizontal=True, label_visibility="collapsed")
 selected_date = dates[labels.index(selected)]
 
@@ -184,12 +220,19 @@ HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
 
 cols = st.columns(3)
 
-for i,col in enumerate(cols):
-    col.subheader(f"Table {i+1}")
+for i, col in enumerate(cols):
+    col.markdown(f"<div class='table-header'>Table {i+1}</div>", unsafe_allow_html=True)
 
     for t in HOURS:
+        hour = int(t[:2])
+        is_prime = 17 <= hour <= 23
+
         booked = df[(df.Table==f"Table {i+1}") & (df.Time==t) & (df.Date==str(selected_date))]
         key=f"{i}_{t}"
+
+        label = f"{t} 🟢"
+        if is_prime:
+            label = f"🔥 {t} 🟢"
 
         if not booked.empty:
             owner = booked.iloc[0]["User"]
@@ -211,7 +254,7 @@ for i,col in enumerate(cols):
                 col.button(f"{t} 🔒 {name_display}", key=key, disabled=True)
 
         else:
-            if col.button(f"{t} 🟢 Free", key=key):
+            if col.button(label, key=key, type="secondary"):
                 new = pd.DataFrame([[st.session_state.user,str(selected_date),f"Table {i+1}",t]],
                                    columns=["User","Date","Table","Time"])
                 save_bookings(pd.concat([df,new],ignore_index=True))
