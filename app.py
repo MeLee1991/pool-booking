@@ -6,41 +6,51 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# FILES
+# FILES + AUTO FIX
 # ==========================================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
-if not os.path.exists(USERS_FILE):
-    pd.DataFrame(columns=["Email","Name","Password","Role"]).to_csv(USERS_FILE,index=False)
+def ensure_files():
+    # USERS
+    if not os.path.exists(USERS_FILE):
+        pd.DataFrame(columns=["Email","Name","Password","Role"]).to_csv(USERS_FILE,index=False)
+    else:
+        df = pd.read_csv(USERS_FILE)
+        for col in ["Email","Name","Password","Role"]:
+            if col not in df.columns:
+                df[col] = ""
+        df.to_csv(USERS_FILE,index=False)
 
-if not os.path.exists(BOOKINGS_FILE):
-    pd.DataFrame(columns=["User","Name","Date","Table","Time"]).to_csv(BOOKINGS_FILE,index=False)
+    # BOOKINGS
+    if not os.path.exists(BOOKINGS_FILE):
+        pd.DataFrame(columns=["User","Name","Date","Table","Time"]).to_csv(BOOKINGS_FILE,index=False)
+    else:
+        df = pd.read_csv(BOOKINGS_FILE)
+        if "Name" not in df.columns:
+            df["Name"] = df["User"].astype(str).str.split("@").str[0]
+        df.to_csv(BOOKINGS_FILE,index=False)
 
-def load_users():
-    return pd.read_csv(USERS_FILE)
+ensure_files()
 
-def save_users(df):
-    df.to_csv(USERS_FILE,index=False)
+def load_users(): return pd.read_csv(USERS_FILE)
+def save_users(df): df.to_csv(USERS_FILE,index=False)
 
-def load_bookings():
-    return pd.read_csv(BOOKINGS_FILE)
-
-def save_bookings(df):
-    df.to_csv(BOOKINGS_FILE,index=False)
+def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
+def save_bookings(df): df.to_csv(BOOKINGS_FILE,index=False)
 
 # ==========================================
 # SESSION
 # ==========================================
 if "user" not in st.session_state:
-    st.session_state.user = None
+    st.session_state.user=None
 
 # ==========================================
-# SIDEBAR (FIXED COLUMN)
+# SIDEBAR (FIXED)
 # ==========================================
 st.sidebar.title("🔐 Access")
 
-mode = st.sidebar.radio("Choose option", ["Login","Register"])
+mode = st.sidebar.radio("Choose", ["Login","Register"])
 
 email = st.sidebar.text_input("Email")
 password = st.sidebar.text_input("Password", type="password")
@@ -68,24 +78,42 @@ if st.sidebar.button("Go"):
         else:
             st.sidebar.error("Login failed")
 
-# STOP if not logged
 if st.session_state.user is None:
     st.title("POOL TABLE BOOKING")
     st.stop()
 
 # ==========================================
-# CSS (FIXED)
+# ADMIN PANEL (FULL CRUD)
+# ==========================================
+if st.session_state.role=="admin":
+    st.sidebar.markdown("---")
+    admin_view = st.sidebar.radio("Admin",["Booking","Users"])
+
+    if admin_view=="Users":
+        st.title("User Management")
+
+        users = load_users()
+
+        edited = st.data_editor(users, num_rows="dynamic", use_container_width=True)
+
+        if st.button("💾 Save Changes"):
+            save_users(edited)
+            st.success("Saved")
+
+        st.stop()
+
+# ==========================================
+# CSS (STABLE)
 # ==========================================
 st.markdown("""
 <style>
 
-/* DATE BAR STICKY */
+/* DATE BAR */
 [data-testid="stRadio"]{
 position:sticky;
 top:0;
-z-index:100;
 background:#f8f9fa;
-padding:8px;
+z-index:100;
 }
 
 /* FORCE 2 ROWS */
@@ -96,13 +124,7 @@ grid-template-rows:auto auto!important;
 gap:6px;
 }
 
-[data-testid="stRadio"] label{
-white-space:nowrap!important;
-text-align:center!important;
-font-size:12px;
-}
-
-/* HEADER STICKY */
+/* HEADER */
 .table-header{
 position:sticky;
 top:70px;
@@ -111,32 +133,22 @@ background:#212529;
 color:white;
 padding:6px;
 border-radius:6px;
-margin-bottom:6px;
 text-align:center;
 }
 
 /* BUTTON */
-button{
-border-radius:999px!important;
-}
+button{border-radius:999px!important;}
 
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# DATE PICKER (CORRECT 2 ROWS)
+# DATE PICKER
 # ==========================================
 today=datetime.now().date()
 dates=[today+timedelta(days=i) for i in range(14)]
 
-labels=[]
-for i,d in enumerate(dates):
-    if i==0:
-        labels.append("Today")
-    elif i==1:
-        labels.append("Tomorrow")
-    else:
-        labels.append(d.strftime("%a %d"))
+labels=["Today","Tomorrow"]+[d.strftime("%a %d") for d in dates[2:]]
 
 selected = st.radio("", labels, horizontal=True)
 selected_date = dates[labels.index(selected)]
@@ -147,7 +159,6 @@ selected_date = dates[labels.index(selected)]
 st.title("RESERVE TABLE")
 
 df = load_bookings()
-
 HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
 
 cols = st.columns(3)
@@ -168,23 +179,19 @@ for i, col in enumerate(cols):
             owner = booked.iloc[0]["User"]
             name_display = booked.iloc[0]["Name"]
 
-            # YOUR SLOT
             if owner == st.session_state.user:
-                if col.button(f"{t} ❌ {name_display}", key=key, type="primary"):
+                if col.button(f"{t} ❌ {name_display}", key=key):
                     df = df.drop(booked.index)
                     save_bookings(df)
                     st.rerun()
-
-            # LOCKED
             else:
                 col.button(f"{t} 🔒 {name_display}", key=key, disabled=True)
 
         else:
-            # FREE SLOT
             if col.button(f"{t} 🟢", key=key):
                 new = pd.DataFrame([[
                     st.session_state.user,
-                    st.session_state.name,  # 💥 FIX: STORE NAME
+                    st.session_state.name,
                     str(selected_date),
                     f"Table {i+1}",
                     t
