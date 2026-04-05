@@ -2,11 +2,34 @@ import os
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
+import smtplib
+from email.mime.text import MIMEText
 
 st.set_page_config(page_title="Poolhall Reservations", layout="wide")
 
 # ==========================================
-# FILE SETUP (FIXED + SAFE)
+# EMAIL CONFIG
+# ==========================================
+EMAIL_SENDER = "tomazbratina@gmail.com"
+EMAIL_PASSWORD = "xwkdekpieajdhkwl"
+ADMIN_EMAIL = "tomazbratina@gmail.com"
+
+def send_pending_email(new_user_email):
+    try:
+        msg = MIMEText(f"New user pending approval:\n\n{new_user_email}")
+        msg["Subject"] = "New User Pending Approval"
+        msg["From"] = EMAIL_SENDER
+        msg["To"] = ADMIN_EMAIL
+
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+    except Exception as e:
+        print("Email error:", e)
+
+# ==========================================
+# FILES
 # ==========================================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
@@ -31,7 +54,6 @@ def load_bookings():
 def save_bookings(df):
     df.to_csv(BOOKINGS_FILE, index=False)
 
-# create files if missing
 if not os.path.exists(USERS_FILE):
     pd.DataFrame(columns=["Email","Name","Password","Role"]).to_csv(USERS_FILE,index=False)
 
@@ -39,13 +61,13 @@ if not os.path.exists(BOOKINGS_FILE):
     pd.DataFrame(columns=["User","Date","Table","Time"]).to_csv(BOOKINGS_FILE,index=False)
 
 # ==========================================
-# SESSION STATE
+# SESSION
 # ==========================================
 if "user" not in st.session_state:
     st.session_state.user = None
 
 # ==========================================
-# AUTH SYSTEM (FIXED)
+# AUTH
 # ==========================================
 st.sidebar.title("🔐 Access")
 
@@ -67,12 +89,8 @@ if st.sidebar.button("Go"):
 
         if email in users["Email"].values:
             st.sidebar.error("User already exists")
-        elif len(email) < 5 or "@" not in email:
-            st.sidebar.error("Invalid email")
-        elif len(name) < 2:
-            st.sidebar.error("Enter name")
         else:
-            role = "admin" if users.empty else "user"
+            role = "admin" if users.empty else "pending"
 
             new_user = pd.DataFrame([[email, name, password, role]],
                                     columns=["Email","Name","Password","Role"])
@@ -80,7 +98,10 @@ if st.sidebar.button("Go"):
             users = pd.concat([users, new_user], ignore_index=True)
             save_users(users)
 
-            st.sidebar.success("Registered! Now login.")
+            if role == "pending":
+                send_pending_email(email)
+
+            st.sidebar.success("Registered! Await admin approval.")
 
     # LOGIN
     else:
@@ -89,22 +110,23 @@ if st.sidebar.button("Go"):
         u = users[(users["Email"] == email) & (users["Password"] == password)]
 
         if not u.empty:
-            st.session_state.user = email
-            st.session_state.name = u.iloc[0]["Name"]
-            st.session_state.role = u.iloc[0]["Role"]
-            st.rerun()
+            role = u.iloc[0]["Role"]
+
+            if role == "pending":
+                st.sidebar.warning("⏳ Awaiting admin approval")
+            else:
+                st.session_state.user = email
+                st.session_state.name = u.iloc[0]["Name"]
+                st.session_state.role = role
+                st.rerun()
         else:
             st.sidebar.error("Invalid login")
 
-# stop if not logged in
 if st.session_state.user is None:
     st.title("POOL TABLE BOOKING")
     st.info("Login or register from sidebar")
     st.stop()
 
-# ==========================================
-# LOGGED IN
-# ==========================================
 st.sidebar.success(f"Logged in as {st.session_state.name}")
 
 if st.sidebar.button("Logout"):
@@ -112,81 +134,38 @@ if st.sidebar.button("Logout"):
     st.rerun()
 
 # ==========================================
-# UI STYLE (YOUR DESIGN, CLEANED)
+# ADMIN PANEL
 # ==========================================
-st.markdown("""
-<style>
+if st.session_state.role == "admin":
+    st.sidebar.markdown("---")
+    if st.sidebar.checkbox("⚙️ Admin Panel"):
 
-/* smooth font */
-* { -webkit-font-smoothing: antialiased; }
+        st.subheader("User Management")
+        users = load_users()
 
-/* container */
-.block-container {
-    max-width: 800px !important;
-    margin: auto !important;
-}
+        for i, row in users.iterrows():
+            c1, c2, c3 = st.columns([3,2,2])
 
-/* table headers */
-.table-header {
-    text-align: center;
-    font-weight: 700;
-    font-size: 14px;
-    background: #212529;
-    color: white;
-    border-radius: 6px;
-    padding: 6px;
-}
+            c1.write(f"{row['Name']} ({row['Email']})")
+            c2.write(f"Role: {row['Role']}")
 
-/* buttons */
-button {
-    border-radius: 999px !important;
-    transition: all .08s ease !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
+            if row["Role"] == "pending":
+                if c3.button("Approve", key=f"a{i}"):
+                    users.at[i,"Role"]="user"
+                    save_users(users)
+                    st.rerun()
 
-/* hover */
-button:hover {
-    filter: brightness(0.96);
-}
+            elif row["Role"] == "user":
+                if c3.button("Make Admin", key=f"b{i}"):
+                    users.at[i,"Role"]="admin"
+                    save_users(users)
+                    st.rerun()
 
-/* click */
-button:active {
-    transform: scale(0.93);
-}
-
-/* FREE */
-button[kind="secondary"] {
-    background: #f1f3f5 !important;
-    border: 1px solid #dee2e6 !important;
-}
-
-/* YOURS */
-button[kind="primary"] {
-    background: linear-gradient(180deg,#ff4d4f,#dc3545) !important;
-    border: none !important;
-    color: white !important;
-}
-
-/* LOCKED */
-button[disabled] {
-    background: #f8d7da !important;
-    border: 1px solid #f1aeb5 !important;
-    color: #842029 !important;
-}
-
-/* mobile fix */
-@media (max-width:900px){
-    [data-testid="column"]{
-        width:32%!important;
-        flex:0 0 32%!important;
-    }
-    button p{
-        font-size:8px!important;
-    }
-}
-
-</style>
-""", unsafe_allow_html=True)
+            elif row["Role"] == "admin" and row["Email"] != st.session_state.user:
+                if c3.button("Demote", key=f"c{i}"):
+                    users.at[i,"Role"]="user"
+                    save_users(users)
+                    st.rerun()
 
 # ==========================================
 # BOOKING UI
@@ -194,45 +173,46 @@ button[disabled] {
 st.title("RESERVE TABLE")
 
 today = datetime.now().date()
-dates = [today + timedelta(days=i) for i in range(7)]
-selected_date = st.selectbox("Select date", dates)
+dates = [today + timedelta(days=i) for i in range(14)]
+
+labels = ["Today" if d==today else "Tomorrow" if d==today+timedelta(days=1) else d.strftime("%a %d") for d in dates]
+selected = st.radio("Date", labels, horizontal=True, label_visibility="collapsed")
+selected_date = dates[labels.index(selected)]
 
 df = load_bookings()
-
 HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ("00","30")]
 
 cols = st.columns(3)
 
-for i, col in enumerate(cols):
-    col.markdown(f"<div class='table-header'>Table {i+1}</div>", unsafe_allow_html=True)
+for i,col in enumerate(cols):
+    col.subheader(f"Table {i+1}")
 
     for t in HOURS:
-        booked = df[(df.Table == f"Table {i+1}") &
-                    (df.Time == t) &
-                    (df.Date == str(selected_date))]
-
-        key = f"{i}_{t}"
+        booked = df[(df.Table==f"Table {i+1}") & (df.Time==t) & (df.Date==str(selected_date))]
+        key=f"{i}_{t}"
 
         if not booked.empty:
             owner = booked.iloc[0]["User"]
+            name_display = owner.split("@")[0]
 
             if owner == st.session_state.user:
-                if col.button(f"{t} ❌ Yours", key=key, type="primary"):
-                    df = df[~((df.Table == f"Table {i+1}") &
-                              (df.Time == t) &
-                              (df.Date == str(selected_date)))]
+                if col.button(f"{t} ❌ {name_display}", key=key, type="primary"):
+                    df=df[~((df.Table==f"Table {i+1}")&(df.Time==t)&(df.Date==str(selected_date)))]
                     save_bookings(df)
                     st.rerun()
+
+            elif st.session_state.role=="admin":
+                if col.button(f"{t} 🔴 {name_display}", key=key, type="primary"):
+                    df=df[~((df.Table==f"Table {i+1}")&(df.Time==t)&(df.Date==str(selected_date)))]
+                    save_bookings(df)
+                    st.rerun()
+
             else:
-                col.button(f"{t} 🔒", key=key, disabled=True)
+                col.button(f"{t} 🔒 {name_display}", key=key, disabled=True)
 
         else:
-            if col.button(f"{t} 🟢 Free", key=key, type="secondary"):
-                new = pd.DataFrame([[st.session_state.user,
-                                     str(selected_date),
-                                     f"Table {i+1}",
-                                     t]],
+            if col.button(f"{t} 🟢 Free", key=key):
+                new = pd.DataFrame([[st.session_state.user,str(selected_date),f"Table {i+1}",t]],
                                    columns=["User","Date","Table","Time"])
-
-                save_bookings(pd.concat([df, new], ignore_index=True))
+                save_bookings(pd.concat([df,new],ignore_index=True))
                 st.rerun()
