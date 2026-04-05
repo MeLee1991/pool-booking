@@ -27,87 +27,44 @@ if "confirm_delete" not in st.session_state: st.session_state.confirm_delete = N
 # 4. CSS (STRICT GRID & NO-STACK)
 st.markdown("""
 <style>
-
-/* MAIN CONTAINER — allow horizontal scroll if needed */
-[data-testid="stAppViewBlockContainer"] {
-    padding: 0.5rem 0.3rem !important;
-    overflow-x: auto !important;
-}
-
-/* FORCE ROW TO NEVER STACK */
-.table-row [data-testid="stHorizontalBlock"] {
+/* 1. PREVENT MOBILE STACKING (The most important fix) */
+[data-testid="stHorizontalBlock"] {
     display: flex !important;
+    flex-direction: row !important;
     flex-wrap: nowrap !important;
-    gap: 2px !important;
+    align-items: center !important;
 }
 
-/* REMOVE DEFAULT COLUMN FLEX BEHAVIOR */
-.table-row [data-testid="column"] {
-    flex: 0 0 auto !important;
-    min-width: 0 !important;
+/* 2. DATES GRID (7 Columns No-Stack) */
+.date-row [data-testid="column"] {
+    width: 45px !important;
+    flex: none !important;
 }
 
-/* PERFECT 4-COLUMN FIT (TIME + 3 TABLES) */
-.table-row [data-testid="column"]:nth-child(1) { width: 42px !important; }
-.table-row [data-testid="column"]:nth-child(n+2) { width: 62px !important; }
+/* 3. TABLE GRID (Exact Widths) */
+.table-row [data-testid="column"]:nth-child(1) { width: 55px !important; flex: none !important; }
+.table-row [data-testid="column"]:nth-child(n+2) { width: 80px !important; flex: none !important; }
 
-/* MAKE BUTTONS COMPACT */
+/* 4. ROW ALTERNATION (Every 2 rows = 1 hour) */
+.bg-even { background-color: #f0f2f6 !important; border-bottom: 1px solid #ddd; }
+.bg-odd { background-color: #ffffff !important; border-bottom: 1px solid #ddd; }
+
+/* 5. BUTTON COLORS (Red & Green) */
 .stButton > button {
-    width: 100% !important;
-    height: 28px !important;
-    padding: 0 !important;
-    font-size: 10px !important;
-    border-radius: 4px !important;
+    width: 100% !important; height: 32px !important;
+    padding: 0px !important; border-radius: 4px !important; font-weight: bold !important;
+}
+/* Free Slots (Secondary) -> Light Green */
+button[kind="secondary"] { background-color: #e6ffed !important; color: #1a7f37 !important; border: 1px solid #4AC26B !important; }
+/* Booked Slots (Primary/Disabled) -> Light Red */
+button[kind="primary"], .table-row button:disabled { 
+    background-color: #ffebe9 !important; color: #cf222e !important; 
+    border: 1px solid #FF8182 !important; opacity: 1 !important; 
 }
 
-/* COLORS */
-button[kind="secondary"] {
-    background-color: #e6ffed !important;
-    color: #1a7f37 !important;
-    border: 1px solid #4AC26B !important;
-}
-
-button[kind="primary"], .table-row button:disabled {
-    background-color: #ffebe9 !important;
-    color: #cf222e !important;
-    border: 1px solid #FF8182 !important;
-    opacity: 1 !important;
-}
-
-/* TIME LABEL */
-.time-label {
-    font-size: 10px !important;
-    text-align: center;
-    line-height: 28px;
-}
-
-/* HEADER */
-.header-box {
-    background: #000;
-    color: #fff;
-    text-align: center;
-    font-size: 10px;
-    height: 20px;
-    line-height: 20px;
-}
-
-/* ROW COLORS */
-.bg-even { background-color: #f6f8fa !important; }
-.bg-odd { background-color: #ffffff !important; }
-
-/* REMOVE STREAMLIT COLUMN PADDING (IMPORTANT) */
-[data-testid="column"] > div {
-    padding: 0 !important;
-}
-
-/* OPTIONAL: SLIGHT ZOOM-OUT EFFECT ON SMALL SCREENS */
-@media (max-width: 420px) {
-    .table-row {
-        transform: scale(0.95);
-        transform-origin: left;
-    }
-}
-
+.time-label { font-size: 11px; font-weight: bold; text-align: center; }
+.header-box { background: #000; color: #fff; text-align: center; font-size: 11px; height: 22px; line-height: 22px; }
+[data-testid="stAppViewBlockContainer"] { padding: 1rem 0.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
