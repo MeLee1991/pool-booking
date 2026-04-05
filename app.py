@@ -6,89 +6,107 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Pool Booking", layout="wide")
 
 # =========================
-# CSS (PRECISION CONTROL)
+# 1. DATABASE FUNCTIONS (FIXED)
+# =========================
+BOOKINGS_FILE = "bookings.csv"
+
+def load_bookings():
+    if os.path.exists(BOOKINGS_FILE):
+        return pd.read_csv(BOOKINGS_FILE)
+    return pd.DataFrame(columns=["User","Name","Date","Table","Time"])
+
+def save_bookings(df):
+    df.to_csv(BOOKINGS_FILE, index=False)
+
+# =========================
+# 2. CSS (COMPRESSED UI)
 # =========================
 st.markdown("""
 <style>
-/* FORCE 3 COLUMNS & REMOVE GAPS */
+/* FORCE 3 COMPACT COLUMNS */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    gap: 2px !important; /* Extremely tight gap */
+    gap: 2px !important;
 }
 
 [data-testid="column"] {
     width: 33% !important;
     flex: 1 1 33% !important;
     min-width: 33% !important;
-    padding: 0px 1px !important; /* Smaller columns */
+    padding: 0px 1px !important;
 }
 
-/* TIGHTEN VERTICAL SPACING */
+/* TIGHTEN ROWS */
 [data-testid="column"] > div {
     padding: 0px !important;
-    margin-bottom: -14px !important; /* Very close rows */
+    margin-bottom: -16px !important; /* Extremely close rows */
 }
 
-/* BUTTON STYLING */
+/* BUTTONS: SMALLER FONT & UNIFORM SIZE */
 .stButton button {
     width: 100% !important;
-    height: 24px !important; /* Smaller slot size */
-    font-size: 10px !important; /* Smaller font */
+    height: 22px !important; 
+    font-size: 9px !important; 
     padding: 0px !important;
-    border-radius: 4px !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 2px !important;
+    border: none !important;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
-/* RED FOR BOOKED SLOTS (NOT GRAY) */
-/* We target the disabled state or specific keys if needed, 
-   but for 'Lighter Red', we style the button background */
+/* LIGHT RED FOR BOOKED SLOTS (NOT GRAY) */
 div.stButton > button:disabled {
-    background-color: #ffcccc !important; /* Lighter Red */
-    color: #900 !important; /* Dark Red text for contrast */
-    opacity: 1 !important; /* Prevents the 'faded' gray look */
+    background-color: #ffb3b3 !important; /* Lighter Red */
+    color: #800000 !important; /* Dark text for readability */
+    opacity: 1 !important;
+    border: 1px solid #ff8080 !important;
 }
 
-/* SCROLLABLE DATE BAR */
+/* SCROLLABLE DATE BAR (PREVENTS VERTICAL TEXT) */
 [data-testid="stRadio"] > div {
     display: flex !important;
-    flex-direction: row !important;
-    overflow-x: auto !important; /* Scrollable if no space */
+    overflow-x: auto !important;
     white-space: nowrap !important;
-    gap: 10px !important;
-    padding-bottom: 10px;
+    gap: 8px !important;
+    padding-bottom: 5px;
+}
+[data-testid="stRadio"] label {
+    font-size: 11px !important;
 }
 
-/* HEADER CHANGE */
+/* HEADER SPACING */
 .table-header-box {
     text-align: center;
     font-weight: bold;
-    font-size: 12px;
-    background-color: #1e1e1e;
+    font-size: 11px;
+    background-color: #000;
     color: #fff;
-    padding: 5px 0px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #444;
+    padding: 4px 0;
+    margin-bottom: 22px; /* Gap between header and table */
+    border-radius: 3px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================
-# LOGIC & DATA
+# 3. APP LOGIC
 # =========================
 if "table_names" not in st.session_state:
     st.session_state.table_names = ["Table 1", "Table 2", "Table 3"]
 
-# Date Picker (Horizontal Scrollable)
+st.title("RESERVE TABLE")
+
+# Date Selection
 today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
 date_labels = [d.strftime("%a %d") for d in dates]
 selected_label = st.radio("", date_labels, horizontal=True)
 selected_date = dates[date_labels.index(selected_label)]
 
-# Header Change / Rename
-with st.expander("Edit Table Names"):
+# Table Rename Expander
+with st.expander("⚙️ Rename Tables"):
     for i in range(3):
         st.session_state.table_names[i] = st.text_input(f"Table {i+1}", st.session_state.table_names[i])
 
@@ -98,39 +116,31 @@ for h in list(range(8, 24)) + list(range(0, 3)):
     for m in ["00", "30"]:
         HOURS.append(f"{h:02d}:{m}")
 
-# =========================
-# THE GRID
-# =========================
-df = load_bookings() # Assumes your helper function is present
+df = load_bookings()
 
-# Table Headers
+# 4. RENDER HEADERS
 h_cols = st.columns(3)
 for i, col in enumerate(h_cols):
     col.markdown(f"<div class='table-header-box'>{st.session_state.table_names[i]}</div>", unsafe_allow_html=True)
 
-# Rows
+# 5. RENDER GRID
 for t in HOURS:
-    # 4-hour group coloring (Zebra stripes for readability)
-    hour_int = int(t.split(":")[0])
-    is_alt_group = ((hour_int - 8) % 24) // 4 % 2 == 0
-    bg_style = "background-color: rgba(255,255,255,0.03);" if is_alt_group else ""
-    
-    row_container = st.container()
-    # Apply background to the whole 'time group' block
-    with row_container:
-        t_cols = st.columns(3)
-        for i, col in enumerate(t_cols):
-            t_name = st.session_state.table_names[i]
-            key = f"btn_{i}_{t}_{selected_date}"
-            
-            # Check booking
-            match = df[(df["Table"] == t_name) & (df["Time"] == t) & (df["Date"] == str(selected_date))]
-            
-            if not match.empty:
-                user_name = match.iloc[0]["Name"]
-                # Displayed as Lighter Red via CSS (disabled=True)
-                col.button(f"{t} 🔒 {user_name}", key=key, disabled=True)
-            else:
-                if col.button(f"{t} 🟢", key=key):
-                    # Your booking logic here
-                    pass
+    t_cols = st.columns(3)
+    for i, col in enumerate(t_cols):
+        t_name = st.session_state.table_names[i]
+        key = f"btn_{i}_{t}_{selected_date}"
+        
+        match = df[(df["Table"] == t_name) & (df["Time"] == t) & (df["Date"] == str(selected_date))]
+        
+        if not match.empty:
+            user_name = match.iloc[0]["Name"]
+            # Booked slot (Light Red)
+            col.button(f"{t} 🔒 {user_name}", key=key, disabled=True)
+        else:
+            # Available slot
+            if col.button(f"{t} 🟢", key=key):
+                # Placeholder for booking action
+                new_row = pd.DataFrame([[st.session_state.get("user", "guest"), "Guest", str(selected_date), t_name, t]], 
+                                     columns=["User","Name","Date","Table","Time"])
+                save_bookings(pd.concat([df, new_row]))
+                st.rerun()
