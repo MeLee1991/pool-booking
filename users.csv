@@ -1,2 +1,2 @@
-Email,Name,Password,Role,Max_Hours_Day
-tom3@gmail.com,Tom,1234,admin,3
+Email,Name,Password,Role
+tom3@gmail.com,Tom,1234,admin
