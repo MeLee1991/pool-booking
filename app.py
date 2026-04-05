@@ -130,74 +130,93 @@ if st.session_state.role == "admin":
 st.markdown("""
 <style>
 
-/* sidebar fix */
-section[data-testid="stSidebar"] * {
+/* ===== SIDEBAR FIX (NO VERTICAL TEXT) ===== */
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div {
     white-space: normal !important;
 }
 
-/* radio vertical */
-div[role="radiogroup"] {
+/* FORCE RADIO VERTICAL */
+section[data-testid="stSidebar"] div[role="radiogroup"] {
     flex-direction: column !important;
 }
 
-/* date grid */
+/* ===== DATE GRID (2 ROWS) ===== */
 [data-testid="stRadio"] > div {
     display: grid !important;
-    grid-template-columns: repeat(7,1fr)!important;
-    grid-template-rows: auto auto!important;
-    gap:4px;
+    grid-template-columns: repeat(7,1fr) !important;
+    gap: 4px;
 }
 
-/* header */
-.table-header{
-text-align:center;
-background:#111;
-color:#fff;
-padding:4px;
-border-radius:6px;
-font-size:12px;
-margin-bottom:4px;
+/* ===== HEADER (FROZEN) ===== */
+.header-row {
+    position: sticky;
+    top: 70px;
+    z-index: 10;
+    background: #111;
+    color: white;
+    padding: 6px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 13px;
 }
 
-/* columns */
-[data-testid="stHorizontalBlock"]{
-gap:4px!important;
+/* ===== SLOT ROW ===== */
+.slot-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 2px;
 }
 
-/* buttons */
-button{
-width:100%!important;
-height:22px!important;
-font-size:10px!important;
-border-radius:999px!important;
-white-space:nowrap!important;
-overflow:hidden!important;
-text-overflow:ellipsis!important;
+/* ===== SLOT ===== */
+.slot {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 2px 6px;
+    height: 28px;
+
+    border-radius: 999px;
+    background: #f1f3f5;
+
+    font-size: 11px;
 }
 
-/* rows */
-.slot{
-margin-bottom:2px;
+/* ===== TIME ===== */
+.slot-time {
+    width: 45px;
+    font-weight: 600;
 }
 
-/* colors */
-.row1{background:#f8f9fa;}
-.row2{background:#eef7ff;}
+/* ===== STATUS ===== */
+.slot-status {
+    width: 25px;
+    text-align: center;
+}
 
-/* mobile */
-@media(max-width:900px){
-[data-testid="stHorizontalBlock"]{
-display:flex!important;
-flex-wrap:nowrap!important;
+/* ===== NAME ===== */
+.slot-name {
+    flex: 1;
+    text-align: right;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-[data-testid="column"]{
-width:33%!important;
-flex:1 1 33%!important;
-}
-button{
-font-size:9px!important;
-height:20px!important;
-}
+
+/* ===== COLORS ===== */
+.mine { background: #ffe3e3; }
+.locked { background: #f8d7da; }
+.free { background: #e6fcf5; }
+
+/* ===== MOBILE ===== */
+@media (max-width: 900px) {
+    .slot {
+        font-size: 9px;
+        height: 24px;
+    }
 }
 
 </style>
