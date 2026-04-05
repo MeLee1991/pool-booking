@@ -46,7 +46,7 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # =========================
-# SIDEBAR
+# SIDEBAR (FIXED)
 # =========================
 st.sidebar.title("🔐 Access")
 
@@ -54,7 +54,7 @@ mode = st.sidebar.radio("Mode", ["Login","Register"])
 
 email = st.sidebar.text_input("Email")
 password = st.sidebar.text_input("Password", type="password")
-name = st.sidebar.text_input("Name") if mode=="Register" else ""
+name = st.sidebar.text_input("Name") if mode == "Register" else ""
 
 users = load_users()
 
@@ -95,7 +95,6 @@ if st.session_state.role == "admin":
 
     if admin == "Users":
         st.title("Users")
-
         users = load_users()
         edited = st.data_editor(users, num_rows="dynamic", use_container_width=True)
 
@@ -125,97 +124,67 @@ if st.session_state.role == "admin":
         st.stop()
 
 # =========================
-# CSS (CLEAN + FIXED)
+# CSS (SAFE + MINIMAL)
 # =========================
 st.markdown("""
 <style>
 
-/* ===== SIDEBAR FIX (NO VERTICAL TEXT) ===== */
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] div {
+/* FIX SIDEBAR TEXT */
+section[data-testid="stSidebar"] * {
     white-space: normal !important;
 }
 
-/* FORCE RADIO VERTICAL */
-section[data-testid="stSidebar"] div[role="radiogroup"] {
-    flex-direction: column !important;
-}
-
-/* ===== DATE GRID (2 ROWS) ===== */
+/* DATE GRID (2 ROWS) */
 [data-testid="stRadio"] > div {
     display: grid !important;
-    grid-template-columns: repeat(7,1fr) !important;
-    gap: 4px;
+    grid-template-columns: repeat(7,1fr)!important;
+    gap: 6px;
 }
 
-/* ===== HEADER (FROZEN) ===== */
-.header-row {
+/* HEADER */
+.header {
     position: sticky;
-    top: 70px;
-    z-index: 10;
+    top: 60px;
     background: #111;
     color: white;
     padding: 6px;
     border-radius: 6px;
     text-align: center;
     font-size: 13px;
+    z-index: 10;
 }
 
-/* ===== SLOT ROW ===== */
-.slot-row {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 2px;
+/* BUTTON */
+button {
+    width: 100% !important;
+    height: 26px !important;
+    font-size: 11px !important;
+    border-radius: 999px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
-/* ===== SLOT ===== */
-.slot {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    padding: 2px 6px;
-    height: 28px;
-
-    border-radius: 999px;
-    background: #f1f3f5;
-
-    font-size: 11px;
+/* REMOVE BIG GAPS */
+[data-testid="column"] > div {
+    margin-bottom: 3px !important;
 }
 
-/* ===== TIME ===== */
-.slot-time {
-    width: 45px;
-    font-weight: 600;
-}
-
-/* ===== STATUS ===== */
-.slot-status {
-    width: 25px;
-    text-align: center;
-}
-
-/* ===== NAME ===== */
-.slot-name {
-    flex: 1;
-    text-align: right;
-
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* ===== COLORS ===== */
-.mine { background: #ffe3e3; }
-.locked { background: #f8d7da; }
-.free { background: #e6fcf5; }
-
-/* ===== MOBILE ===== */
+/* MOBILE */
 @media (max-width: 900px) {
-    .slot {
-        font-size: 9px;
-        height: 24px;
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+    }
+
+    [data-testid="column"] {
+        width: 33% !important;
+        flex: 1 1 33% !important;
+    }
+
+    button {
+        font-size: 9px !important;
+        height: 22px !important;
     }
 }
 
@@ -234,7 +203,7 @@ selected = st.radio("", labels, horizontal=True)
 selected_date = dates[labels.index(selected)]
 
 # =========================
-# TIME
+# TIME RANGE
 # =========================
 HOURS = []
 for h in list(range(8,24)) + list(range(0,3)):
@@ -242,30 +211,31 @@ for h in list(range(8,24)) + list(range(0,3)):
         HOURS.append(f"{h:02d}:{m}")
 
 # =========================
-# GRID
+# GRID (CORRECT STRUCTURE)
 # =========================
 st.title("RESERVE TABLE")
 
 df = load_bookings()
 
-cols = st.columns(3)
+# HEADER ROW
+header_cols = st.columns(3)
+for i, col in enumerate(header_cols):
+    col.markdown(f"<div class='header'>Table {i+1}</div>", unsafe_allow_html=True)
 
-for i, col in enumerate(cols):
-    col.markdown(f"<div class='table-header'>Table {i+1}</div>", unsafe_allow_html=True)
+# TIME ROWS
+for t in HOURS:
 
-    for t in HOURS:
-        idx = HOURS.index(t)
-        row_class = "row1" if (idx//4)%2==0 else "row2"
+    row_cols = st.columns(3)
+
+    for i, col in enumerate(row_cols):
 
         booked = df[
-            (df["Table"]==f"Table {i+1}") &
-            (df["Time"]==t) &
-            (df["Date"]==str(selected_date))
+            (df["Table"] == f"Table {i+1}") &
+            (df["Time"] == t) &
+            (df["Date"] == str(selected_date))
         ]
 
         key = f"{i}_{t}"
-
-        col.markdown(f"<div class='slot {row_class}'>", unsafe_allow_html=True)
 
         if not booked.empty:
             name = booked.iloc[0]["Name"]
@@ -290,5 +260,3 @@ for i, col in enumerate(cols):
 
                 save_bookings(pd.concat([df,new], ignore_index=True))
                 st.rerun()
-
-        col.markdown("</div>", unsafe_allow_html=True)
