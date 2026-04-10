@@ -58,77 +58,75 @@ if st.sidebar.button("Logout"):
 st.markdown("""
 <style>
 
+/* CONTAINER */
 .block-container {
-    max-width: 340px !important;
+    max-width: 300px !important;
     margin: auto !important;
-    padding-top: 6px !important;
+    padding-top: 4px !important;
 }
 
-/* remove gaps */
+/* REMOVE SPACING */
 div[data-testid="stVerticalBlock"] > div { gap:0 !important; }
 .element-container { margin:0 !important; padding:0 !important; }
 
-/* row */
+/* ROW */
 [data-testid="stHorizontalBlock"] {
     display:flex !important;
     flex-wrap:nowrap !important;
-    gap:2px !important;
+    gap:1px !important;
     align-items:center !important;
 }
 
-/* columns */
+/* COLUMN WIDTH */
 [data-testid="column"] {
     flex:0 0 auto !important;
-    width:72px !important;
-    min-width:72px !important;
-    max-width:72px !important;
+    width:64px !important;
+    min-width:64px !important;
+    max-width:64px !important;
 }
 
-/* buttons */
+/* BUTTONS */
 .stButton > button {
-    width:72px !important;
-    height:28px !important;
-    font-size:9px !important;
-    border-radius:6px !important;
+    width:64px !important;
+    height:24px !important;
+    font-size:8px !important;
+    border-radius:5px !important;
     padding:0 !important;
 }
 
-/* dates */
+/* DATE */
 .date button {
-    width:48px !important;
-    height:32px !important;
-    font-size:10px !important;
+    width:42px !important;
+    height:28px !important;
+    font-size:9px !important;
 }
 
-/* selected date */
+/* SELECTED DATE */
 .sel button {
     background:#4f46e5 !important;
     color:white !important;
 }
 
-/* states */
-.free button { background:#d1fae5 !important; }
+/* STATES */
+.free button { background:#dcfce7 !important; }
 .mine button { background:#bfdbfe !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* time */
-.time button {
-    background:#f3f4f6 !important;
-    font-weight:600 !important;
-}
+/* TIME COLOR BLOCKS */
+.timeA button { background:#f3f4f6 !important; }
+.timeB button { background:#e0f2fe !important; }
+.timeC button { background:#fef3c7 !important; }
+.timeD button { background:#ede9fe !important; }
 
-/* row color blocks */
-.rowA { background:#ffffff; }
-.rowB { background:#f8fafc; }
-
-/* header */
+/* HEADER */
 .header {
     text-align:center;
-    font-size:10px;
+    font-size:9px;
     font-weight:700;
+    margin-top:2px;
 }
 
-/* scroll */
+/* SCROLL */
 .scroll {
     height:70vh;
     overflow-y:auto;
@@ -168,22 +166,27 @@ if page == "Booking":
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="header">Time&nbsp;&nbsp;&nbsp;T1&nbsp;&nbsp;&nbsp;T2&nbsp;&nbsp;&nbsp;T3</div>', unsafe_allow_html=True)
+    # ===== HEADER =====
+    h = st.columns(4)
+    h[0].markdown('<div class="header">Time</div>', unsafe_allow_html=True)
+    h[1].markdown('<div class="header">T1</div>', unsafe_allow_html=True)
+    h[2].markdown('<div class="header">T2</div>', unsafe_allow_html=True)
+    h[3].markdown('<div class="header">T3</div>', unsafe_allow_html=True)
 
     # ===== TABLE =====
     st.markdown('<div class="scroll">', unsafe_allow_html=True)
 
-    HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ["00","30"]]
+    HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
     for idx, t in enumerate(HOURS):
 
-        block = "rowA" if (idx // 8) % 2 == 0 else "rowB"
+        block = ["timeA","timeB","timeC","timeD"][(idx // 8) % 4]
 
         row = st.columns(4)
 
         # TIME
         with row[0]:
-            st.markdown(f'<div class="time {block}">', unsafe_allow_html=True)
+            st.markdown(f'<div class="{block}">', unsafe_allow_html=True)
             st.button(t, key=f"time_{t}")
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -198,7 +201,6 @@ if page == "Booking":
             ]
 
             with row[i+1]:
-                st.markdown(f'<div class="{block}">', unsafe_allow_html=True)
 
                 if not match.empty:
                     b_user = match.iloc[0]["User"]
@@ -230,19 +232,15 @@ if page == "Booking":
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                st.markdown("</div>", unsafe_allow_html=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ================= ADMIN =================
 if page == "Admin":
 
-    st.title("🛠 Admin")
+    st.title("Admin")
 
-    st.subheader("Users")
-    st.dataframe(users, use_container_width=True)
+    st.dataframe(users)
 
-    st.subheader("Add user")
     email = st.text_input("Email")
     name = st.text_input("Name")
     pwd = st.text_input("Password")
@@ -251,12 +249,12 @@ if page == "Admin":
     if st.button("Add user"):
         new = pd.DataFrame([[email,name,pwd,role]], columns=users.columns)
         save_data(pd.concat([users,new]), USERS_FILE)
-        st.success("User added")
+        st.success("Added")
 
-    st.divider()
+    st.write(f"Bookings: {len(bookings)}")
 
-    st.subheader("Stats")
-    st.write(f"Total bookings: {len(bookings)}")
-
-    csv = bookings.to_csv(index=False).encode("utf-8")
-    st.download_button("Download CSV", csv, "bookings.csv")
+    st.download_button(
+        "Download CSV",
+        bookings.to_csv(index=False),
+        "bookings.csv"
+            )
