@@ -3,9 +3,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# =========================
-# SETUP
-# =========================
 st.set_page_config(page_title="Pool", layout="centered")
 
 USERS_FILE = "users.csv"
@@ -22,115 +19,15 @@ def save_data(df, file):
 users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# =========================
 # SESSION
-# =========================
 if "user" not in st.session_state: st.session_state.user = None
 if "name" not in st.session_state: st.session_state.name = None
 if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
-# =========================
-# CSS (ULTRA COMPACT HARD LOCK)
-# =========================
-st.markdown("""
-<style>
-
-/* === ULTRA WIDTH === */
-.block-container {
-    max-width: 200px !important;
-    margin: auto !important;
-    padding: 2px !important;
-}
-
-/* kill horizontal scroll */
-html, body {
-    overflow-x: hidden !important;
-}
-
-/* force row */
-[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 1px !important;
-}
-
-/* fixed column */
-[data-testid="column"] {
-    flex: 0 0 auto !important;
-    width: 48px !important;
-    min-width: 48px !important;
-    max-width: 48px !important;
-    padding: 0 !important;
-}
-
-/* === BUTTONS === */
-.stButton > button {
-    width: 48px !important;
-    height: 32px !important;
-    font-size: 8px !important;
-    padding: 0 !important;
-    border-radius: 4px !important;
-}
-
-/* colors */
-button[kind="secondary"] {
-    background: #e8fbe8 !important;
-    color: #1a7f37 !important;
-}
-
-button[kind="primary"] {
-    background: #ffeaea !important;
-    color: #cf222e !important;
-}
-
-button:disabled {
-    background: #eee !important;
-    color: #999 !important;
-}
-
-/* header */
-.header {
-    width: 48px;
-    height: 30px;
-    line-height: 30px;
-    text-align: center;
-    background: #222;
-    color: white;
-    font-size: 9px;
-}
-
-/* time */
-.time {
-    width: 48px;
-    text-align: center;
-    font-size: 8px;
-    font-weight: bold;
-}
-
-/* date */
-.date-bar {
-    position: sticky;
-    top: 0;
-    background: white;
-    z-index: 999;
-    padding-bottom: 2px;
-}
-
-/* scroll */
-.scroll {
-    height: 75vh;
-    overflow-y: auto;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# =========================
-# LOGIN
-# =========================
+# ================= LOGIN =================
 if st.session_state.user is None:
-    st.write("Pool")
+    st.title("Pool")
 
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
@@ -142,55 +39,92 @@ if st.session_state.user is None:
             st.session_state.name = m.iloc[0]["Name"]
             st.session_state.role = m.iloc[0]["Role"]
             st.rerun()
-
     st.stop()
 
-# =========================
-# DATE (VISIBLE)
-# =========================
+# ================= DATE =================
 d = datetime.fromisoformat(st.session_state.sel_date)
 
-st.markdown('<div class="date-bar">', unsafe_allow_html=True)
-
 c1,c2,c3 = st.columns([1,2,1])
-
 with c1:
     if st.button("◀"):
         st.session_state.sel_date = str(d - timedelta(days=1))
         st.rerun()
-
 with c2:
-    st.markdown(f"<div style='text-align:center;font-size:10px'><b>{d.strftime('%d %b')}</b></div>", unsafe_allow_html=True)
-
+    st.markdown(f"### {d.strftime('%d %b')}")
 with c3:
     if st.button("▶"):
         st.session_state.sel_date = str(d + timedelta(days=1))
         st.rerun()
 
-st.markdown('</div>', unsafe_allow_html=True)
+# ================= CSS GRID =================
+st.markdown("""
+<style>
 
-# =========================
+.block-container {
+    max-width: 240px !important;
+    margin: auto !important;
+    padding: 0 !important;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 50px 50px 50px 50px;
+    gap: 2px;
+}
+
+/* BUTTON CELLS */
+.grid button {
+    width: 50px !important;
+    height: 34px !important;
+    font-size: 9px !important;
+    padding: 0 !important;
+    border-radius: 4px !important;
+}
+
+/* HEADER */
+.header {
+    background: #222 !important;
+    color: white !important;
+}
+
+/* FREE */
+.free {
+    background: #e8fbe8 !important;
+    color: #1a7f37 !important;
+}
+
+/* TAKEN */
+.taken {
+    background: #eee !important;
+}
+
+/* MINE */
+.mine {
+    background: #e6f0ff !important;
+    color: #1d4ed8 !important;
+}
+
+.time {
+    font-size: 9px;
+    font-weight: bold;
+    text-align: center;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ================= GRID =================
+st.markdown('<div class="grid">', unsafe_allow_html=True)
+
 # HEADER
-# =========================
-h = st.columns(4)
-
-with h[0]: st.markdown("<div class='time'></div>", unsafe_allow_html=True)
-with h[1]: st.markdown("<div class='header'>T1</div>", unsafe_allow_html=True)
-with h[2]: st.markdown("<div class='header'>T2</div>", unsafe_allow_html=True)
-with h[3]: st.markdown("<div class='header'>T3</div>", unsafe_allow_html=True)
-
-# =========================
-# TABLE
-# =========================
-st.markdown('<div class="scroll">', unsafe_allow_html=True)
+st.markdown("<div></div>", unsafe_allow_html=True)
+for t in ["T1","T2","T3"]:
+    st.markdown(f"<div class='header'>{t}</div>", unsafe_allow_html=True)
 
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8,24))+list(range(0,3))) for m in ["00","30"]]
 
 for t in HOURS:
-    row = st.columns(4)
-
-    with row[0]:
-        st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
 
     for i in range(3):
         t_n = f"Table {i+1}"
@@ -201,29 +135,32 @@ for t in HOURS:
             (bookings["Date"]==st.session_state.sel_date)
         ]
 
-        with row[i+1]:
+        key = f"{t}_{i}"
 
-            if not match.empty:
-                b_user = match.iloc[0]["User"]
+        if not match.empty:
+            b_user = match.iloc[0]["User"]
+            b_name = match.iloc[0]["Name"]
 
-                if b_user == st.session_state.user:
-                    if st.button("❌", key=f"{t}_{i}"):
-                        bookings = bookings.drop(match.index)
-                        save_data(bookings, BOOKINGS_FILE)
-                        st.rerun()
-                else:
-                    st.button("■", key=f"{t}_{i}", disabled=True)
+            if b_user == st.session_state.user:
+                if st.button(f"❌", key=key):
+                    bookings = bookings.drop(match.index)
+                    save_data(bookings, BOOKINGS_FILE)
+                    st.rerun()
+                st.markdown(f"<style>button[key='{key}']{{background:#e6f0ff}}</style>", unsafe_allow_html=True)
 
             else:
-                if st.button("+", key=f"{t}_{i}", type="secondary"):
-                    new_b = pd.DataFrame([{
-                        "User": st.session_state.user,
-                        "Name": st.session_state.name,
-                        "Date": st.session_state.sel_date,
-                        "Table": t_n,
-                        "Time": t
-                    }])
-                    save_data(pd.concat([bookings,new_b]), BOOKINGS_FILE)
-                    st.rerun()
+                st.button(b_name[:3], key=key, disabled=True)
+
+        else:
+            if st.button("+", key=key):
+                new_b = pd.DataFrame([{
+                    "User": st.session_state.user,
+                    "Name": st.session_state.name,
+                    "Date": st.session_state.sel_date,
+                    "Table": t_n,
+                    "Time": t
+                }])
+                save_data(pd.concat([bookings,new_b]), BOOKINGS_FILE)
+                st.rerun()
 
 st.markdown("</div>", unsafe_allow_html=True)
