@@ -41,90 +41,129 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= DATE =================
-d = datetime.fromisoformat(st.session_state.sel_date)
-
-c1,c2,c3 = st.columns([1,2,1])
-with c1:
-    if st.button("◀"):
-        st.session_state.sel_date = str(d - timedelta(days=1))
-        st.rerun()
-with c2:
-    st.markdown(f"### {d.strftime('%d %b')}")
-with c3:
-    if st.button("▶"):
-        st.session_state.sel_date = str(d + timedelta(days=1))
-        st.rerun()
-
-# ================= CSS GRID =================
+# ================= CSS =================
 st.markdown("""
 <style>
 
+/* center + proper width (NOT too small) */
 .block-container {
-    max-width: 240px !important;
+    max-width: 340px !important;
     margin: auto !important;
+    padding: 4px !important;
+}
+
+/* remove spacing between rows */
+div[data-testid="stVerticalBlock"] > div {
+    gap: 2px !important;
+}
+
+/* remove column gaps */
+[data-testid="stHorizontalBlock"] {
+    gap: 2px !important;
+}
+
+/* equal columns */
+[data-testid="column"] {
     padding: 0 !important;
 }
 
-.grid {
-    display: grid;
-    grid-template-columns: 50px 50px 50px 50px;
-    gap: 2px;
-}
-
-/* BUTTON CELLS */
-.grid button {
-    width: 50px !important;
+/* buttons */
+.stButton > button {
+    width: 100% !important;
     height: 34px !important;
-    font-size: 9px !important;
+    font-size: 10px !important;
     padding: 0 !important;
-    border-radius: 4px !important;
+    border-radius: 6px !important;
 }
 
-/* HEADER */
-.header {
-    background: #222 !important;
-    color: white !important;
-}
-
-/* FREE */
-.free {
+/* colors */
+button[kind="secondary"] {
     background: #e8fbe8 !important;
     color: #1a7f37 !important;
 }
 
-/* TAKEN */
-.taken {
+button[kind="primary"] {
+    background: #ffeaea !important;
+    color: #cf222e !important;
+}
+
+button:disabled {
     background: #eee !important;
+    color: #666 !important;
 }
 
-/* MINE */
-.mine {
-    background: #e6f0ff !important;
-    color: #1d4ed8 !important;
-}
-
-.time {
-    font-size: 9px;
-    font-weight: bold;
+/* header */
+.header {
     text-align: center;
+    background: #2f3542;
+    color: white;
+    padding: 6px 0;
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+/* time */
+.time {
+    text-align: center;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+/* scroll */
+.scroll {
+    height: 65vh;
+    overflow-y: auto;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ================= GRID =================
-st.markdown('<div class="grid">', unsafe_allow_html=True)
+# ================= DATES (2 ROWS — VISIBLE) =================
+today = datetime.now().date()
 
-# HEADER
-st.markdown("<div></div>", unsafe_allow_html=True)
-for t in ["T1","T2","T3"]:
-    st.markdown(f"<div class='header'>{t}</div>", unsafe_allow_html=True)
+st.write("**Dates**")
+
+# week 1
+row1 = st.columns(7)
+for i in range(7):
+    d = today + timedelta(days=i)
+    d_str = str(d)
+    with row1[i]:
+        if st.button(d.strftime("%d"), key=f"d1_{i}",
+                     type="primary" if st.session_state.sel_date == d_str else "secondary"):
+            st.session_state.sel_date = d_str
+            st.rerun()
+
+# week 2
+row2 = st.columns(7)
+for i in range(7,14):
+    d = today + timedelta(days=i)
+    d_str = str(d)
+    with row2[i-7]:
+        if st.button(d.strftime("%d"), key=f"d2_{i}",
+                     type="primary" if st.session_state.sel_date == d_str else "secondary"):
+            st.session_state.sel_date = d_str
+            st.rerun()
+
+st.divider()
+
+# ================= HEADER =================
+h = st.columns(4)
+with h[0]: st.write("")
+with h[1]: st.markdown("<div class='header'>T1</div>", unsafe_allow_html=True)
+with h[2]: st.markdown("<div class='header'>T2</div>", unsafe_allow_html=True)
+with h[3]: st.markdown("<div class='header'>T3</div>", unsafe_allow_html=True)
+
+# ================= TABLE =================
+st.markdown('<div class="scroll">', unsafe_allow_html=True)
 
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8,24))+list(range(0,3))) for m in ["00","30"]]
 
 for t in HOURS:
-    st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
+    row = st.columns(4)
+
+    with row[0]:
+        st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
 
     for i in range(3):
         t_n = f"Table {i+1}"
@@ -135,32 +174,30 @@ for t in HOURS:
             (bookings["Date"]==st.session_state.sel_date)
         ]
 
-        key = f"{t}_{i}"
+        with row[i+1]:
 
-        if not match.empty:
-            b_user = match.iloc[0]["User"]
-            b_name = match.iloc[0]["Name"]
+            if not match.empty:
+                b_user = match.iloc[0]["User"]
+                b_name = match.iloc[0]["Name"]
 
-            if b_user == st.session_state.user:
-                if st.button(f"❌", key=key):
-                    bookings = bookings.drop(match.index)
-                    save_data(bookings, BOOKINGS_FILE)
-                    st.rerun()
-                st.markdown(f"<style>button[key='{key}']{{background:#e6f0ff}}</style>", unsafe_allow_html=True)
+                if b_user == st.session_state.user:
+                    if st.button(f"❌ {b_name[:4]}", key=f"{t}_{i}"):
+                        bookings = bookings.drop(match.index)
+                        save_data(bookings, BOOKINGS_FILE)
+                        st.rerun()
+                else:
+                    st.button(b_name[:5], key=f"{t}_{i}", disabled=True)
 
             else:
-                st.button(b_name[:3], key=key, disabled=True)
-
-        else:
-            if st.button("+", key=key):
-                new_b = pd.DataFrame([{
-                    "User": st.session_state.user,
-                    "Name": st.session_state.name,
-                    "Date": st.session_state.sel_date,
-                    "Table": t_n,
-                    "Time": t
-                }])
-                save_data(pd.concat([bookings,new_b]), BOOKINGS_FILE)
-                st.rerun()
+                if st.button("Free", key=f"{t}_{i}", type="secondary"):
+                    new_b = pd.DataFrame([{
+                        "User": st.session_state.user,
+                        "Name": st.session_state.name,
+                        "Date": st.session_state.sel_date,
+                        "Table": t_n,
+                        "Time": t
+                    }])
+                    save_data(pd.concat([bookings,new_b]), BOOKINGS_FILE)
+                    st.rerun()
 
 st.markdown("</div>", unsafe_allow_html=True)
