@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Pool", layout="wide")
 
-# ================= FILES =================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
@@ -21,112 +20,16 @@ users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
 # ================= SESSION =================
-for key in ["user","name","role","sel_date"]:
-    if key not in st.session_state:
-        st.session_state[key] = None
+for k in ["user","name","role","sel_date"]:
+    if k not in st.session_state:
+        st.session_state[k] = None
 
 if st.session_state.sel_date is None:
     st.session_state.sel_date = str(datetime.now().date())
 
-# ================= CSS =================
-st.markdown("""
-<style>
-
-/* container width */
-.block-container {
-    max-width: 420px !important;
-    margin: auto !important;
-    padding-top: 10px !important;
-}
-
-/* no stacking */
-[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
-}
-
-/* columns fixed width */
-[data-testid="column"] {
-    flex: 0 0 auto !important;
-    width: 85px !important;
-    min-width: 85px !important;
-    max-width: 85px !important;
-}
-
-/* buttons */
-.stButton > button {
-    width: 85px !important;
-    height: 38px !important;
-    border-radius: 10px !important;
-    font-size: 11px !important;
-}
-
-/* DATE BUTTONS */
-.date-btn button {
-    width: 48px !important;
-    height: 38px !important;
-    font-size: 12px !important;
-    border-radius: 12px !important;
-}
-
-/* selected date */
-.selected-date button {
-    background: linear-gradient(135deg,#4f46e5,#6366f1) !important;
-    color: white !important;
-    font-weight: bold;
-}
-
-/* normal date */
-.normal-date button {
-    background: #f1f5f9 !important;
-}
-
-/* header */
-.header {
-    text-align:center;
-    background:#1f2937;
-    color:white;
-    padding:6px 0;
-    border-radius:10px;
-    font-size:12px;
-}
-
-/* time */
-.time {
-    text-align:center;
-    font-size:11px;
-    font-weight:600;
-}
-
-/* states */
-.free button {
-    background: #dcfce7 !important;
-    color: #166534 !important;
-}
-
-.mine button {
-    background: #dbeafe !important;
-    color: #1e40af !important;
-}
-
-.taken button {
-    background: #f3f4f6 !important;
-    color: #6b7280 !important;
-}
-
-/* scroll */
-.scroll {
-    height: 65vh;
-    overflow-y: auto;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
 # ================= LOGIN =================
 if st.session_state.user is None:
-    st.title("🎱 Pool Booking")
+    st.title("🎱 Pool")
 
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
@@ -140,129 +43,165 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= NAV =================
-st.sidebar.write(f"👤 {st.session_state.name}")
-page = st.sidebar.radio("Menu", ["Booking","Admin"] if st.session_state.role=="admin" else ["Booking"])
+# ================= CSS =================
+st.markdown("""
+<style>
 
-if st.sidebar.button("Logout"):
-    st.session_state.clear()
-    st.rerun()
+/* ===== WIDTH ===== */
+.block-container {
+    max-width: 320px !important;
+    margin: auto !important;
+}
 
-# ================= BOOKING =================
-if page == "Booking":
+/* ===== NO STACKING ===== */
+[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 2px !important;
+}
 
-    today = datetime.now().date()
+/* ===== FIXED COLUMN WIDTH ===== */
+[data-testid="column"] {
+    flex: 0 0 auto !important;
+    width: 68px !important;
+    min-width: 68px !important;
+    max-width: 68px !important;
+    padding: 0 !important;
+}
 
-    st.write("### 📅 Dates")
+/* ===== BUTTON GRID ===== */
+.stButton > button {
+    width: 68px !important;
+    height: 36px !important;
+    font-size: 10px !important;
+    border-radius: 8px !important;
+    padding: 0 !important;
+}
 
-    # week 1
-    r1 = st.columns(7)
-    for i in range(7):
-        d = today + timedelta(days=i)
-        cls = "selected-date" if str(d)==st.session_state.sel_date else "normal-date"
-        with r1[i]:
-            st.markdown(f'<div class="date-btn {cls}">', unsafe_allow_html=True)
-            if st.button(d.strftime("%d"), key=f"d1_{i}"):
-                st.session_state.sel_date = str(d)
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+/* ===== DATE BUTTONS ===== */
+.date button {
+    width: 44px !important;
+    height: 36px !important;
+    font-size: 11px !important;
+}
 
-    # week 2
-    r2 = st.columns(7)
-    for i in range(7,14):
-        d = today + timedelta(days=i)
-        cls = "selected-date" if str(d)==st.session_state.sel_date else "normal-date"
-        with r2[i-7]:
-            st.markdown(f'<div class="date-btn {cls}">', unsafe_allow_html=True)
-            if st.button(d.strftime("%d"), key=f"d2_{i}"):
-                st.session_state.sel_date = str(d)
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+/* selected */
+.sel button {
+    background:#4f46e5 !important;
+    color:white !important;
+}
 
-    st.divider()
+/* ===== STATES ===== */
+.free button { background:#dcfce7 !important; }
+.mine button { background:#dbeafe !important; }
+.taken button { background:#f3f4f6 !important; }
 
-    # HEADER
-    h = st.columns(4)
-    with h[0]: st.write("")
-    with h[1]: st.markdown("<div class='header'>T1</div>", unsafe_allow_html=True)
-    with h[2]: st.markdown("<div class='header'>T2</div>", unsafe_allow_html=True)
-    with h[3]: st.markdown("<div class='header'>T3</div>", unsafe_allow_html=True)
+/* ===== TIME ===== */
+.time button {
+    background:#e5e7eb !important;
+    font-weight:600;
+}
 
-    # TABLE
-    st.markdown('<div class="scroll">', unsafe_allow_html=True)
+/* ===== 4H BLOCK COLORS ===== */
+.blockA button { background:#f9fafb !important; }
+.blockB button { background:#eef2ff !important; }
 
-    HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ["00","30"]]
+/* ===== SCROLL ===== */
+.scroll {
+    height:65vh;
+    overflow-y:auto;
+}
 
-    for t in HOURS:
-        row = st.columns(4)
+</style>
+""", unsafe_allow_html=True)
 
-        with row[0]:
-            st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
+# ================= DATES =================
+today = datetime.now().date()
 
-        for i in range(3):
-            t_n = f"Table {i+1}"
+r1 = st.columns(7)
+for i in range(7):
+    d = today + timedelta(days=i)
+    cls = "sel" if str(d)==st.session_state.sel_date else ""
+    with r1[i]:
+        st.markdown(f'<div class="date {cls}">', unsafe_allow_html=True)
+        if st.button(d.strftime("%d"), key=f"d1_{i}"):
+            st.session_state.sel_date = str(d)
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-            match = bookings[
-                (bookings["Table"]==t_n)&
-                (bookings["Time"]==t)&
-                (bookings["Date"]==st.session_state.sel_date)
-            ]
+r2 = st.columns(7)
+for i in range(7,14):
+    d = today + timedelta(days=i)
+    cls = "sel" if str(d)==st.session_state.sel_date else ""
+    with r2[i-7]:
+        st.markdown(f'<div class="date {cls}">', unsafe_allow_html=True)
+        if st.button(d.strftime("%d"), key=f"d2_{i}"):
+            st.session_state.sel_date = str(d)
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-            with row[i+1]:
-                if not match.empty:
-                    b_user = match.iloc[0]["User"]
-                    b_name = match.iloc[0]["Name"]
+st.divider()
 
-                    if b_user == st.session_state.user:
-                        st.markdown('<div class="mine">', unsafe_allow_html=True)
-                        if st.button(f"❌ {b_name[:4]}", key=f"{t}_{i}"):
-                            bookings = bookings.drop(match.index)
-                            save_data(bookings, BOOKINGS_FILE)
-                            st.rerun()
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div class="taken">', unsafe_allow_html=True)
-                        st.button(b_name[:5], key=f"{t}_{i}", disabled=True)
-                        st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="free">', unsafe_allow_html=True)
-                    if st.button("Free", key=f"{t}_{i}"):
-                        new_b = pd.DataFrame([{
-                            "User": st.session_state.user,
-                            "Name": st.session_state.name,
-                            "Date": st.session_state.sel_date,
-                            "Table": t_n,
-                            "Time": t
-                        }])
-                        save_data(pd.concat([bookings,new_b]), BOOKINGS_FILE)
+# ================= TABLE =================
+st.markdown('<div class="scroll">', unsafe_allow_html=True)
+
+HOURS = [f"{h:02d}:{m}" for h in range(8,24) for m in ["00","30"]]
+
+for idx, t in enumerate(HOURS):
+
+    # determine 4h block
+    block_class = "blockA" if (idx // 8) % 2 == 0 else "blockB"
+
+    row = st.columns(4)
+
+    # TIME BUTTON (same alignment)
+    with row[0]:
+        st.markdown(f'<div class="time {block_class}">', unsafe_allow_html=True)
+        st.button(t, key=f"time_{t}")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    for i in range(3):
+        t_n = f"Table {i+1}"
+
+        match = bookings[
+            (bookings["Table"]==t_n)&
+            (bookings["Time"]==t)&
+            (bookings["Date"]==st.session_state.sel_date)
+        ]
+
+        with row[i+1]:
+            st.markdown(f'<div class="{block_class}">', unsafe_allow_html=True)
+
+            if not match.empty:
+                b_user = match.iloc[0]["User"]
+                b_name = match.iloc[0]["Name"]
+
+                if b_user == st.session_state.user:
+                    st.markdown('<div class="mine">', unsafe_allow_html=True)
+                    if st.button(f"❌ {b_name[:4]}", key=f"{t}_{i}"):
+                        bookings = bookings.drop(match.index)
+                        save_data(bookings, BOOKINGS_FILE)
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="taken">', unsafe_allow_html=True)
+                    st.button(b_name[:5], key=f"{t}_{i}", disabled=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="free">', unsafe_allow_html=True)
+                if st.button("Free", key=f"{t}_{i}"):
+                    new_b = pd.DataFrame([{
+                        "User": st.session_state.user,
+                        "Name": st.session_state.name,
+                        "Date": st.session_state.sel_date,
+                        "Table": t_n,
+                        "Time": t
+                    }])
+                    save_data(pd.concat([bookings,new_b]), BOOKINGS_FILE)
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
-# ================= ADMIN =================
-if page == "Admin":
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    st.title("🛠 Admin")
-
-    st.subheader("Users")
-    st.dataframe(users)
-
-    st.subheader("Add user")
-    email = st.text_input("Email")
-    name = st.text_input("Name")
-    pwd = st.text_input("Password")
-    role = st.selectbox("Role", ["user","admin"])
-
-    if st.button("Add"):
-        new = pd.DataFrame([[email,name,pwd,role]], columns=users.columns)
-        save_data(pd.concat([users,new]), USERS_FILE)
-        st.success("User added")
-
-    st.divider()
-
-    st.subheader("Stats")
-    st.write(f"Total bookings: {len(bookings)}")
-
-    csv = bookings.to_csv(index=False).encode("utf-8")
-    st.download_button("Download CSV", csv, "bookings.csv")
+st.markdown("</div>", unsafe_allow_html=True)
