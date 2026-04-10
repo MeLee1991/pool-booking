@@ -3,10 +3,14 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
+# =====================================
 # 1. SETUP
-st.set_page_config(page_title="Pool", layout="wide", initial_sidebar_state="collapsed")
+# =====================================
+st.set_page_config(page_title="Pool", layout="centered")
 
+# =====================================
 # 2. DATA
+# =====================================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
@@ -21,40 +25,59 @@ def save_data(df, file):
 users = load_data(USERS_FILE, ["Email", "Name", "Password", "Role"])
 bookings = load_data(BOOKINGS_FILE, ["User", "Name", "Date", "Table", "Time"])
 
-# 3. SESSION STATE
+# =====================================
+# 3. SESSION
+# =====================================
 if "user" not in st.session_state: st.session_state.user = None
 if "name" not in st.session_state: st.session_state.name = None
 if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
-if "confirm_delete" not in st.session_state: st.session_state.confirm_delete = None
 
-# 4. CSS (FINAL MOBILE GRID FIX)
+# =====================================
+# 4. CSS (HARD LOCKED GRID)
+# =====================================
 st.markdown("""
 <style>
 
-/* prevent stacking */
-[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
-    align-items: center !important;
+/* kill horizontal scroll */
+html, body, [data-testid="stAppViewContainer"] {
+    overflow-x: hidden !important;
 }
 
-/* remove spacing */
-[data-testid="column"] {
-    padding: 0 !important;
-    margin: 0 !important;
-    min-width: 0 !important;
+/* tighter app padding */
+[data-testid="stAppViewBlockContainer"] {
+    padding: 0.5rem !important;
+}
+
+/* row layout */
+.row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+/* time column */
+.time {
+    width: 70px;
+    min-width: 70px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* slot */
+.slot {
+    width: 72px;
 }
 
 /* buttons */
 .stButton > button {
-    width: 100% !important;
-    height: 34px !important;
+    width: 72px !important;
+    height: 38px !important;
     padding: 0 !important;
-    font-size: 12px !important;
-    border-radius: 6px !important;
-    font-weight: 600 !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
 }
 
 /* free */
@@ -65,50 +88,72 @@ button[kind="secondary"] {
 }
 
 /* booked */
-button[kind="primary"], .table-row button:disabled {
+button[kind="primary"], .stButton button:disabled {
     background-color: #ffebe9 !important;
     color: #cf222e !important;
     border: 1px solid #FF8182 !important;
     opacity: 1 !important;
 }
 
-/* time column */
-.time-label {
-    width: 55px !important;
-    min-width: 55px !important;
-    text-align: center;
-    font-size: 12px;
-    font-weight: bold;
+/* header sticky */
+.header-row {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding-bottom: 5px;
 }
 
-/* headers */
-.header-box {
-    width: 70px;
-    height: 34px;
-    line-height: 34px;
+/* header cells */
+.header {
+    width: 72px;
+    height: 38px;
+    line-height: 38px;
+    text-align: center;
     background: black;
     color: white;
-    text-align: center;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: bold;
 }
 
 /* scroll area */
-.scroll-table {
-    height: 65vh;
+.scroll {
+    height: 70vh;
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+/* date nav */
+.date-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.date-nav button {
+    width: auto !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+}
+
+.date-title {
+    font-weight: bold;
+    font-size: 14px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
+# =====================================
 # 5. LOGIN
+# =====================================
 if st.session_state.user is None:
     st.title("🎱 RESERVE")
     e = st.text_input("Email").lower().strip()
     p = st.text_input("Password", type="password")
+
     if st.button("Login"):
         match = users[(users["Email"] == e) & (users["Password"] == p)]
         if not match.empty:
@@ -116,108 +161,100 @@ if st.session_state.user is None:
             st.session_state.name = match.iloc[0]["Name"]
             st.session_state.role = match.iloc[0]["Role"]
             st.rerun()
+
     st.stop()
 
-# SIDEBAR
-st.sidebar.title("🎱 Pool App")
-st.sidebar.markdown(f"**Logged in:** {st.session_state.name} ({st.session_state.role})")
+# =====================================
+# 6. DATE NAV (UX UPGRADE)
+# =====================================
+sel_date = datetime.fromisoformat(st.session_state.sel_date)
 
-PAGES = {"Pool Booking": "user"}
-if st.session_state.role == "admin":
-    PAGES["Administration"] = "admin"
+c1, c2, c3 = st.columns([1,2,1])
 
-selected_page = st.sidebar.radio("Navigation", list(PAGES.keys()))
+with c1:
+    if st.button("◀"):
+        st.session_state.sel_date = str(sel_date - timedelta(days=1))
+        st.rerun()
 
-if st.sidebar.button("Logout"):
-    st.session_state.clear()
-    st.rerun()
+with c2:
+    st.markdown(
+        f"<div class='date-title'>{sel_date.strftime('%A, %d %B')}</div>",
+        unsafe_allow_html=True
+    )
 
-# =========================
-# MAIN PAGE
-# =========================
-if selected_page == "Pool Booking":
+with c3:
+    if st.button("▶"):
+        st.session_state.sel_date = str(sel_date + timedelta(days=1))
+        st.rerun()
 
-    st.write("### 📅 Dates")
-    today = datetime.now().date()
+st.divider()
 
-    # WEEK 1
-    cols1 = st.columns(7)
-    for i in range(7):
-        d = today + timedelta(days=i)
-        d_str = str(d)
-        with cols1[i]:
-            if st.button(f"{d.strftime('%a')}\n{d.day}", key=f"d1_{d_str}",
-                         type="primary" if st.session_state.sel_date == d_str else "secondary"):
-                st.session_state.sel_date = d_str
-                st.rerun()
+# =====================================
+# 7. HEADER
+# =====================================
+st.markdown("""
+<div class="row header-row">
+    <div class="time"></div>
+    <div class="header">T1</div>
+    <div class="header">T2</div>
+    <div class="header">T3</div>
+</div>
+""", unsafe_allow_html=True)
 
-    # WEEK 2
-    cols2 = st.columns(7)
-    for i in range(7, 14):
-        d = today + timedelta(days=i)
-        d_str = str(d)
-        with cols2[i-7]:
-            if st.button(f"{d.strftime('%a')}\n{d.day}", key=f"d2_{d_str}",
-                         type="primary" if st.session_state.sel_date == d_str else "secondary"):
-                st.session_state.sel_date = d_str
-                st.rerun()
+# =====================================
+# 8. TABLE
+# =====================================
+st.markdown('<div class="scroll">', unsafe_allow_html=True)
 
-    st.divider()
+HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
 
-    # HEADERS
-    h_cols = st.columns([1,1,1,1])
-    with h_cols[0]: st.write("")
-    with h_cols[1]: st.markdown('<div class="header-box">T1</div>', unsafe_allow_html=True)
-    with h_cols[2]: st.markdown('<div class="header-box">T2</div>', unsafe_allow_html=True)
-    with h_cols[3]: st.markdown('<div class="header-box">T3</div>', unsafe_allow_html=True)
+for t in HOURS:
+    cols = st.columns([1,1,1,1])
 
-    # TABLE
-    st.markdown('<div class="scroll-table">', unsafe_allow_html=True)
+    # TIME
+    with cols[0]:
+        st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
 
-    HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
+    # TABLES
+    for i in range(3):
+        t_n = f"Table {i+1}"
 
-    for t in HOURS:
-        r_cols = st.columns([1,1,1,1])
+        match = bookings[
+            (bookings["Table"] == t_n) &
+            (bookings["Time"] == t) &
+            (bookings["Date"] == st.session_state.sel_date)
+        ]
 
-        with r_cols[0]:
-            st.markdown(f'<div class="time-label">{t}</div>', unsafe_allow_html=True)
+        with cols[i+1]:
+            if not match.empty:
+                b_user = match.iloc[0]["User"]
+                b_name = match.iloc[0]["Name"]
 
-        for i in range(3):
-            t_n = f"Table {i+1}"
-            match = bookings[
-                (bookings["Table"] == t_n) &
-                (bookings["Time"] == t) &
-                (bookings["Date"] == st.session_state.sel_date)
-            ]
-
-            with r_cols[i+1]:
-                if not match.empty:
-                    b_user, b_name = match.iloc[0]["User"], match.iloc[0]["Name"]
-
-                    if st.session_state.user == b_user:
-                        if st.button(f"❌ {b_name[:6]}", key=f"b_{t}_{i}", type="primary"):
-                            bookings = bookings.drop(match.index)
-                            save_data(bookings, BOOKINGS_FILE)
-                            st.rerun()
-
-                    elif st.session_state.role == "admin":
-                        if st.button(f"🛡️ {b_name[:6]}", key=f"b_{t}_{i}", type="primary"):
-                            st.session_state.confirm_delete = (match.index[0], b_name)
-                            st.rerun()
-
-                    else:
-                        st.button(f"🔒 {b_name[:6]}", key=f"b_{t}_{i}", disabled=True)
-
-                else:
-                    if st.button("Free", key=f"b_{t}_{i}", type="secondary"):
-                        new_b = pd.DataFrame([{
-                            "User": st.session_state.user,
-                            "Name": st.session_state.name,
-                            "Date": st.session_state.sel_date,
-                            "Table": t_n,
-                            "Time": t
-                        }])
-                        save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
+                if st.session_state.user == b_user:
+                    if st.button(f"❌ {b_name[:5]}", key=f"{t}_{i}", type="primary"):
+                        bookings = bookings.drop(match.index)
+                        save_data(bookings, BOOKINGS_FILE)
                         st.rerun()
 
-    st.markdown('</div>', unsafe_allow_html=True)
+                elif st.session_state.role == "admin":
+                    if st.button(f"🛡️ {b_name[:5]}", key=f"{t}_{i}", type="primary"):
+                        bookings = bookings.drop(match.index)
+                        save_data(bookings, BOOKINGS_FILE)
+                        st.rerun()
+
+                else:
+                    st.button(f"🔒 {b_name[:5]}", key=f"{t}_{i}", disabled=True)
+
+            else:
+                if st.button("Free", key=f"{t}_{i}", type="secondary"):
+                    new_b = pd.DataFrame([{
+                        "User": st.session_state.user,
+                        "Name": st.session_state.name,
+                        "Date": st.session_state.sel_date,
+                        "Table": t_n,
+                        "Time": t
+                    }])
+                    save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
+                    st.rerun()
+
+st.markdown("</div>", unsafe_allow_html=True)
