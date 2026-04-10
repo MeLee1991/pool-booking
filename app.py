@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # =========================
 # SETUP
 # =========================
-st.set_page_config(page_title="Pool", layout="centered")
+st.set_page_config(page_title="Pool", layout="wide")
 
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
@@ -31,52 +31,51 @@ if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
 # =========================
-# CSS (STRICT GRID CONTROL)
+# CSS (REAL GRID SYSTEM)
 # =========================
 st.markdown("""
 <style>
 
-/* remove horizontal scroll completely */
+/* ===== ROOT ===== */
 html, body {
     overflow-x: hidden !important;
-    background: #f4f6fb;
+    margin: 0 !important;
 }
 
-/* centered mobile-friendly width */
+/* FULL WIDTH APP */
 .block-container {
-    max-width: 360px;
-    margin: auto;
-    padding: 6px !important;
+    padding: 4px !important;
+    max-width: 100vw !important;
 }
 
-/* force NO stacking EVER */
-[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
+/* ===== GRID (4 columns) ===== */
+.row {
+    display: flex;
+    width: 100vw;
 }
 
-/* equal columns */
-[data-testid="column"] {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    padding: 0 !important;
+/* EACH COLUMN = EXACTLY 25% */
+.col {
+    width: 25vw;
+    max-width: 25vw;
+    min-width: 25vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-/* BUTTON SIZE (FINAL LOCK) */
+/* ===== BUTTONS (FIT COLUMN) ===== */
 .stButton > button {
-    width: 64px !important;
-    min-width: 64px !important;
-    max-width: 64px !important;
+    width: 90% !important;
     height: 38px !important;
+    font-size: 11px !important;
     border-radius: 8px !important;
-    font-size: 10px !important;
     padding: 0 !important;
 }
 
 /* COLORS */
 button[kind="secondary"] {
-    background: #e8fbe8 !important;
+    background: #e6f7e6 !important;
     color: #1a7f37 !important;
 }
 
@@ -85,40 +84,44 @@ button[kind="primary"] {
     color: #cf222e !important;
 }
 
-button.mine {
-    background: #e6f0ff !important;
-    color: #1d4ed8 !important;
+button:disabled {
+    background: #f2f2f2 !important;
+    color: #999 !important;
 }
 
-/* header */
+/* HEADER */
 .header {
-    width: 64px;
-    height: 38px;
-    line-height: 38px;
-    text-align: center;
+    width: 90%;
+    height: 36px;
     border-radius: 8px;
     background: #2f3542;
     color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 11px;
 }
 
-/* time column */
+/* TIME */
 .time {
-    width: 52px;
-    text-align: center;
     font-size: 10px;
-    font-weight: 600;
+    font-weight: bold;
 }
 
-/* scroll */
+/* ===== FIXED DATE BAR ===== */
+.date-bar {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 100;
+    padding: 4px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+/* ===== SCROLL ===== */
 .scroll {
-    height: 72vh;
+    height: 75vh;
     overflow-y: auto;
-}
-
-/* REMOVE GAP UNDER HEADER */
-.header-row {
-    margin-bottom: -4px;
 }
 
 </style>
@@ -128,7 +131,7 @@ button.mine {
 # LOGIN
 # =========================
 if st.session_state.user is None:
-    st.title("🎱 Pool")
+    st.title("Pool")
 
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
@@ -144,11 +147,13 @@ if st.session_state.user is None:
     st.stop()
 
 # =========================
-# DATE NAV
+# DATE BAR (ALWAYS VISIBLE)
 # =========================
 d = datetime.fromisoformat(st.session_state.sel_date)
 
-c1,c2,c3 = st.columns([1,2,1])
+st.markdown('<div class="date-bar">', unsafe_allow_html=True)
+
+c1, c2, c3 = st.columns([1,2,1])
 
 with c1:
     if st.button("◀"):
@@ -156,29 +161,26 @@ with c1:
         st.rerun()
 
 with c2:
-    st.markdown(f"### {d.strftime('%a %d %b')}")
+    st.markdown(f"**{d.strftime('%A %d %b')}**")
 
 with c3:
     if st.button("▶"):
         st.session_state.sel_date = str(d + timedelta(days=1))
         st.rerun()
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # =========================
 # HEADER (NO GAP)
 # =========================
-h = st.columns([1,1,1,1])
-
-with h[0]:
-    st.markdown("<div class='time'></div>", unsafe_allow_html=True)
-
-with h[1]:
-    st.markdown("<div class='header'>T1</div>", unsafe_allow_html=True)
-
-with h[2]:
-    st.markdown("<div class='header'>T2</div>", unsafe_allow_html=True)
-
-with h[3]:
-    st.markdown("<div class='header'>T3</div>", unsafe_allow_html=True)
+st.markdown("""
+<div class="row">
+    <div class="col"></div>
+    <div class="col"><div class="header">T1</div></div>
+    <div class="col"><div class="header">T2</div></div>
+    <div class="col"><div class="header">T3</div></div>
+</div>
+""", unsafe_allow_html=True)
 
 # =========================
 # TABLE
@@ -188,9 +190,10 @@ st.markdown('<div class="scroll">', unsafe_allow_html=True)
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8,24))+list(range(0,3))) for m in ["00","30"]]
 
 for t in HOURS:
-    row = st.columns([1,1,1,1])
 
-    with row[0]:
+    cols = st.columns(4)
+
+    with cols[0]:
         st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
 
     user_has = not bookings[
@@ -208,9 +211,8 @@ for t in HOURS:
             (bookings["Date"]==st.session_state.sel_date)
         ]
 
-        with row[i+1]:
+        with cols[i+1]:
 
-            # BOOKED
             if not match.empty:
                 b_user = match.iloc[0]["User"]
                 b_name = match.iloc[0]["Name"]
@@ -221,9 +223,8 @@ for t in HOURS:
                         save_data(bookings, BOOKINGS_FILE)
                         st.rerun()
                 else:
-                    st.button(f"{b_name[:4]}", key=f"{t}_{i}", disabled=True)
+                    st.button(b_name[:4], key=f"{t}_{i}", disabled=True)
 
-            # FREE
             else:
                 if st.button("Free", key=f"{t}_{i}", type="secondary"):
                     new_b = pd.DataFrame([{
