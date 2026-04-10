@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # =========================
 # SETUP
 # =========================
-st.set_page_config(page_title="Pool", layout="wide")
+st.set_page_config(page_title="Pool", layout="centered")
 
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
@@ -31,44 +31,49 @@ if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
 # =========================
-# CSS (STREAMLIT-COMPATIBLE FIX)
+# CSS (HARD NARROW GRID)
 # =========================
 st.markdown("""
 <style>
 
-/* remove horizontal scroll */
-html, body, .stApp {
-    overflow-x: hidden !important;
-}
-
-/* remove padding */
+/* ===== CENTER & LIMIT WIDTH ===== */
 .block-container {
+    max-width: 260px !important;
+    margin: auto !important;
     padding: 4px !important;
 }
 
-/* FORCE 4-COLUMN GRID */
+/* REMOVE SIDE SCROLL */
+html, body {
+    overflow-x: hidden !important;
+}
+
+/* FORCE ROW BEHAVIOR */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-wrap: nowrap !important;
     gap: 2px !important;
 }
 
-/* equal width columns (25% each) */
+/* FIX COLUMN WIDTH (NO EXPAND) */
 [data-testid="column"] {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-}
-
-/* === BUTTONS === */
-.stButton > button {
-    width: 100% !important;
-    height: 36px !important;
+    flex: 0 0 auto !important;
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
     padding: 0 !important;
-    font-size: 10px !important;
-    border-radius: 6px !important;
 }
 
-/* colors */
+/* BUTTONS EXACT SIZE */
+.stButton > button {
+    width: 60px !important;
+    height: 34px !important;
+    font-size: 9px !important;
+    border-radius: 6px !important;
+    padding: 0 !important;
+}
+
+/* COLORS */
 button[kind="secondary"] {
     background: #e8fbe8 !important;
     color: #1a7f37 !important;
@@ -79,41 +84,43 @@ button[kind="primary"] {
     color: #cf222e !important;
 }
 
-/* disabled */
 button:disabled {
-    background: #f1f1f1 !important;
-    color: #999 !important;
+    background: #eee !important;
+    color: #888 !important;
 }
 
-/* header */
+/* HEADER */
 .header {
+    width: 60px;
+    height: 34px;
+    line-height: 34px;
     text-align: center;
-    background: #2f3542;
-    color: white;
-    padding: 6px 0;
     border-radius: 6px;
-    font-size: 11px;
+    background: #333;
+    color: white;
+    font-size: 10px;
 }
 
-/* time column */
+/* TIME */
 .time {
+    width: 60px;
     text-align: center;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: bold;
 }
 
-/* sticky date bar */
+/* DATE BAR */
 .date-bar {
     position: sticky;
     top: 0;
     background: white;
-    z-index: 100;
-    padding: 4px 0;
+    z-index: 999;
+    padding-bottom: 4px;
 }
 
-/* scroll */
+/* SCROLL AREA */
 .scroll {
-    height: 75vh;
+    height: 70vh;
     overflow-y: auto;
 }
 
@@ -140,7 +147,7 @@ if st.session_state.user is None:
     st.stop()
 
 # =========================
-# DATE NAV (VISIBLE)
+# DATE (NOW ALWAYS VISIBLE)
 # =========================
 d = datetime.fromisoformat(st.session_state.sel_date)
 
@@ -154,7 +161,7 @@ with c1:
         st.rerun()
 
 with c2:
-    st.markdown(f"**{d.strftime('%A %d %b')}**")
+    st.markdown(f"<div style='text-align:center;font-size:12px'><b>{d.strftime('%d %b')}</b></div>", unsafe_allow_html=True)
 
 with c3:
     if st.button("▶"):
@@ -202,12 +209,12 @@ for t in HOURS:
                 b_name = match.iloc[0]["Name"]
 
                 if b_user == st.session_state.user:
-                    if st.button(f"❌ {b_name[:4]}", key=f"{t}_{i}"):
+                    if st.button(f"❌", key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save_data(bookings, BOOKINGS_FILE)
                         st.rerun()
                 else:
-                    st.button(b_name[:4], key=f"{t}_{i}", disabled=True)
+                    st.button(b_name[:3], key=f"{t}_{i}", disabled=True)
 
             else:
                 if st.button("Free", key=f"{t}_{i}", type="secondary"):
