@@ -31,49 +31,49 @@ if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
 # =========================
-# CSS (HARD NARROW GRID)
+# CSS (ULTRA COMPACT HARD LOCK)
 # =========================
 st.markdown("""
 <style>
 
-/* ===== CENTER & LIMIT WIDTH ===== */
+/* === ULTRA WIDTH === */
 .block-container {
-    max-width: 260px !important;
+    max-width: 200px !important;
     margin: auto !important;
-    padding: 4px !important;
+    padding: 2px !important;
 }
 
-/* REMOVE SIDE SCROLL */
+/* kill horizontal scroll */
 html, body {
     overflow-x: hidden !important;
 }
 
-/* FORCE ROW BEHAVIOR */
+/* force row */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-wrap: nowrap !important;
-    gap: 2px !important;
+    gap: 1px !important;
 }
 
-/* FIX COLUMN WIDTH (NO EXPAND) */
+/* fixed column */
 [data-testid="column"] {
     flex: 0 0 auto !important;
-    width: 60px !important;
-    min-width: 60px !important;
-    max-width: 60px !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
     padding: 0 !important;
 }
 
-/* BUTTONS EXACT SIZE */
+/* === BUTTONS === */
 .stButton > button {
-    width: 60px !important;
-    height: 34px !important;
-    font-size: 9px !important;
-    border-radius: 6px !important;
+    width: 48px !important;
+    height: 32px !important;
+    font-size: 8px !important;
     padding: 0 !important;
+    border-radius: 4px !important;
 }
 
-/* COLORS */
+/* colors */
 button[kind="secondary"] {
     background: #e8fbe8 !important;
     color: #1a7f37 !important;
@@ -86,41 +86,40 @@ button[kind="primary"] {
 
 button:disabled {
     background: #eee !important;
-    color: #888 !important;
+    color: #999 !important;
 }
 
-/* HEADER */
+/* header */
 .header {
-    width: 60px;
-    height: 34px;
-    line-height: 34px;
+    width: 48px;
+    height: 30px;
+    line-height: 30px;
     text-align: center;
-    border-radius: 6px;
-    background: #333;
+    background: #222;
     color: white;
-    font-size: 10px;
+    font-size: 9px;
 }
 
-/* TIME */
+/* time */
 .time {
-    width: 60px;
+    width: 48px;
     text-align: center;
-    font-size: 9px;
+    font-size: 8px;
     font-weight: bold;
 }
 
-/* DATE BAR */
+/* date */
 .date-bar {
     position: sticky;
     top: 0;
     background: white;
     z-index: 999;
-    padding-bottom: 4px;
+    padding-bottom: 2px;
 }
 
-/* SCROLL AREA */
+/* scroll */
 .scroll {
-    height: 70vh;
+    height: 75vh;
     overflow-y: auto;
 }
 
@@ -131,7 +130,7 @@ button:disabled {
 # LOGIN
 # =========================
 if st.session_state.user is None:
-    st.title("Pool")
+    st.write("Pool")
 
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
@@ -147,7 +146,7 @@ if st.session_state.user is None:
     st.stop()
 
 # =========================
-# DATE (NOW ALWAYS VISIBLE)
+# DATE (VISIBLE)
 # =========================
 d = datetime.fromisoformat(st.session_state.sel_date)
 
@@ -161,7 +160,7 @@ with c1:
         st.rerun()
 
 with c2:
-    st.markdown(f"<div style='text-align:center;font-size:12px'><b>{d.strftime('%d %b')}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center;font-size:10px'><b>{d.strftime('%d %b')}</b></div>", unsafe_allow_html=True)
 
 with c3:
     if st.button("▶"):
@@ -171,7 +170,7 @@ with c3:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================
-# HEADER (NO GAP)
+# HEADER
 # =========================
 h = st.columns(4)
 
@@ -206,18 +205,17 @@ for t in HOURS:
 
             if not match.empty:
                 b_user = match.iloc[0]["User"]
-                b_name = match.iloc[0]["Name"]
 
                 if b_user == st.session_state.user:
-                    if st.button(f"❌", key=f"{t}_{i}"):
+                    if st.button("❌", key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save_data(bookings, BOOKINGS_FILE)
                         st.rerun()
                 else:
-                    st.button(b_name[:3], key=f"{t}_{i}", disabled=True)
+                    st.button("■", key=f"{t}_{i}", disabled=True)
 
             else:
-                if st.button("Free", key=f"{t}_{i}", type="secondary"):
+                if st.button("+", key=f"{t}_{i}", type="secondary"):
                     new_b = pd.DataFrame([{
                         "User": st.session_state.user,
                         "Name": st.session_state.name,
