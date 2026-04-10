@@ -31,51 +31,46 @@ if "role" not in st.session_state: st.session_state.role = None
 if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
 
 # =========================
-# CSS (REAL GRID SYSTEM)
+# CSS (STREAMLIT-COMPATIBLE FIX)
 # =========================
 st.markdown("""
 <style>
 
-/* ===== ROOT ===== */
-html, body {
+/* remove horizontal scroll */
+html, body, .stApp {
     overflow-x: hidden !important;
-    margin: 0 !important;
 }
 
-/* FULL WIDTH APP */
+/* remove padding */
 .block-container {
     padding: 4px !important;
-    max-width: 100vw !important;
 }
 
-/* ===== GRID (4 columns) ===== */
-.row {
-    display: flex;
-    width: 100vw;
+/* FORCE 4-COLUMN GRID */
+[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 2px !important;
 }
 
-/* EACH COLUMN = EXACTLY 25% */
-.col {
-    width: 25vw;
-    max-width: 25vw;
-    min-width: 25vw;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/* equal width columns (25% each) */
+[data-testid="column"] {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
 }
 
-/* ===== BUTTONS (FIT COLUMN) ===== */
+/* === BUTTONS === */
 .stButton > button {
-    width: 90% !important;
-    height: 38px !important;
-    font-size: 11px !important;
-    border-radius: 8px !important;
+    width: 100% !important;
+    height: 36px !important;
     padding: 0 !important;
+    font-size: 10px !important;
+    border-radius: 6px !important;
 }
 
-/* COLORS */
+/* colors */
 button[kind="secondary"] {
-    background: #e6f7e6 !important;
+    background: #e8fbe8 !important;
     color: #1a7f37 !important;
 }
 
@@ -84,41 +79,39 @@ button[kind="primary"] {
     color: #cf222e !important;
 }
 
+/* disabled */
 button:disabled {
-    background: #f2f2f2 !important;
+    background: #f1f1f1 !important;
     color: #999 !important;
 }
 
-/* HEADER */
+/* header */
 .header {
-    width: 90%;
-    height: 36px;
-    border-radius: 8px;
+    text-align: center;
     background: #2f3542;
     color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    padding: 6px 0;
+    border-radius: 6px;
     font-size: 11px;
 }
 
-/* TIME */
+/* time column */
 .time {
+    text-align: center;
     font-size: 10px;
     font-weight: bold;
 }
 
-/* ===== FIXED DATE BAR ===== */
+/* sticky date bar */
 .date-bar {
     position: sticky;
     top: 0;
     background: white;
     z-index: 100;
     padding: 4px 0;
-    border-bottom: 1px solid #ddd;
 }
 
-/* ===== SCROLL ===== */
+/* scroll */
 .scroll {
     height: 75vh;
     overflow-y: auto;
@@ -147,13 +140,13 @@ if st.session_state.user is None:
     st.stop()
 
 # =========================
-# DATE BAR (ALWAYS VISIBLE)
+# DATE NAV (VISIBLE)
 # =========================
 d = datetime.fromisoformat(st.session_state.sel_date)
 
 st.markdown('<div class="date-bar">', unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns([1,2,1])
+c1,c2,c3 = st.columns([1,2,1])
 
 with c1:
     if st.button("◀"):
@@ -173,14 +166,12 @@ st.markdown('</div>', unsafe_allow_html=True)
 # =========================
 # HEADER (NO GAP)
 # =========================
-st.markdown("""
-<div class="row">
-    <div class="col"></div>
-    <div class="col"><div class="header">T1</div></div>
-    <div class="col"><div class="header">T2</div></div>
-    <div class="col"><div class="header">T3</div></div>
-</div>
-""", unsafe_allow_html=True)
+h = st.columns(4)
+
+with h[0]: st.markdown("<div class='time'></div>", unsafe_allow_html=True)
+with h[1]: st.markdown("<div class='header'>T1</div>", unsafe_allow_html=True)
+with h[2]: st.markdown("<div class='header'>T2</div>", unsafe_allow_html=True)
+with h[3]: st.markdown("<div class='header'>T3</div>", unsafe_allow_html=True)
 
 # =========================
 # TABLE
@@ -190,17 +181,10 @@ st.markdown('<div class="scroll">', unsafe_allow_html=True)
 HOURS = [f"{h:02d}:{m}" for h in (list(range(8,24))+list(range(0,3))) for m in ["00","30"]]
 
 for t in HOURS:
+    row = st.columns(4)
 
-    cols = st.columns(4)
-
-    with cols[0]:
+    with row[0]:
         st.markdown(f"<div class='time'>{t}</div>", unsafe_allow_html=True)
-
-    user_has = not bookings[
-        (bookings["User"]==st.session_state.user)&
-        (bookings["Time"]==t)&
-        (bookings["Date"]==st.session_state.sel_date)
-    ].empty
 
     for i in range(3):
         t_n = f"Table {i+1}"
@@ -211,7 +195,7 @@ for t in HOURS:
             (bookings["Date"]==st.session_state.sel_date)
         ]
 
-        with cols[i+1]:
+        with row[i+1]:
 
             if not match.empty:
                 b_user = match.iloc[0]["User"]
