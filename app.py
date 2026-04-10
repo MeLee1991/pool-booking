@@ -19,7 +19,7 @@ def save_data(df, file):
 users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# SESSION
+# ================= SESSION =================
 if "user" not in st.session_state: st.session_state.user = None
 if "name" not in st.session_state: st.session_state.name = None
 if "role" not in st.session_state: st.session_state.role = None
@@ -27,7 +27,7 @@ if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.
 
 # ================= LOGIN =================
 if st.session_state.user is None:
-    st.title("🎱 Pool Booking")
+    st.title("🎱 Pool")
 
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
@@ -41,79 +41,91 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= CSS =================
+# ================= CSS (REAL FIX) =================
 st.markdown("""
 <style>
 
-/* ===== GLOBAL WIDTH ===== */
+/* ===== GLOBAL WIDTH (SAFE, DOESN'T BREAK TOP UI) ===== */
 .block-container {
-    max-width: 420px !important;
+    max-width: 380px !important;
     margin: auto !important;
-    padding: 6px !important;
+    padding-top: 10px !important;
 }
 
-/* ===== NO STACKING EVER ===== */
+/* ===== REMOVE RANDOM GAPS ===== */
+div[data-testid="stVerticalBlock"] > div {
+    gap: 2px !important;
+}
+
+/* ===== FORCE ROW BEHAVIOR ===== */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-wrap: nowrap !important;
-    gap: 4px !important;
+    gap: 2px !important;
 }
 
-/* ===== FORCE EQUAL COLUMN WIDTH ===== */
+/* ===== CRITICAL: FIX COLUMN WIDTH ===== */
 [data-testid="column"] {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    width: 75px !important;
+    min-width: 75px !important;
+    max-width: 75px !important;
+    padding: 0 !important;
 }
 
-/* ===== TABLE BUTTONS (FIXED WIDTH) ===== */
-.table-btn button {
-    width: 80px !important;
-    min-width: 80px !important;
-    max-width: 80px !important;
-    height: 38px !important;
+/* ===== BUTTONS (IDENTICAL SIZE ALWAYS) ===== */
+.stButton > button {
+    width: 75px !important;
+    height: 36px !important;
     border-radius: 10px !important;
-    font-size: 11px !important;
+    font-size: 10px !important;
+    padding: 0 !important;
 }
 
-/* ===== DATE BUTTONS (4x BIGGER) ===== */
-.date-btn button {
-    width: 100% !important;
-    height: 40px !important;
-    font-size: 12px !important;
-    border-radius: 12px !important;
+/* ===== DATE BUTTONS (BIGGER BUT TIGHT) ===== */
+.date-row [data-testid="column"] {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+}
+
+.date-row button {
+    width: 48px !important;
+    height: 36px !important;
+    font-size: 11px !important;
 }
 
 /* ===== COLORS ===== */
 .free button {
-    background: linear-gradient(135deg,#e8fbe8,#d2f5d2) !important;
-    color: #1a7f37 !important;
+    background: linear-gradient(135deg,#d9fdd3,#b6f2b0) !important;
+    color: #146c2e !important;
 }
 
 .mine button {
-    background: linear-gradient(135deg,#e6f0ff,#cfe2ff) !important;
-    color: #1d4ed8 !important;
+    background: linear-gradient(135deg,#cfe2ff,#a8c7ff) !important;
+    color: #0b3d91 !important;
 }
 
 .taken button {
-    background: #f1f1f1 !important;
+    background: #eeeeee !important;
     color: #666 !important;
 }
 
 /* ===== HEADER ===== */
 .header {
     text-align:center;
-    background: linear-gradient(135deg,#2f3542,#4a5568);
+    background:#2f3542;
     color:white;
-    padding:8px 0;
+    padding:6px 0;
     border-radius:10px;
-    font-size:12px;
+    font-size:11px;
 }
 
 /* ===== TIME ===== */
 .time {
     text-align:center;
-    font-size:11px;
-    font-weight:600;
+    font-size:10px;
+    font-weight:bold;
 }
 
 /* ===== SCROLL ===== */
@@ -125,31 +137,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= DATES (BIG BUTTONS) =================
+# ================= DATES (COMPACT) =================
 today = datetime.now().date()
+
 st.write("### 📅 Dates")
 
-row1 = st.columns(7)
+row1 = st.columns(7, gap="small")
 for i in range(7):
     d = today + timedelta(days=i)
-    d_str = str(d)
     with row1[i]:
-        st.markdown('<div class="date-btn">', unsafe_allow_html=True)
+        st.markdown('<div class="date-row">', unsafe_allow_html=True)
         if st.button(d.strftime("%d"), key=f"d1_{i}",
-                     type="primary" if st.session_state.sel_date == d_str else "secondary"):
-            st.session_state.sel_date = d_str
+                     type="primary" if str(d)==st.session_state.sel_date else "secondary"):
+            st.session_state.sel_date = str(d)
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-row2 = st.columns(7)
+row2 = st.columns(7, gap="small")
 for i in range(7,14):
     d = today + timedelta(days=i)
-    d_str = str(d)
     with row2[i-7]:
-        st.markdown('<div class="date-btn">', unsafe_allow_html=True)
+        st.markdown('<div class="date-row">', unsafe_allow_html=True)
         if st.button(d.strftime("%d"), key=f"d2_{i}",
-                     type="primary" if st.session_state.sel_date == d_str else "secondary"):
-            st.session_state.sel_date = d_str
+                     type="primary" if str(d)==st.session_state.sel_date else "secondary"):
+            st.session_state.sel_date = str(d)
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -175,7 +186,6 @@ for t in HOURS:
 
     for i in range(3):
         t_n = f"Table {i+1}"
-
         match = bookings[
             (bookings["Table"]==t_n)&
             (bookings["Time"]==t)&
@@ -183,7 +193,6 @@ for t in HOURS:
         ]
 
         with row[i+1]:
-            st.markdown('<div class="table-btn">', unsafe_allow_html=True)
 
             if not match.empty:
                 b_user = match.iloc[0]["User"]
@@ -214,7 +223,5 @@ for t in HOURS:
                     save_data(pd.concat([bookings,new_b]), BOOKINGS_FILE)
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
