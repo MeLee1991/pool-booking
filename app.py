@@ -27,7 +27,7 @@ if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.
 
 # ================= LOGIN =================
 if st.session_state.user is None:
-    st.title("Pool")
+    st.title("🎱 Pool Booking")
 
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
@@ -45,85 +45,100 @@ if st.session_state.user is None:
 st.markdown("""
 <style>
 
-/* center + proper width (NOT too small) */
+/* ===== CONTAINER WIDTH (FIXED GRID BASE) ===== */
 .block-container {
-    max-width: 340px !important;
+    max-width: 360px !important;
     margin: auto !important;
-    padding: 4px !important;
+    padding: 6px !important;
 }
 
-/* remove spacing between rows */
-div[data-testid="stVerticalBlock"] > div {
-    gap: 2px !important;
-}
-
-/* remove column gaps */
+/* ===== FORCE NO STACKING ===== */
 [data-testid="stHorizontalBlock"] {
-    gap: 2px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
 }
 
-/* equal columns */
+/* ===== FIXED COLUMN WIDTH ===== */
 [data-testid="column"] {
+    flex: 0 0 80px !important;
+    max-width: 80px !important;
+    min-width: 80px !important;
     padding: 0 !important;
 }
 
-/* buttons */
+/* ===== BUTTONS (ALL SAME SIZE) ===== */
 .stButton > button {
-    width: 100% !important;
-    height: 34px !important;
-    font-size: 10px !important;
+    width: 80px !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    font-size: 11px !important;
     padding: 0 !important;
-    border-radius: 6px !important;
+    font-weight: 600;
 }
 
-/* colors */
+/* ===== COLORS ===== */
 button[kind="secondary"] {
-    background: #e8fbe8 !important;
+    background: linear-gradient(135deg, #d4f7d4, #eaffea) !important;
     color: #1a7f37 !important;
+    border: 1px solid #9be39b !important;
 }
 
 button[kind="primary"] {
-    background: #ffeaea !important;
+    background: linear-gradient(135deg, #ffdede, #fff0f0) !important;
     color: #cf222e !important;
+    border: 1px solid #ff9c9c !important;
 }
 
 button:disabled {
-    background: #eee !important;
-    color: #666 !important;
+    background: #f2f2f2 !important;
+    color: #777 !important;
 }
 
-/* header */
+/* ===== HEADER ===== */
 .header {
     text-align: center;
-    background: #2f3542;
+    background: linear-gradient(135deg, #2c2f36, #3a3f47);
     color: white;
-    padding: 6px 0;
-    border-radius: 6px;
-    font-size: 11px;
-}
-
-/* time */
-.time {
-    text-align: center;
-    font-size: 10px;
+    padding: 8px 0;
+    border-radius: 10px;
+    font-size: 12px;
     font-weight: bold;
 }
 
-/* scroll */
+/* ===== TIME ===== */
+.time {
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* ===== DATE BUTTONS (4x WIDER) ===== */
+.date-row button {
+    width: 100% !important;
+    height: 44px !important;
+    font-size: 13px !important;
+}
+
+/* ===== SCROLL ===== */
 .scroll {
     height: 65vh;
     overflow-y: auto;
 }
 
+/* remove vertical gaps */
+div[data-testid="stVerticalBlock"] > div {
+    gap: 4px !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-# ================= DATES (2 ROWS — VISIBLE) =================
+# ================= DATES =================
 today = datetime.now().date()
+st.write("### 📅 Dates")
 
-st.write("**Dates**")
-
-# week 1
+# WEEK 1
 row1 = st.columns(7)
 for i in range(7):
     d = today + timedelta(days=i)
@@ -134,7 +149,7 @@ for i in range(7):
             st.session_state.sel_date = d_str
             st.rerun()
 
-# week 2
+# WEEK 2
 row2 = st.columns(7)
 for i in range(7,14):
     d = today + timedelta(days=i)
@@ -175,7 +190,6 @@ for t in HOURS:
         ]
 
         with row[i+1]:
-
             if not match.empty:
                 b_user = match.iloc[0]["User"]
                 b_name = match.iloc[0]["Name"]
@@ -187,7 +201,6 @@ for t in HOURS:
                         st.rerun()
                 else:
                     st.button(b_name[:5], key=f"{t}_{i}", disabled=True)
-
             else:
                 if st.button("Free", key=f"{t}_{i}", type="secondary"):
                     new_b = pd.DataFrame([{
