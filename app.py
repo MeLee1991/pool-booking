@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import streamlit.components.v1 as components
-import json
 
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
@@ -13,6 +12,7 @@ st.markdown("""
     .block-container { max-width:320px !important; padding: 0.5rem !important; margin: auto; }
     header {visibility: hidden;}
     footer {visibility: hidden;}
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -38,11 +38,12 @@ for k in ["user","name","role","sel_date","page"]:
 if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
 if not st.session_state.page: st.session_state.page = "Booking"
 
-# ================= 2. THE BRIDGE (CORRECTED) =================
-# We use a hidden component to catch messages from the HTML grid
-def handle_action(action_data):
-    act = action_data.get("action")
-    val = action_data.get("value")
+# ================= 2. THE COMMAND BRIDGE =================
+# This handles the clicks sent from the HTML without needing complex JS
+qp = st.query_params
+if "a" in qp:
+    act = qp["a"]
+    val = qp["v"]
     
     if act == "date":
         st.session_state.sel_date = val
@@ -60,13 +61,9 @@ def handle_action(action_data):
             mask = mask & (df["User"] == st.session_state.user)
         st.session_state.bookings = df[~mask]
         save_data(st.session_state.bookings, BOOKINGS_FILE)
-    st.rerun()
-
-# This reads the query params which are now set reliably by the JS below
-params = st.query_params
-if "action" in params:
-    handle_action({"action": params["action"], "value": params["value"]})
+    
     st.query_params.clear()
+    st.rerun()
 
 # ================= 3. LOGIN & ADMIN =================
 if st.session_state.user is None:
@@ -82,25 +79,43 @@ if st.session_state.user is None:
     st.stop()
 
 if st.session_state.page == "Admin":
-    st.title("⚙️ Admin")
-    if st.button("← Back"): st.session_state.page = "Booking"; st.rerun()
-    t1, t2 = st.tabs(["Users", "Stats"])
-    with t1:
-        with st.form("au"):
-            ae, an, ap, ar = st.text_input("Email"), st.text_input("Name"), st.text_input("Pass"), st.selectbox("Role", ["user","admin"])
-            if st.form_submit_button("Add"):
-                nu = pd.DataFrame([{"Email":ae.lower(),"Name":an,"Password":ap,"Role":ar}])
-                st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
-                save_data(st.session_state.users, USERS_FILE)
-                st.rerun()
-        st.dataframe(st.session_state.users)
-    with t2:
-        st.metric("Total Bookings", len(st.session_state.bookings))
-        if not st.session_state.bookings.empty:
-            st.bar_chart(st.session_state.bookings["Name"].value_counts())
+    st.title("⚙️ Admin Control")
+    if st.button("← Back to Booking"): st.session_state.page = "Booking"; st.rerun()
+    
+    tab1, tab2, tab3 = st.tabs(["👥 Users", "📊 Stats", "📥 Export"])
+    
+    with tab1:
+        with st.expander("➕ Add User"):
+            with st.form("add_form"):
+                ae, an, ap, ar = st.text_input("Email"), st.text_input("Name"), st.text_input("Pass"), st.selectbox("Role", ["user","admin"])
+                if st.form_submit_button("Save User"):
+                    nu = pd.DataFrame([{"Email":ae.lower(),"Name":an,"Password":ap,"Role":ar}])
+                    st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
+                    save_data(st.session_state.users, USERS_FILE)
+                    st.rerun()
+        st.dataframe(st.session_state.users, use_container_width=True)
+
+    with tab2:
+        dfb = st.session_state.bookings
+        if not dfb.empty:
+            st.metric("Total Bookings", len(dfb))
+            st.write("**Top Players**")
+            st.bar_chart(dfb["Name"].value_counts().head(5))
+            st.write("**Table Usage**")
+            st.bar_chart(dfb["Table"].value_counts())
+        else:
+            st.info("No data yet.")
+
+    with tab3:
+        st.write("### Download Data")
+        csv_users = st.session_state.users.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Users CSV", csv_users, "users_export.csv", "text/csv", use_container_width=True)
+        
+        csv_bookings = st.session_state.bookings.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Bookings CSV", csv_bookings, "bookings_export.csv", "text/csv", use_container_width=True)
     st.stop()
 
-# ================= 4. THE OUTLOOK (PROTECTED) =================
+# ================= 4. THE OUTLOOK (UNCHANGED) =================
 today = datetime.now().date()
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
@@ -134,7 +149,7 @@ html_code = f"""
 <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
     * {{ box-sizing:border-box; margin:0; padding:0; font-family:sans-serif; }}
-    body {{ padding: 15px 2px; background: white; }}
+    body {{ padding: 25px 2px 10px 2px; background: white; }}
     .dates {{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:10px; }}
     .date {{ font-size:9px; padding:6px 2px; text-align:center; border-radius:6px; background:#e5e7eb; cursor:pointer; line-height:1.2; }}
     .date.sel {{ background:#4f46e5; color:#fff; font-weight:bold; }}
@@ -153,12 +168,11 @@ html_code = f"""
         {grid_rows}
     </div>
     <script>
-        function go(action, value) {{
-            // This is the most compatible way to force Streamlit to refresh with new data
+        function go(a, v) {{
             const url = new URL(window.parent.location.href);
-            url.searchParams.set("action", action);
-            url.searchParams.set("value", value);
-            window.parent.location.href = url.href;
+            url.searchParams.set("a", a);
+            url.searchParams.set("v", v);
+            window.parent.location.replace(url.href);
         }}
     </script>
 </body></html>
@@ -166,7 +180,7 @@ html_code = f"""
 
 st.write(f"**{st.session_state.name}** | {st.session_state.sel_date}")
 if st.session_state.role == "admin":
-    if st.button("⚙️ Admin", use_container_width=True): 
+    if st.button("⚙️ Admin & Export", use_container_width=True): 
         st.session_state.page = "Admin"
         st.rerun()
 
