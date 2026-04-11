@@ -21,12 +21,10 @@ users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
 # ================= SESSION =================
-if "user" not in st.session_state:
-    st.session_state.user = None
-if "name" not in st.session_state:
-    st.session_state.name = None
-if "role" not in st.session_state:
-    st.session_state.role = None
+for k in ["user","name","role"]:
+    if k not in st.session_state:
+        st.session_state[k] = None
+
 if "sel_date" not in st.session_state:
     st.session_state.sel_date = str(datetime.now().date())
 
@@ -46,66 +44,102 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= SIDEBAR (ADMIN FIXED) =================
+# ================= SIDEBAR =================
 with st.sidebar:
     st.write(f"👤 {st.session_state.name}")
 
+    page = "Booking"
     if st.session_state.role == "admin":
-        st.write(f"Bookings: {len(bookings)}")
-        st.download_button("Download CSV", bookings.to_csv(index=False), "bookings.csv")
+        page = st.radio("Page", ["Booking","Admin"])
 
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
 
-# ================= SIMPLE CSS (SAFE) =================
-st.markdown("""
-<style>
-.block-container { max-width: 420px; margin:auto; }
+# ================= CSS (UNCHANGED) =================
+st.markdown("""<style>
+.block-container { max-width: 320px; margin:auto; }
+div[data-testid="stHorizontalBlock"] { display:flex !important; flex-wrap:nowrap !important; gap:3px !important; }
+[data-testid="column"] { flex:0 0 auto !important; width:70px !important; }
 
-/* buttons */
 .stButton > button {
-    height:34px;
-    font-size:11px;
-    border-radius:8px;
+    width:70px !important;
+    height:28px !important;
+    font-size:9px !important;
+    border-radius:6px !important;
 }
 
-/* states */
+.date button { width:45px !important; height:30px !important; }
+
+.tod button { background:#22c55e !important; color:white; }
+.tom button { background:#3b82f6 !important; color:white; }
+.sel button { background:#4f46e5 !important; color:white; }
+
 .free button { background:#bbf7d0 !important; }
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* dates */
-.sel button { background:#4f46e5 !important; color:white; }
-.tod button { background:#22c55e !important; color:white; }
-.tom button { background:#3b82f6 !important; color:white; }
+.timeA { background:#f3f4f6; text-align:center; border-radius:6px; }
+.timeB { background:#e0f2fe; text-align:center; border-radius:6px; }
+.timeC { background:#fef3c7; text-align:center; border-radius:6px; }
+.timeD { background:#ede9fe; text-align:center; border-radius:6px; }
 
-/* time blocks */
-.timeA { background:#f3f4f6; padding:6px; border-radius:8px; text-align:center; }
-.timeB { background:#e0f2fe; padding:6px; border-radius:8px; text-align:center; }
-.timeC { background:#fef3c7; padding:6px; border-radius:8px; text-align:center; }
-.timeD { background:#ede9fe; padding:6px; border-radius:8px; text-align:center; }
-</style>
-""", unsafe_allow_html=True)
+.timebox { height:28px; display:flex; align-items:center; justify-content:center; }
+</style>""", unsafe_allow_html=True)
 
-# ================= DATES (WORKING CLEAN) =================
+# ================= ADMIN PAGE =================
+if page == "Admin":
+    st.title("Admin Panel")
+
+    st.subheader("Users")
+    st.dataframe(users, use_container_width=True)
+
+    st.subheader("Add user")
+    em = st.text_input("Email")
+    nm = st.text_input("Name")
+    pw = st.text_input("Password")
+    rl = st.selectbox("Role", ["user","admin"])
+
+    if st.button("Add"):
+        if em and nm and pw:
+            new = pd.DataFrame([{"Email":em,"Name":nm,"Password":pw,"Role":rl}])
+            users = pd.concat([users,new])
+            save_data(users, USERS_FILE)
+            st.success("Added")
+            st.rerun()
+
+    st.subheader("Delete user")
+    del_user = st.selectbox("Select", users["Email"])
+    if st.button("Delete"):
+        users = users[users["Email"] != del_user]
+        save_data(users, USERS_FILE)
+        st.success("Deleted")
+        st.rerun()
+
+    st.subheader("Bookings")
+    st.write(f"Total: {len(bookings)}")
+    st.download_button("Download CSV", bookings.to_csv(index=False), "bookings.csv")
+
+    st.stop()
+
+# ================= DATES =================
 today = datetime.now().date()
 
-for row in [range(7), range(7,14)]:
+for week in [range(7), range(7,14)]:
     cols = st.columns(7)
-    for i in row:
+    for i in week:
         d = today + timedelta(days=i)
         d_str = str(d)
 
         label = f"{d.day}.{d.strftime('%a')}"
-        cls = ""
+        cls = "date"
 
         if i == 0:
             label = "TOD"
-            cls = "tod"
+            cls += " tod"
         elif i == 1:
             label = "TOM"
-            cls = "tom"
+            cls += " tom"
 
         if d_str == st.session_state.sel_date:
             cls += " sel"
@@ -122,25 +156,21 @@ st.divider()
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
 h = st.columns(4)
-h[0].write("T")
-h[1].write("1")
-h[2].write("2")
-h[3].write("3")
+h[0].markdown("**T**")
+h[1].markdown("**1**")
+h[2].markdown("**2**")
+h[3].markdown("**3**")
 
 for idx, t in enumerate(HOURS):
 
     cols = st.columns(4)
+    block = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
 
-    # time color group (every 4h)
-    group = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
-
-    # TIME (not clickable)
+    # TIME (NOT CLICKABLE)
     with cols[0]:
-        st.markdown(f'<div class="{group}">{t}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="timebox {block}">{t}</div>', unsafe_allow_html=True)
 
-    # TABLES
     for i in range(3):
         table = f"Table {i+1}"
 
@@ -156,18 +186,13 @@ for idx, t in enumerate(HOURS):
                 name = match.iloc[0]["Name"][:4]
 
                 if user == st.session_state.user:
-                    st.markdown('<div class="mine">', unsafe_allow_html=True)
                     if st.button(f"❌ {name}", key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save_data(bookings, BOOKINGS_FILE)
                         st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown('<div class="taken">', unsafe_allow_html=True)
                     st.button(name, key=f"{t}_{i}", disabled=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
             else:
-                st.markdown('<div class="free">', unsafe_allow_html=True)
                 if st.button("+", key=f"{t}_{i}"):
                     new = pd.DataFrame([{
                         "User": st.session_state.user,
@@ -179,4 +204,3 @@ for idx, t in enumerate(HOURS):
                     bookings = pd.concat([bookings,new])
                     save_data(bookings, BOOKINGS_FILE)
                     st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
