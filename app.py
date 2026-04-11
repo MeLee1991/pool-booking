@@ -10,8 +10,9 @@ st.set_page_config(page_title="Pool", layout="centered")
 # CSS to ensure mobile width and top visibility
 st.markdown("""
 <style>
-    .block-container { max-width:320px !important; padding-top: 0.5rem !important; margin: auto; }
+    .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
     header {visibility: hidden;}
+    footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -26,7 +27,6 @@ def load_data(file, cols):
 def save_data(df, file):
     df.to_csv(file, index=False)
 
-# Load data into session state
 if "users" not in st.session_state:
     st.session_state.users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
 if "bookings" not in st.session_state:
@@ -38,7 +38,7 @@ for k in ["user","name","role","sel_date","page"]:
 if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
 if not st.session_state.page: st.session_state.page = "Booking"
 
-# ================= 2. THE BUTTON ACTIONS (REVERTED TO YOUR ORIGINAL) =================
+# ================= 2. THE BUTTON ACTIONS (THE FIXED BRIDGE) =================
 p = st.query_params
 
 if "date" in p:
@@ -61,7 +61,6 @@ if "del" in p:
     t, table = p["del"].split("|", 1)
     df = st.session_state.bookings
     mask = (df["Table"]==table) & (df["Time"]==t) & (df["Date"]==st.session_state.sel_date)
-    # Admin can delete all, User only theirs
     if st.session_state.role != "admin":
         mask = mask & (df["User"] == st.session_state.user)
     st.session_state.bookings = df[~mask]
@@ -84,32 +83,30 @@ if st.session_state.user is None:
 
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin")
-    if st.button("← Back to Grid"): st.session_state.page = "Booking"; st.rerun()
-    
-    t1, t2, t3 = st.tabs(["Users", "Stats", "Export"])
+    if st.button("← Back"): st.session_state.page = "Booking"; st.rerun()
+    t1, t2, t3 = st.tabs(["Users", "Stats", "Export CSV"])
     with t1:
-        with st.form("add_user"):
+        with st.form("au"):
             ae, an, ap, ar = st.text_input("Email"), st.text_input("Name"), st.text_input("Pass"), st.selectbox("Role", ["user","admin"])
             if st.form_submit_button("Add"):
                 nu = pd.DataFrame([{"Email":ae.lower(),"Name":an,"Password":ap,"Role":ar}])
                 st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
                 save_data(st.session_state.users, USERS_FILE)
                 st.rerun()
-        st.dataframe(st.session_state.users, use_container_width=True)
+        st.dataframe(st.session_state.users)
     with t2:
-        dfb = st.session_state.bookings
-        if not dfb.empty:
-            st.metric("Total Bookings", len(dfb))
-            st.bar_chart(dfb["Name"].value_counts())
-            st.bar_chart(dfb["Table"].value_counts())
+        st.metric("Total Bookings", len(st.session_state.bookings))
+        if not st.session_state.bookings.empty:
+            st.bar_chart(st.session_state.bookings["Name"].value_counts())
     with t3:
-        st.download_button("📥 Download Bookings CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv", use_container_width=True)
-        st.download_button("📥 Download Users CSV", st.session_state.users.to_csv(index=False), "users.csv", use_container_width=True)
+        st.download_button("Download Bookings", st.session_state.bookings.to_csv(index=False), "bookings.csv")
     st.stop()
 
-# ================= 4. THE OUTLOOK (RESTORED EXACTLY) =================
+# ================= 4. THE OUTLOOK (RESTORED & FIXED) =================
 today = datetime.now().date()
-HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
+# Generate hours from 06:00 today to 05:30 tomorrow (24h cycle)
+HOURS = [f"{h:02d}:{m}" for h in range(6, 24) for m in ["00","30"]] + \
+        [f"{h:02d}:{m}" for h in range(0, 6) for m in ["00","30"]]
 
 date_cells = ""
 for i in range(14):
@@ -140,10 +137,10 @@ for idx, t in enumerate(HOURS):
             grid_rows += f'<div class="cell free" onclick="go(\'book\',\'{t}|{table}\')">+</div>'
 
 html_code = f"""
-<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
     * {{ box-sizing:border-box; margin:0; padding:0; font-family:sans-serif; }}
-    body {{ padding: 25px 2px 10px 2px; }} /* Ensures top row is visible */
+    body {{ padding: 25px 2px 10px 2px; background: white; }}
     .dates {{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:10px; }}
     .date {{ font-size:9px; padding:6px 2px; text-align:center; border-radius:6px; background:#e5e7eb; cursor:pointer; line-height:1.2; }}
     .date.sel {{ background:#4f46e5; color:#fff; font-weight:bold; }}
@@ -152,7 +149,7 @@ html_code = f"""
     .cell {{ height:28px; font-size:9px; display:flex; align-items:center; justify-content:center; border-radius:6px; cursor:pointer; -webkit-tap-highlight-color:transparent; }}
     .header {{ background:#111; color:#fff; font-weight:bold; cursor:default; }}
     .free {{ background:#bbf7d0; color:#166534; }}
-    .mine {{ background:#93c5fd; color:#1e3a5f; }}
+    .mine {{ background:#93c5fd; color:#1e3a5f; font-weight:bold; }}
     .taken {{ background:#e5e7eb; color:#9ca3af; cursor:default; }}
     .tA {{ background:#f3f4f6; }} .tB {{ background:#e0f2fe; }} .tC {{ background:#fef3c7; }} .tD {{ background:#ede9fe; }}
 </style></head><body>
@@ -163,7 +160,9 @@ html_code = f"""
     </div>
     <script>
         function go(param, value) {{
-            var url = window.parent.location.origin + window.parent.location.pathname + '?' + param + '=' + encodeURIComponent(value);
+            // Construct the URL precisely so the browser allows the parent navigation
+            const base = window.parent.location.href.split('?')[0];
+            const url = base + '?' + param + '=' + encodeURIComponent(value);
             window.parent.location.href = url;
         }}
     </script>
@@ -176,4 +175,4 @@ if st.session_state.role == "admin":
         st.session_state.page = "Admin"
         st.rerun()
 
-components.html(html_code, height=1150, scrolling=False)
+components.html(html_code, height=1550, scrolling=False)
