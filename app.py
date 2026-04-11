@@ -4,15 +4,16 @@ import pandas as pd
 from datetime import datetime, timedelta
 import streamlit.components.v1 as components
 
-# ================= 1. SETUP & DATA =================
+# ================= 1. SYSTEM SETUP & PERSISTENCE =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# DESIGN LOCK: DO NOT TOUCH
+# FRONTEND LOCK: Your exact mobile lookout
 st.markdown("""
 <style>
-    .block-container { max-width:320px !important; padding-top: 0.5rem !important; margin: auto; }
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
+    .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
+    header { visibility: hidden; }
+    footer { visibility: hidden; }
+    [data-testid="stSidebar"] { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -27,95 +28,113 @@ def load_data(file, cols):
 def save_data(df, file):
     df.to_csv(file, index=False)
 
+# Load into session state
 if "users" not in st.session_state:
     st.session_state.users = load_data(USERS_FILE, ["Email","Name","Password","Role"])
 if "bookings" not in st.session_state:
     st.session_state.bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
+# State Variables
 for k in ["user","name","role","sel_date","page"]:
     if k not in st.session_state: st.session_state[k] = None
 
-if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
-if not st.session_state.page: st.session_state.page = "Booking"
+if not st.session_state.sel_date: 
+    st.session_state.sel_date = str(datetime.now().date())
+if not st.session_state.page: 
+    st.session_state.page = "Booking"
 
-# ================= 2. THE COMMAND ENGINE (THE REPAIR) =================
-# This reads the clicks from the grid. This IS the logic that works.
-p = st.query_params
-if "a" in p or "d" in p:
-    if "d" in p:
-        st.session_state.sel_date = p["d"]
-    if "a" in p:
-        act, val = p["a"], p["v"]
-        if act == "book":
-            t, table = val.split("|", 1)
-            new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, 
-                                     "Date": st.session_state.sel_date, "Table": table, "Time": t}])
+# ================= 2. THE BUTTON REPAIR ENGINE =================
+# This section catches the "shout" from the HTML buttons
+params = st.query_params
+
+if "act" in params or "dt" in params:
+    # Handle Date Change
+    if "dt" in params:
+        st.session_state.sel_date = params["dt"]
+    
+    # Handle Booking/Deletion
+    if "act" in params:
+        action = params["act"]
+        value = params["val"]
+        t, table = value.split("|", 1)
+        
+        if action == "book":
+            new_row = pd.DataFrame([{
+                "User": st.session_state.user, 
+                "Name": st.session_state.name, 
+                "Date": st.session_state.sel_date, 
+                "Table": table, 
+                "Time": t
+            }])
             st.session_state.bookings = pd.concat([st.session_state.bookings, new_row], ignore_index=True)
             save_data(st.session_state.bookings, BOOKINGS_FILE)
-        elif act == "del":
-            t, table = val.split("|", 1)
+            
+        elif action == "del":
             df = st.session_state.bookings
             mask = (df["Table"]==table) & (df["Time"]==t) & (df["Date"]==st.session_state.sel_date)
-            # Admin can delete all, User only theirs
+            # Admin kills all; User kills only theirs
             if st.session_state.role != "admin":
                 mask = mask & (df["User"] == st.session_state.user)
             st.session_state.bookings = df[~mask]
             save_data(st.session_state.bookings, BOOKINGS_FILE)
-    
+            
     st.query_params.clear()
     st.rerun()
 
-# ================= 3. ADMIN PANEL (SIMPLE USER MANAGEMENT) =================
+# ================= 3. ADMIN PANEL (SIMPLE CONTROL) =================
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin")
-    if st.button("← Back", use_container_width=True): 
+    if st.button("← Back to Grid", use_container_width=True):
         st.session_state.page = "Booking"
         st.rerun()
-
-    st.subheader("👥 User List")
-    # Simple list with delete button for each user
-    for idx, u in st.session_state.users.iterrows():
-        with st.container(border=True):
-            c1, c2 = st.columns([4, 1])
-            c1.write(f"**{u['Name']}** ({u['Role']})\n{u['Email']}")
-            if c2.button("🗑️", key=f"u_del_{idx}"):
-                st.session_state.users = st.session_state.users.drop(idx).reset_index(drop=True)
-                save_data(st.session_state.users, USERS_FILE)
-                st.rerun()
-
-    with st.expander("➕ Quick Add User"):
-        ae = st.text_input("Email").strip().lower()
-        an = st.text_input("Name").strip()
-        ap = st.text_input("Pass").strip()
-        ar = st.selectbox("Role", ["user","admin"])
-        if st.button("Save", use_container_width=True):
-            if ae and an and ap:
-                nu = pd.DataFrame([{"Email":ae,"Name":an,"Password":ap,"Role":ar}])
+    
+    tab1, tab2 = st.tabs(["👥 Users", "📊 Stats"])
+    
+    with tab1:
+        st.write("### Quick User List")
+        for idx, u in st.session_state.users.iterrows():
+            with st.container(border=True):
+                c1, c2 = st.columns([4, 1])
+                c1.write(f"**{u['Name']}** ({u['Role']})")
+                if c2.button("🗑️", key=f"u_{idx}"):
+                    st.session_state.users = st.session_state.users.drop(idx).reset_index(drop=True)
+                    save_data(st.session_state.users, USERS_FILE)
+                    st.rerun()
+        
+        with st.expander("➕ Add New User"):
+            ae = st.text_input("Email")
+            an = st.text_input("Name")
+            ap = st.text_input("Pass")
+            ar = st.selectbox("Role", ["user","admin"])
+            if st.button("Save Now", use_container_width=True):
+                nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
                 st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
                 save_data(st.session_state.users, USERS_FILE)
                 st.rerun()
-    
-    st.divider()
-    st.write("📊 Stats & Data")
-    st.metric("Total Bookings", len(st.session_state.bookings))
-    st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
+                
+    with tab2:
+        st.metric("Total Bookings", len(st.session_state.bookings))
+        st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "export.csv")
     st.stop()
 
 # ================= 4. LOGIN =================
 if st.session_state.user is None:
-    st.title("🏊 Pool")
+    st.title("🏊 Pool Login")
     e = st.text_input("Email").strip().lower()
-    p_in = st.text_input("Password", type="password")
+    p = st.text_input("Password", type="password")
     if st.button("Login", use_container_width=True):
-        match = st.session_state.users[(st.session_state.users["Email"]==e) & (st.session_state.users["Password"]==p_in)]
+        db = st.session_state.users
+        match = db[(db["Email"]==e) & (db["Password"]==p)]
         if not match.empty:
-            st.session_state.user, st.session_state.name, st.session_state.role = e, match.iloc[0]["Name"], match.iloc[0]["Role"]
+            st.session_state.user = e
+            st.session_state.name = match.iloc[0]["Name"]
+            st.session_state.role = match.iloc[0]["Role"]
             st.rerun()
     st.stop()
 
-# ================= 5. THE LOOKOUT (FRONT-END) =================
+# ================= 5. THE LOOKOUT (PROTECTED FRONTEND) =================
 today = datetime.now().date()
-# Full 24h cycle
+# 24h cycle: 6 AM to 6 AM next day
 HOURS = [f"{h:02d}:{m}" for h in range(6, 24) for m in ["00","30"]] + \
         [f"{h:02d}:{m}" for h in range(0, 6) for m in ["00","30"]]
 
@@ -124,8 +143,10 @@ for i in range(14):
     d = today + timedelta(days=i)
     d_str = str(d)
     label = f"TOD<br>{d.day}" if i==0 else (f"TOM<br>{d.day}" if i==1 else f"{d.strftime('%a').upper()}<br>{d.day}")
-    cls = "date" + (" sel" if d_str == st.session_state.sel_date else "") + (" d-today" if i==0 else "")
-    date_cells += f'<div class="{cls}" onclick="go(\'d\',\'{d_str}\')">{label}</div>'
+    cls = "date"
+    if i==0: cls += " d-today"
+    if d_str == st.session_state.sel_date: cls += " sel"
+    date_cells += f'<div class="{cls}" onclick="go_dt(\'{d_str}\')">{label}</div>'
 
 grid_rows = ""
 for idx, t in enumerate(HOURS):
@@ -140,7 +161,8 @@ for idx, t in enumerate(HOURS):
             b_name = match.iloc[0]["Name"][:3]
             is_mine = (match.iloc[0]["User"] == st.session_state.user) or (st.session_state.role == "admin")
             cls = "mine" if is_mine else "taken"
-            grid_rows += f'<div class="cell {cls}" onclick="{"go_act(\'del\',\''+t+'|'+table+'\')" if is_mine else ""}">{"✕" if is_mine else ""}{b_name}</div>'
+            act = f"go_act('del','{t}|{table}')" if is_mine else ""
+            grid_rows += f'<div class="cell {cls}" onclick="{act}">{"✕" if is_mine else ""}{b_name}</div>'
         else:
             grid_rows += f'<div class="cell free" onclick="go_act(\'book\',\'{t}|{table}\')">+</div>'
 
@@ -148,7 +170,7 @@ html_code = f"""
 <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
     * {{ box-sizing:border-box; margin:0; padding:0; font-family:sans-serif; }}
-    body {{ padding: 25px 2px 10px 2px; background: white; }}
+    body {{ padding: 25px 2px 10px 2px; background: white; overflow-x: hidden; }}
     .dates {{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:10px; }}
     .date {{ font-size:9px; padding:6px 2px; text-align:center; border-radius:6px; background:#e5e7eb; cursor:pointer; line-height:1.2; }}
     .date.sel {{ background:#4f46e5 !important; color:#fff; font-weight:bold; }}
@@ -160,26 +182,34 @@ html_code = f"""
     .mine {{ background:#93c5fd; color:#1e3a5f; font-weight:bold; }}
     .taken {{ background:#e5e7eb; color:#9ca3af; cursor:default; }}
     .tA {{ background:#f3f4f6; }} .tB {{ background:#e0f2fe; }} .tC {{ background:#fef3c7; }} .tD {{ background:#ede9fe; }}
-</style></head><body>
-    <script>
-        function go(k, v) {{
-            window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + '?' + k + '=' + encodeURIComponent(v);
-        }}
-        function go_act(a, v) {{
-            window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + '?a=' + a + '&v=' + encodeURIComponent(v);
-        }}
-    </script>
+</style>
+</head>
+<body>
     <div class="dates">{date_cells}</div>
     <div class="grid">
         <div class="cell header">Time</div><div class="cell header">T 1</div><div class="cell header">T 2</div><div class="cell header">T 3</div>
         {grid_rows}
     </div>
+    <script>
+        function go_dt(val) {{
+            const url = new URL(window.parent.location.href);
+            url.searchParams.set('dt', val);
+            window.parent.location.href = url.href;
+        }}
+        function go_act(act, val) {{
+            const url = new URL(window.parent.location.href);
+            url.searchParams.set('act', act);
+            url.searchParams.set('val', val);
+            window.parent.location.href = url.href;
+        }}
+    </script>
 </body></html>
 """
 
+# Header UI
 st.write(f"👤 **{st.session_state.name}** | {st.session_state.sel_date}")
 if st.session_state.role == "admin":
-    if st.button("⚙️ Admin Panel", use_container_width=True): 
+    if st.button("⚙️ Admin Control", use_container_width=True):
         st.session_state.page = "Admin"
         st.rerun()
 
