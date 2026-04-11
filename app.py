@@ -2,11 +2,12 @@ import os
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Pool", layout="centered")
 
 # ================= DATA =================
-USERS_FILE = "users.csv"
+USERS_FILE    = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
 def load_data(file, cols):
@@ -21,14 +22,13 @@ users    = load_data(USERS_FILE,    ["Email","Name","Password","Role"])
 bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
 # ================= SESSION =================
-for k in ["user","name","role"]:
+for k in ["user","name","role","sel_date","page"]:
     if k not in st.session_state:
         st.session_state[k] = None
 
-if "sel_date" not in st.session_state:
+if st.session_state.sel_date is None:
     st.session_state.sel_date = str(datetime.now().date())
-
-if "page" not in st.session_state:
+if st.session_state.page is None:
     st.session_state.page = "Booking"
 
 # ================= LOGIN =================
@@ -39,39 +39,46 @@ if st.session_state.user is None:
     if st.button("Login", use_container_width=True):
         m = users[(users["Email"]==e) & (users["Password"]==p)]
         if not m.empty:
-            st.session_state.user = e
-            st.session_state.name = m.iloc[0]["Name"]
-            st.session_state.role = m.iloc[0]["Role"]
-            st.session_state.page = "Booking"
+            st.session_state.user     = e
+            st.session_state.name     = m.iloc[0]["Name"]
+            st.session_state.role     = m.iloc[0]["Role"]
+            st.session_state.page     = "Booking"
             st.rerun()
         else:
             st.error("Wrong email or password")
     st.stop()
 
-# ================= ACTION HANDLER =================
-params = st.query_params
+# ================= QUERY PARAM ACTIONS =================
+# These are set by JS via parent.window.location.href
+p = st.query_params
 
-if "date" in params:
-    st.session_state.sel_date = params["date"]
+if "date" in p:
+    st.session_state.sel_date = p["date"]
     st.query_params.clear()
     st.rerun()
 
-if "book" in params:
-    t, table = params["book"].split("|")
-    new = pd.DataFrame([{
-        "User":  st.session_state.user,
-        "Name":  st.session_state.name,
-        "Date":  st.session_state.sel_date,
-        "Table": table,
-        "Time":  t
-    }])
-    bookings = pd.concat([bookings, new], ignore_index=True)
-    save_data(bookings, BOOKINGS_FILE)
+if "book" in p:
+    t, table = p["book"].split("|", 1)
+    exists = bookings[
+        (bookings["Table"]==table) &
+        (bookings["Time"]==t) &
+        (bookings["Date"]==st.session_state.sel_date)
+    ]
+    if exists.empty:
+        row = pd.DataFrame([{
+            "User":  st.session_state.user,
+            "Name":  st.session_state.name,
+            "Date":  st.session_state.sel_date,
+            "Table": table,
+            "Time":  t
+        }])
+        bookings = pd.concat([bookings, row], ignore_index=True)
+        save_data(bookings, BOOKINGS_FILE)
     st.query_params.clear()
     st.rerun()
 
-if "del" in params:
-    t, table = params["del"].split("|")
+if "del" in p:
+    t, table = p["del"].split("|", 1)
     bookings = bookings[
         ~((bookings["Table"]==table) &
           (bookings["Time"]==t) &
@@ -81,14 +88,14 @@ if "del" in params:
     st.query_params.clear()
     st.rerun()
 
-if "page" in params:
-    st.session_state.page = params["page"]
+if "nav" in p:
+    st.session_state.page = p["nav"]
     st.query_params.clear()
     st.rerun()
 
 # ================= SIDEBAR =================
 with st.sidebar:
-    st.markdown(f"### 👤 {st.session_state.name}")
+    st.markdown(f"**👤 {st.session_state.name}**")
     st.caption(f"Role: {st.session_state.role}")
     st.divider()
     if st.session_state.role == "admin":
@@ -100,68 +107,21 @@ with st.sidebar:
             st.rerun()
         st.divider()
     if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.clear()
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
         st.rerun()
 
-# ================= CSS =================
+# ================= GLOBAL CSS =================
 st.markdown("""
 <style>
-
 .block-container { max-width:310px !important; margin:auto; padding-top:0.5rem; }
-
-/* ── DATE GRID: 2 rows × 7 cols ── */
-.dates {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 3px;
-    margin-bottom: 6px;
-}
-.date {
-    font-size: 9px;
-    padding: 4px 2px;
-    text-align: center;
-    border-radius: 6px;
-    background: #e5e7eb;
-    text-decoration: none;
-    color: #111;
-    line-height: 1.3;
-}
-.date.sel       { background:#4f46e5; color:white; }
-.date.d-today   { background:#22c55e; color:white; }
-.date.d-tomorrow{ background:#3b82f6; color:white; }
-
-/* ── BOOKING GRID ── */
-.grid {
-    display: grid;
-    grid-template-columns: 44px repeat(3, 1fr);
-    gap: 3px;
-}
-.cell {
-    height: 28px;
-    font-size: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    text-decoration: none;
-}
-.header { background:#111;     color:white;   font-weight:bold; }
-.free   { background:#bbf7d0;  color:#166534; }
-.mine   { background:#93c5fd;  color:#1e3a5f; }
-.taken  { background:#e5e7eb;  color:#9ca3af; }
-.tA     { background:#f3f4f6;  color:#555; }
-.tB     { background:#e0f2fe;  color:#555; }
-.tC     { background:#fef3c7;  color:#555; }
-.tD     { background:#ede9fe;  color:#555; }
-
 </style>
 """, unsafe_allow_html=True)
 
 # ================= ADMIN PAGE =================
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin Panel")
-
-    tab1, tab2 = st.tabs(["👥 Users", "📋 Bookings & Stats"])
+    tab1, tab2 = st.tabs(["👥 Users", "📋 Stats"])
 
     with tab1:
         if not users.empty:
@@ -202,19 +162,19 @@ if st.session_state.page == "Admin":
             tbl = bookings["Table"].value_counts().reset_index()
             tbl.columns = ["Table","Count"]
             st.bar_chart(tbl.set_index("Table"))
-        st.download_button("⬇️ Download CSV", bookings.to_csv(index=False), "bookings.csv", use_container_width=True)
-
+        st.download_button("⬇️ Download CSV", bookings.to_csv(index=False),
+                           "bookings.csv", use_container_width=True)
     st.stop()
 
 # ================= BOOKING PAGE =================
 today = datetime.now().date()
+HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# DATE GRID — 14 cells in a 7-column CSS grid = exactly 2 rows
-html = '<div class="dates">'
+# Build date cells
+date_cells = ""
 for i in range(14):
     d     = today + timedelta(days=i)
     d_str = str(d)
-
     if i == 0:
         label = f"TOD<br>{d.day}"
         cls   = "date d-today"
@@ -224,26 +184,15 @@ for i in range(14):
     else:
         label = f"{d.strftime('%a')}<br>{d.day}"
         cls   = "date"
-
     if d_str == st.session_state.sel_date:
         cls += " sel"
+    date_cells += f'<div class="{cls}" onclick="go(\'date\',\'{d_str}\')">{label}</div>\n'
 
-    html += f'<a href="?date={d_str}" class="{cls}">{label}</a>'
-html += '</div>'
-
-# BOOKING GRID
-HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
-
-html += '<div class="grid">'
-html += '<div class="cell header">Time</div>'
-html += '<div class="cell header">T 1</div>'
-html += '<div class="cell header">T 2</div>'
-html += '<div class="cell header">T 3</div>'
-
+# Build booking grid rows
+grid_rows = ""
 for idx, t in enumerate(HOURS):
     band = ["tA","tB","tC","tD"][(idx // 8) % 4]
-    html += f'<div class="cell {band}">{t}</div>'
-
+    grid_rows += f'<div class="cell {band}">{t}</div>\n'
     for i in range(3):
         table = f"Table {i+1}"
         match = bookings[
@@ -251,17 +200,103 @@ for idx, t in enumerate(HOURS):
             (bookings["Time"]==t) &
             (bookings["Date"]==st.session_state.sel_date)
         ]
-
         if not match.empty:
-            booker      = match.iloc[0]["User"]
-            booker_name = match.iloc[0]["Name"][:3]
+            booker = match.iloc[0]["User"]
+            bname  = match.iloc[0]["Name"][:3]
             if booker == st.session_state.user:
-                html += f'<a href="?del={t}|{table}" class="cell mine">✕{booker_name}</a>'
+                grid_rows += f'<div class="cell mine" onclick="go(\'del\',\'{t}|{table}\')">✕{bname}</div>\n'
             else:
-                html += f'<div class="cell taken">{booker_name}</div>'
+                grid_rows += f'<div class="cell taken">{bname}</div>\n'
         else:
-            html += f'<a href="?book={t}|{table}" class="cell free">+</a>'
+            grid_rows += f'<div class="cell free" onclick="go(\'book\',\'{t}|{table}\')">+</div>\n'
 
-html += '</div>'
+# Height: 2 date rows (≈50px) + header (30px) + 36 time rows * 31px
+total_h = 50 + 30 + len(HOURS) * 31 + 20
 
-st.markdown(html, unsafe_allow_html=True)
+html = f"""<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* {{ box-sizing:border-box; margin:0; padding:0; }}
+body {{ font-family:sans-serif; }}
+
+.dates {{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:3px;
+    margin-bottom:5px;
+}}
+.date {{
+    font-size:9px;
+    padding:4px 2px;
+    text-align:center;
+    border-radius:6px;
+    background:#e5e7eb;
+    color:#111;
+    line-height:1.3;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+}}
+.date.sel        {{ background:#4f46e5; color:#fff; }}
+.date.d-today    {{ background:#22c55e; color:#fff; }}
+.date.d-tomorrow {{ background:#3b82f6; color:#fff; }}
+
+.grid {{
+    display:grid;
+    grid-template-columns:44px repeat(3,1fr);
+    gap:3px;
+}}
+.cell {{
+    height:28px;
+    font-size:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+}}
+.cell:active {{ opacity:0.6; }}
+.header {{ background:#111;    color:#fff;    font-weight:bold; cursor:default; }}
+.free   {{ background:#bbf7d0; color:#166534; }}
+.mine   {{ background:#93c5fd; color:#1e3a5f; }}
+.taken  {{ background:#e5e7eb; color:#9ca3af; cursor:default; }}
+.tA     {{ background:#f3f4f6; color:#666; cursor:default; }}
+.tB     {{ background:#e0f2fe; color:#666; cursor:default; }}
+.tC     {{ background:#fef3c7; color:#666; cursor:default; }}
+.tD     {{ background:#ede9fe; color:#666; cursor:default; }}
+</style>
+</head>
+<body>
+
+<script>
+function go(param, value) {{
+    // Walk up to the real Streamlit page and change its URL
+    var base = (window.location !== window.parent.location)
+               ? window.parent.location : window.location;
+    var url  = base.protocol + '//' + base.host + base.pathname
+               + '?' + param + '=' + encodeURIComponent(value);
+    if (window.location !== window.parent.location) {{
+        window.parent.location.href = url;
+    }} else {{
+        window.location.href = url;
+    }}
+}}
+</script>
+
+<div class="dates">
+{date_cells}
+</div>
+
+<div class="grid">
+  <div class="cell header">Time</div>
+  <div class="cell header">T 1</div>
+  <div class="cell header">T 2</div>
+  <div class="cell header">T 3</div>
+{grid_rows}
+</div>
+
+</body>
+</html>"""
+
+components.html(html, height=total_h, scrolling=True)
