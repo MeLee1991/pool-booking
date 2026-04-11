@@ -69,48 +69,17 @@ if st.session_state.page == "Admin":
 
     if st.button("Add User"):
         new = pd.DataFrame([{"Email":e,"Name":n,"Password":p,"Role":r}])
-        st.session_state.users = pd.concat([st.session_state.users,new])
+        st.session_state.users = pd.concat([st.session_state.users,new], ignore_index=True)
         save_data(st.session_state.users, USERS_FILE)
         st.rerun()
 
     st.download_button("Download bookings", st.session_state.bookings.to_csv(index=False))
     st.stop()
 
-# ================= ACTION HANDLER =================
-def handle_action(action, value):
-    bookings = st.session_state.bookings
-
-    if action == "date":
-        st.session_state.sel_date = value
-
-    elif action == "book":
-        t, table = value.split("|")
-        new = pd.DataFrame([{
-            "User": st.session_state.user,
-            "Name": st.session_state.name,
-            "Date": st.session_state.sel_date,
-            "Table": table,
-            "Time": t
-        }])
-        bookings = pd.concat([bookings,new], ignore_index=True)
-
-    elif action == "del":
-        t, table = value.split("|")
-        bookings = bookings[
-            ~(
-                (bookings["Table"]==table) &
-                (bookings["Time"]==t) &
-                (bookings["Date"]==st.session_state.sel_date)
-            )
-        ]
-
-    st.session_state.bookings = bookings
-    save_data(bookings, BOOKINGS_FILE)
-    st.rerun()
-
 # ================= GRID UI =================
 today = datetime.now().date()
 
+# DATES
 date_cells = ""
 for i in range(14):
     d = today + timedelta(days=i)
@@ -118,20 +87,24 @@ for i in range(14):
 
     label = f"{d.day}.{d.strftime('%a')}"
     cls = "date"
+
     if d_str == st.session_state.sel_date:
         cls += " sel"
 
     date_cells += f'<div class="{cls}" onclick="send(\'date\',\'{d_str}\')">{label}</div>'
 
+# HOURS
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
 grid_rows = ""
 for idx, t in enumerate(HOURS):
+
     color = ["tA","tB","tC","tD"][(idx//8)%4]
     grid_rows += f'<div class="cell {color}">{t}</div>'
 
     for i in range(1,4):
         table = f"Table {i}"
+
         match = st.session_state.bookings[
             (st.session_state.bookings["Table"]==table) &
             (st.session_state.bookings["Time"]==t) &
@@ -167,23 +140,66 @@ body {{ margin:0; font-family:sans-serif; }}
 </style>
 
 <div class="dates">{date_cells}</div>
+
 <div class="grid">
-<div class="cell">T</div><div class="cell">1</div><div class="cell">2</div><div class="cell">3</div>
+<div class="cell">T</div>
+<div class="cell">1</div>
+<div class="cell">2</div>
+<div class="cell">3</div>
 {grid_rows}
 </div>
 
 <script>
 function send(a,v){{
-    window.parent.postMessage({{type:'streamlit:setComponentValue',value:{{a:a,v:v}}}},'*');
+    const url = new URL(window.parent.location.href);
+    url.searchParams.set("a", a);
+    url.searchParams.set("v", v);
+    window.parent.location.href = url.toString();
 }}
 </script>
 """
 
 # ================= RENDER =================
-res = components.html(html, height=1500)
+components.html(html, height=1500, scrolling=False)
 
-if res:
-    handle_action(res["a"], res["v"])
+# ================= ACTION HANDLER =================
+params = st.query_params
+
+if "a" in params and "v" in params:
+    a = params.get("a")
+    v = params.get("v")
+
+    bookings = st.session_state.bookings
+
+    if a == "date":
+        st.session_state.sel_date = v
+
+    elif a == "book":
+        t, table = v.split("|")
+        new = pd.DataFrame([{
+            "User": st.session_state.user,
+            "Name": st.session_state.name,
+            "Date": st.session_state.sel_date,
+            "Table": table,
+            "Time": t
+        }])
+        bookings = pd.concat([bookings,new], ignore_index=True)
+
+    elif a == "del":
+        t, table = v.split("|")
+        bookings = bookings[
+            ~(
+                (bookings["Table"]==table) &
+                (bookings["Time"]==t) &
+                (bookings["Date"]==st.session_state.sel_date)
+            )
+        ]
+
+    st.session_state.bookings = bookings
+    save_data(bookings, BOOKINGS_FILE)
+
+    st.query_params.clear()
+    st.rerun()
 
 # ================= HEADER =================
 st.write(f"👤 {st.session_state.name} | {st.session_state.sel_date}")
