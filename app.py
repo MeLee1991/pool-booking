@@ -7,10 +7,10 @@ import streamlit.components.v1 as components
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# CSS LOCK: Design remains exactly as you like it
+# DESIGN LOCK: Keeps your exact 4-column lookout
 st.markdown("""
 <style>
-    .block-container { max-width:320px !important; padding-top: 0.5rem !important; margin: auto; }
+    .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
     header {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
@@ -38,65 +38,70 @@ for k in ["user","name","role","sel_date","page"]:
 if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
 if not st.session_state.page: st.session_state.page = "Booking"
 
-# ================= 2. THE BUTTON LOGIC (THE "YESTERDAY" FIX) =================
-# This reads the query params immediately on rerun
+# ================= 2. THE COMMAND ENGINE (THE REPAIR) =================
+# We read the URL parameters at the very start of the script
 p = st.query_params
-if "action" in p or "date" in p:
-    if "date" in p:
-        st.session_state.sel_date = p["date"]
-    if "action" in p:
-        act, val = p["action"], p["value"]
-        if act == "book":
-            t, table = val.split("|", 1)
-            new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, 
-                                     "Date": st.session_state.sel_date, "Table": table, "Time": t}])
-            st.session_state.bookings = pd.concat([st.session_state.bookings, new_row], ignore_index=True)
-            save_data(st.session_state.bookings, BOOKINGS_FILE)
-        elif act == "del":
-            t, table = val.split("|", 1)
-            df = st.session_state.bookings
-            mask = (df["Table"]==table) & (df["Time"]==t) & (df["Date"]==st.session_state.sel_date)
-            # Admin can delete anything, user only their own
-            if st.session_state.role != "admin":
-                mask = mask & (df["User"] == st.session_state.user)
-            st.session_state.bookings = df[~mask]
-            save_data(st.session_state.bookings, BOOKINGS_FILE)
+
+if "d" in p:
+    st.session_state.sel_date = p["d"]
+    st.query_params.clear()
+    st.rerun()
+
+if "a" in p:
+    act, val = p["a"], p["v"]
+    if act == "book":
+        t, table = val.split("|", 1)
+        new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, 
+                                 "Date": st.session_state.sel_date, "Table": table, "Time": t}])
+        st.session_state.bookings = pd.concat([st.session_state.bookings, new_row], ignore_index=True)
+        save_data(st.session_state.bookings, BOOKINGS_FILE)
+    elif act == "del":
+        t, table = val.split("|", 1)
+        df = st.session_state.bookings
+        mask = (df["Table"]==table) & (df["Time"]==t) & (df["Date"]==st.session_state.sel_date)
+        if st.session_state.role != "admin":
+            mask = mask & (df["User"] == st.session_state.user)
+        st.session_state.bookings = df[~mask]
+        save_data(st.session_state.bookings, BOOKINGS_FILE)
     
     st.query_params.clear()
     st.rerun()
 
-# ================= 3. ADMIN PANEL (SIMPLE TABLE) =================
+# ================= 3. ADMIN PANEL (SIMPLE USER MANAGEMENT) =================
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin")
-    if st.button("← Back", use_container_width=True): 
+    if st.button("← Back to Grid", use_container_width=True): 
         st.session_state.page = "Booking"
         st.rerun()
 
-    st.subheader("👥 User Management")
-    # Simple table display with row-by-row delete
-    for idx, u in st.session_state.users.iterrows():
-        with st.container(border=True):
-            c1, c2 = st.columns([4, 1])
-            c1.write(f"**{u['Name']}** ({u['Role']})\n{u['Email']}")
-            if c2.button("🗑️", key=f"user_del_{idx}"):
-                st.session_state.users = st.session_state.users.drop(idx).reset_index(drop=True)
-                save_data(st.session_state.users, USERS_FILE)
-                st.rerun()
-
-    with st.expander("➕ Add New User"):
-        ae = st.text_input("Email")
+    st.subheader("👥 Manage Users")
+    # Simple list display
+    if not st.session_state.users.empty:
+        for idx, u in st.session_state.users.iterrows():
+            with st.container(border=True):
+                c1, c2 = st.columns([4, 1])
+                c1.write(f"**{u['Name']}** ({u['Role']})\n{u['Email']}")
+                if c2.button("🗑️", key=f"u_del_{idx}"):
+                    st.session_state.users = st.session_state.users.drop(idx).reset_index(drop=True)
+                    save_data(st.session_state.users, USERS_FILE)
+                    st.rerun()
+    
+    st.divider()
+    with st.expander("➕ Add User"):
+        ae = st.text_input("Email").lower().strip()
         an = st.text_input("Name")
         ap = st.text_input("Pass")
         ar = st.selectbox("Role", ["user","admin"])
-        if st.button("Add Now", use_container_width=True):
-            nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
+        if st.button("Save User", use_container_width=True):
+            nu = pd.DataFrame([{"Email":ae,"Name":an,"Password":ap,"Role":ar}])
             st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
             save_data(st.session_state.users, USERS_FILE)
             st.rerun()
-    
+
     st.divider()
-    st.write("📋 **Actions**")
-    st.download_button("⬇️ Download Bookings (CSV)", st.session_state.bookings.to_csv(index=False), "bookings.csv")
+    st.write("📊 Stats")
+    st.metric("Total Bookings", len(st.session_state.bookings))
+    st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
     st.stop()
 
 # ================= 4. LOGIN =================
@@ -111,9 +116,9 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= 5. THE LOOKOUT (FRONT-END) =================
+# ================= 5. THE LOOKOUT (UNCHANGED DESIGN) =================
 today = datetime.now().date()
-# Fixed hours: current to next morning
+# From 6 AM to 6 AM cycle
 HOURS = [f"{h:02d}:{m}" for h in range(6, 24) for m in ["00","30"]] + \
         [f"{h:02d}:{m}" for h in range(0, 6) for m in ["00","30"]]
 
@@ -122,10 +127,8 @@ for i in range(14):
     d = today + timedelta(days=i)
     d_str = str(d)
     label = f"TOD<br>{d.day}" if i==0 else (f"TOM<br>{d.day}" if i==1 else f"{d.strftime('%a').upper()}<br>{d.day}")
-    cls = "date"
-    if i==0: cls += " d-today"
-    if d_str == st.session_state.sel_date: cls += " sel"
-    date_cells += f'<div class="{cls}" onclick="go(\'date\',\'{d_str}\')">{label}</div>'
+    cls = "date" + (" sel" if d_str == st.session_state.sel_date else "") + (" d-today" if i==0 else "")
+    date_cells += f'<div class="{cls}" onclick="go(\'d\',\'{d_str}\')">{label}</div>'
 
 grid_rows = ""
 for idx, t in enumerate(HOURS):
@@ -162,11 +165,13 @@ html_code = f"""
     .tA {{ background:#f3f4f6; }} .tB {{ background:#e0f2fe; }} .tC {{ background:#fef3c7; }} .tD {{ background:#ede9fe; }}
 </style></head><body>
     <script>
-        function go(param, value) {{
-            window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + '?' + param + '=' + encodeURIComponent(value);
+        function go(k, v) {{
+            const url = window.parent.location.origin + window.parent.location.pathname + '?' + k + '=' + encodeURIComponent(v);
+            window.parent.location.replace(url);
         }}
-        function go_act(action, value) {{
-            window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + '?action=' + action + '&value=' + encodeURIComponent(value);
+        function go_act(a, v) {{
+            const url = window.parent.location.origin + window.parent.location.pathname + '?a=' + a + '&v=' + encodeURIComponent(v);
+            window.parent.location.replace(url);
         }}
     </script>
     <div class="dates">{date_cells}</div>
