@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# Visual Lock
+# Design Lock
 st.markdown("""
 <style>
     .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
@@ -39,7 +39,7 @@ if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now()
 if not st.session_state.page: st.session_state.page = "Booking"
 
 # ================= 2. THE COMMAND ENGINE =================
-# This reads the URL parameters to perform actions
+# This processes the clicks from the HTML Grid
 qp = st.query_params
 if "a" in qp:
     act, val = qp["a"], qp["v"]
@@ -47,7 +47,6 @@ if "a" in qp:
         st.session_state.sel_date = val
     elif act == "book":
         t, table = val.split("|", 1)
-        # Verify slot is still free
         df = st.session_state.bookings
         if df[(df["Table"]==table) & (df["Time"]==t) & (df["Date"]==st.session_state.sel_date)].empty:
             new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, 
@@ -66,43 +65,57 @@ if "a" in qp:
     st.query_params.clear()
     st.rerun()
 
-# ================= 3. LOGIN & ADMIN =================
+# ================= 3. ADMIN PANEL (ADD/EDIT/REMOVE) =================
+if st.session_state.page == "Admin":
+    st.title("⚙️ User Management")
+    if st.button("← Back to Booking"): st.session_state.page = "Booking"; st.rerun()
+    
+    tab1, tab2, tab3 = st.tabs(["👥 Users", "📊 Stats", "📥 Export"])
+    
+    with tab1:
+        # --- Add New User ---
+        with st.expander("➕ Add New User"):
+            with st.form("add_user_form"):
+                ae, an, ap, ar = st.text_input("Email"), st.text_input("Name"), st.text_input("Pass"), st.selectbox("Role", ["user","admin"])
+                if st.form_submit_button("Save User"):
+                    nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
+                    st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
+                    save_data(st.session_state.users, USERS_FILE)
+                    st.success("User Added")
+                    st.rerun()
+        
+        # --- Edit / Delete Users ---
+        if not st.session_state.users.empty:
+            st.write("### Current Users")
+            for idx, row in st.session_state.users.iterrows():
+                with st.container(border=True):
+                    c1, c2 = st.columns([3, 1])
+                    c1.write(f"**{row['Name']}** ({row['Role']})\n{row['Email']}")
+                    if c2.button("🗑️", key=f"del_u_{idx}"):
+                        st.session_state.users = st.session_state.users.drop(idx)
+                        save_data(st.session_state.users, USERS_FILE)
+                        st.rerun()
+    with tab2:
+        st.metric("Total Bookings", len(st.session_state.bookings))
+        st.bar_chart(st.session_state.bookings["Name"].value_counts())
+    with tab3:
+        st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv", use_container_width=True)
+    st.stop()
+
+# ================= 4. LOGIN =================
 if st.session_state.user is None:
     st.title("🏊 Pool")
     e = st.text_input("Email").strip().lower()
     p_in = st.text_input("Password", type="password")
     if st.button("Login", use_container_width=True):
-        u_db = st.session_state.users
-        m = u_db[(u_db["Email"]==e) & (u_db["Password"]==p_in)]
-        if not m.empty:
-            st.session_state.user, st.session_state.name, st.session_state.role = e, m.iloc[0]["Name"], m.iloc[0]["Role"]
+        match = st.session_state.users[(st.session_state.users["Email"]==e) & (st.session_state.users["Password"]==p_in)]
+        if not match.empty:
+            st.session_state.user, st.session_state.name, st.session_state.role = e, match.iloc[0]["Name"], match.iloc[0]["Role"]
             st.rerun()
     st.stop()
 
-if st.session_state.page == "Admin":
-    st.title("⚙️ Admin")
-    if st.button("← Back"): st.session_state.page = "Booking"; st.rerun()
-    t1, t2, t3 = st.tabs(["Users", "Stats", "Export"])
-    with t1:
-        with st.form("add"):
-            ae, an, ap, ar = st.text_input("Email"), st.text_input("Name"), st.text_input("Pass"), st.selectbox("Role", ["user","admin"])
-            if st.form_submit_button("Add"):
-                nu = pd.DataFrame([{"Email":ae.lower(),"Name":an,"Password":ap,"Role":ar}])
-                st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
-                save_data(st.session_state.users, USERS_FILE)
-                st.rerun()
-        st.dataframe(st.session_state.users)
-    with t2:
-        st.metric("Total Bookings", len(st.session_state.bookings))
-        if not st.session_state.bookings.empty:
-            st.bar_chart(st.session_state.bookings["Name"].value_counts())
-    with t3:
-        st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
-    st.stop()
-
-# ================= 4. THE OUTLOOK (UNCHANGED) =================
+# ================= 5. THE OUTLOOK (UNCHANGED) =================
 today = datetime.now().date()
-# From 6 AM to 6 AM (24h)
 HOURS = [f"{h:02d}:{m}" for h in range(6, 24) for m in ["00","30"]] + \
         [f"{h:02d}:{m}" for h in range(0, 6) for m in ["00","30"]]
 
@@ -124,13 +137,12 @@ for idx, t in enumerate(HOURS):
                                           (st.session_state.bookings["Time"]==t) & 
                                           (st.session_state.bookings["Date"]==st.session_state.sel_date)]
         if not match.empty:
-            b_user = match.iloc[0]["User"]
             b_name = match.iloc[0]["Name"][:3]
-            is_mine = (b_user == st.session_state.user) or (st.session_state.role == "admin")
+            is_mine = (match.iloc[0]["User"] == st.session_state.user) or (st.session_state.role == "admin")
             cls = "mine" if is_mine else "taken"
-            grid_rows += f'<div class="cell {cls}" onclick="{"go(\'del\',\''+t+'|'+table+'\')" if is_mine else ""}">{"✕" if is_mine else ""}{b_name}</div>'
+            grid_rows += f'<div class="{cls} cell" onclick="{"go(\'del\',\''+t+'|'+table+'\')" if is_mine else ""}">{"✕" if is_mine else ""}{b_name}</div>'
         else:
-            grid_rows += f'<div class="cell free" onclick="go(\'book\',\'{t}|{table}\')">+</div>'
+            grid_rows += f'<div class="free cell" onclick="go(\'book\',\'{t}|{table}\')">+</div>'
 
 html_code = f"""
 <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
@@ -149,35 +161,27 @@ html_code = f"""
     .taken {{ background:#e5e7eb; color:#9ca3af; cursor:default; }}
     .tA {{ background:#f3f4f6; }} .tB {{ background:#e0f2fe; }} .tC {{ background:#fef3c7; }} .tD {{ background:#ede9fe; }}
 </style></head><body>
-    <form id="navForm" target="_parent" method="GET"></form>
-    
+    <form id="n" target="_parent" method="GET"></form>
     <div class="dates">{date_cells}</div>
     <div class="grid">
         <div class="cell header">Time</div><div class="cell header">T 1</div><div class="cell header">T 2</div><div class="cell header">T 3</div>
         {grid_rows}
     </div>
-    
     <script>
-        function go(act, val) {{
-            const form = document.getElementById('navForm');
-            const baseUrl = window.parent.location.origin + window.parent.location.pathname;
-            form.action = baseUrl;
-            
-            // Add action and value as inputs
-            form.innerHTML = `
-                <input type="hidden" name="a" value="${{act}}">
-                <input type="hidden" name="v" value="${{val}}">
-            `;
-            form.submit();
+        function go(a, v) {{
+            const f = document.getElementById('n');
+            const b = window.parent.location.origin + window.parent.location.pathname;
+            f.action = b;
+            f.innerHTML = `<input type="hidden" name="a" value="${{a}}"><input type="hidden" name="v" value="${{v}}">`;
+            f.submit();
         }}
     </script>
 </body></html>
 """
 
-# Header info
 st.write(f"👤 **{st.session_state.name}** | {st.session_state.sel_date}")
 if st.session_state.role == "admin":
-    if st.button("⚙️ Admin", use_container_width=True): 
+    if st.button("⚙️ Admin Panel", use_container_width=True): 
         st.session_state.page = "Admin"
         st.rerun()
 
