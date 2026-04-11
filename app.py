@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# CSS LOCK: Exactly your mobile outlook
+# DESIGN LOCK: Keeps your exact mobile look
 st.markdown("""
 <style>
     .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
@@ -38,14 +38,15 @@ for k in ["user","name","role","sel_date","page"]:
 if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
 if not st.session_state.page: st.session_state.page = "Booking"
 
-# ================= 2. THE COMMAND ENGINE =================
-# This reads the clicks from the grid. This IS the Streamlit way.
-params = st.query_params
-if "a" in params or "d" in params:
-    if "d" in params:
-        st.session_state.sel_date = params["d"]
-    if "a" in params:
-        act, val = params["a"], params["v"]
+# ================= 2. THE BUTTON ENGINE =================
+# This reads the clicks from the HTML. 
+# It MUST be at the top to catch the refresh.
+p = st.query_params
+if "a" in p or "d" in p:
+    if "d" in p:
+        st.session_state.sel_date = p["d"]
+    if "a" in p:
+        act, val = p["a"], p["v"]
         if act == "book":
             t, table = val.split("|", 1)
             new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, 
@@ -64,37 +65,36 @@ if "a" in params or "d" in params:
     st.query_params.clear()
     st.rerun()
 
-# ================= 3. ADMIN PANEL (SIMPLE & DIRECT) =================
+# ================= 3. ADMIN PANEL (SIMPLE USER EDIT) =================
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin")
-    if st.button("← Back", use_container_width=True): 
+    if st.button("← Back to Grid", use_container_width=True): 
         st.session_state.page = "Booking"
         st.rerun()
 
-    st.subheader("👥 Users")
-    # Quick list with Delete buttons
+    st.subheader("👥 Manage Users")
     for idx, u in st.session_state.users.iterrows():
         with st.container(border=True):
             c1, c2 = st.columns([4, 1])
-            c1.write(f"**{u['Name']}** ({u['Role']})")
+            c1.write(f"**{u['Name']}** ({u['Role']})\n{u['Email']}")
             if c2.button("🗑️", key=f"u_{idx}"):
                 st.session_state.users = st.session_state.users.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.users, USERS_FILE)
                 st.rerun()
 
-    with st.expander("➕ Add User"):
+    with st.expander("➕ Add New User"):
         ae = st.text_input("Email")
         an = st.text_input("Name")
         ap = st.text_input("Pass")
         ar = st.selectbox("Role", ["user","admin"])
-        if st.button("Save", use_container_width=True):
+        if st.button("Save User", use_container_width=True):
             nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
             st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
             save_data(st.session_state.users, USERS_FILE)
             st.rerun()
     
     st.divider()
-    st.write("📊 Stats")
+    st.write("📊 Statistics")
     st.metric("Total Bookings", len(st.session_state.bookings))
     st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
     st.stop()
@@ -111,9 +111,9 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= 5. THE LOOKOUT (FRONT-END PROTECTED) =================
+# ================= 5. THE OUTLOOK (FRONT-END PROTECTED) =================
 today = datetime.now().date()
-# Hours from 6am today to 6am tomorrow
+# Full 24h cycle starting from 6 AM
 HOURS = [f"{h:02d}:{m}" for h in range(6, 24) for m in ["00","30"]] + \
         [f"{h:02d}:{m}" for h in range(0, 6) for m in ["00","30"]]
 
