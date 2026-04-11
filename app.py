@@ -43,119 +43,121 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= CLICK HANDLER =================
-click = st.session_state.get("click", "")
-
-if click:
-    action, t, table = click.split("|")
-
-    if action == "book":
-        new = pd.DataFrame([{
-            "User": st.session_state.user,
-            "Name": st.session_state.name,
-            "Date": st.session_state.sel_date,
-            "Table": table,
-            "Time": t
-        }])
-        bookings = pd.concat([bookings,new])
-        save_data(bookings, BOOKINGS_FILE)
-
-    if action == "del":
-        bookings = bookings[
-            ~((bookings["Table"]==table)&
-              (bookings["Time"]==t)&
-              (bookings["Date"]==st.session_state.sel_date))
-        ]
-        save_data(bookings, BOOKINGS_FILE)
-
-    st.session_state.click = ""
-    st.rerun()
-
 # ================= CSS =================
 st.markdown("""
 <style>
-.block-container { max-width:280px; margin:auto; }
 
-.dates {
-    display:grid;
-    grid-template-columns: repeat(7,1fr);
-    gap:3px;
-    margin-bottom:6px;
+/* tighter layout */
+.block-container {
+    max-width: 300px;
+    margin:auto;
 }
-.date {
-    font-size:9px;
-    padding:5px;
-    text-align:center;
-    border-radius:6px;
-    background:#eee;
-}
-.date.sel { background:#4f46e5; color:white; }
-.date-today { background:#22c55e; color:white; }
-.date-tomorrow { background:#3b82f6; color:white; }
 
-.grid {
-    display:grid;
-    grid-template-columns: repeat(4,60px);
-    gap:3px;
+/* remove gaps */
+div[data-testid="stVerticalBlock"] > div { gap:0 !important; }
+
+/* force row */
+[data-testid="stHorizontalBlock"] {
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:2px !important;
 }
-.cell {
-    width:60px;
-    height:28px;
-    font-size:9px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:6px;
-    cursor:pointer;
+
+/* columns */
+[data-testid="column"] {
+    flex:0 0 auto !important;
+    width:68px !important;
 }
-.header { background:#111; color:white; }
-.free { background:#bbf7d0; }
-.mine { background:#93c5fd; }
-.taken { background:#e5e7eb; }
-.tA { background:#f3f4f6; }
-.tB { background:#e0f2fe; }
-.tC { background:#fef3c7; }
-.tD { background:#ede9fe; }
+
+/* buttons */
+.stButton > button {
+    width:68px !important;
+    height:28px !important;
+    font-size:9px !important;
+    border-radius:6px !important;
+}
+
+/* date */
+.date button {
+    width:44px !important;
+    height:30px !important;
+}
+
+/* today/tomorrow */
+.tod button { background:#22c55e !important; color:white; }
+.tom button { background:#3b82f6 !important; color:white; }
+.sel button { background:#4f46e5 !important; color:white; }
+
+/* states */
+.free button { background:#bbf7d0 !important; }
+.mine button { background:#93c5fd !important; }
+.taken button { background:#e5e7eb !important; }
+
+/* time blocks */
+.timeA button { background:#f3f4f6 !important; }
+.timeB button { background:#e0f2fe !important; }
+.timeC button { background:#fef3c7 !important; }
+.timeD button { background:#ede9fe !important; }
+
 </style>
 """, unsafe_allow_html=True)
 
-# ================= DATE PICKER =================
+# ================= DATES =================
 today = datetime.now().date()
 
-html = '<div class="dates">'
-for i in range(14):
-    d = today + timedelta(days=i)
-    d_str = str(d)
+weeks = [
+    [today + timedelta(days=i) for i in range(7)],
+    [today + timedelta(days=i) for i in range(7,14)]
+]
 
-    cls = "date"
-    label = f"{d.day}.{d.strftime('%a')}"
+for week in weeks:
+    cols = st.columns(7)
+    for i, d in enumerate(week):
+        d_str = str(d)
 
-    if i == 0:
-        cls += " date-today"
-        label = "TOD"
-    elif i == 1:
-        cls += " date-tomorrow"
-        label = "TOM"
+        cls = "date"
+        label = f"{d.day}.{d.strftime('%a')}"
 
-    if d_str == st.session_state.sel_date:
-        cls += " sel"
+        if d == today:
+            cls += " tod"
+            label = "TOD"
+        elif d == today + timedelta(days=1):
+            cls += " tom"
+            label = "TOM"
 
-    html += f'<div class="{cls}" onclick="send(\'date|{d_str}|x\')">{label}</div>'
-html += '</div>'
+        if d_str == st.session_state.sel_date:
+            cls += " sel"
 
-# ================= GRID =================
+        with cols[i]:
+            st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
+            if st.button(label, key=f"d_{d_str}"):
+                st.session_state.sel_date = d_str
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+st.divider()
+
+# ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-html += '<div class="grid">'
-html += '<div class="cell header">T</div>'
-html += '<div class="cell header">1</div>'
-html += '<div class="cell header">2</div>'
-html += '<div class="cell header">3</div>'
+# header
+h = st.columns(4)
+h[0].markdown("**T**")
+h[1].markdown("**1**")
+h[2].markdown("**2**")
+h[3].markdown("**3**")
 
 for idx, t in enumerate(HOURS):
 
-    color = ["tA","tB","tC","tD"][(idx//8)%4]
-    html += f'<div class="cell {color}">{t}</div>'
+    cols = st.columns(4)
+
+    block = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
+
+    # time
+    with cols[0]:
+        st.markdown(f'<div class="{block}">', unsafe_allow_html=True)
+        st.button(t, key=f"time_{t}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
     for i in range(3):
         table = f"Table {i+1}"
@@ -166,29 +168,34 @@ for idx, t in enumerate(HOURS):
             (bookings["Date"]==st.session_state.sel_date)
         ]
 
-        if not match.empty:
-            user = match.iloc[0]["User"]
-            name = match.iloc[0]["Name"][:3]
+        with cols[i+1]:
+            if not match.empty:
+                user = match.iloc[0]["User"]
+                name = match.iloc[0]["Name"][:4]
 
-            if user == st.session_state.user:
-                html += f'<div class="cell mine" onclick="send(\'del|{t}|{table}\')">{name}</div>'
+                if user == st.session_state.user:
+                    st.markdown('<div class="mine">', unsafe_allow_html=True)
+                    if st.button(f"❌ {name}", key=f"{t}_{i}"):
+                        bookings = bookings.drop(match.index)
+                        save_data(bookings, BOOKINGS_FILE)
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="taken">', unsafe_allow_html=True)
+                    st.button(name, key=f"{t}_{i}", disabled=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+
             else:
-                html += f'<div class="cell taken">{name}</div>'
-        else:
-            html += f'<div class="cell free" onclick="send(\'book|{t}|{table}\')">+</div>'
-
-html += '</div>'
-
-# ================= JS =================
-st.markdown("""
-<script>
-function send(val){
-    window.parent.postMessage({type: "streamlit:setComponentValue", value: val}, "*");
-}
-</script>
-""", unsafe_allow_html=True)
-
-# hidden input to receive clicks
-st.text_input("hidden", key="click", label_visibility="collapsed")
-
-st.markdown(html, unsafe_allow_html=True)
+                st.markdown('<div class="free">', unsafe_allow_html=True)
+                if st.button("+", key=f"{t}_{i}"):
+                    new = pd.DataFrame([{
+                        "User": st.session_state.user,
+                        "Name": st.session_state.name,
+                        "Date": st.session_state.sel_date,
+                        "Table": table,
+                        "Time": t
+                    }])
+                    bookings = pd.concat([bookings,new])
+                    save_data(bookings, BOOKINGS_FILE)
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
