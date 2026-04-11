@@ -46,39 +46,80 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
+# ================= CLICK HANDLER =================
+params = st.query_params
+
+if "book" in params:
+    t, table = params["book"].split("|")
+
+    match = bookings[
+        (bookings["Table"]==table)&
+        (bookings["Time"]==t)&
+        (bookings["Date"]==st.session_state.sel_date)
+    ]
+
+    if match.empty:
+        new = pd.DataFrame([{
+            "User": st.session_state.user,
+            "Name": st.session_state.name,
+            "Date": st.session_state.sel_date,
+            "Table": table,
+            "Time": t
+        }])
+        bookings = pd.concat([bookings,new])
+        save_data(bookings, BOOKINGS_FILE)
+
+    st.query_params.clear()
+    st.rerun()
+
+if "del" in params:
+    t, table = params["del"].split("|")
+
+    match = bookings[
+        (bookings["Table"]==table)&
+        (bookings["Time"]==t)&
+        (bookings["Date"]==st.session_state.sel_date)
+    ]
+
+    bookings = bookings.drop(match.index)
+    save_data(bookings, BOOKINGS_FILE)
+
+    st.query_params.clear()
+    st.rerun()
+
 # ================= CSS =================
 st.markdown("""
 <style>
 
-/* FORCE WIDTH */
 .block-container {
-    max-width: 140px !important;
-    margin: auto !important;
+    max-width: 140px;
+    margin:auto;
 }
 
 /* GRID */
 .grid {
-    display: grid;
-    grid-template-columns: repeat(4, 25px);
-    gap: 2px;
+    display:grid;
+    grid-template-columns: repeat(4, 30px);
+    gap:2px;
 }
 
-/* CELLS */
+/* CELL */
 .cell {
-    width: 25px;
-    height: 22px;
-    font-size: 7px;
+    width:30px;
+    height:24px;
+    font-size:8px;
     display:flex;
     align-items:center;
     justify-content:center;
-    border-radius:4px;
+    border-radius:5px;
+    text-decoration:none;
 }
 
 /* HEADER */
 .header {
-    font-weight:bold;
     background:#111;
     color:white;
+    font-weight:bold;
 }
 
 /* STATES */
@@ -87,53 +128,52 @@ st.markdown("""
 .taken { background:#e5e7eb; }
 
 /* TIME COLORS */
-.timeA { background:#f3f4f6; }
-.timeB { background:#e0f2fe; }
-.timeC { background:#fef3c7; }
-.timeD { background:#ede9fe; }
+.tA { background:#f3f4f6; }
+.tB { background:#e0f2fe; }
+.tC { background:#fef3c7; }
+.tD { background:#ede9fe; }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ================= TABLE =================
-
-st.markdown('<div class="grid">', unsafe_allow_html=True)
-
-# HEADER (NO GAP)
-st.markdown('<div class="cell header">T</div>', unsafe_allow_html=True)
-st.markdown('<div class="cell header">1</div>', unsafe_allow_html=True)
-st.markdown('<div class="cell header">2</div>', unsafe_allow_html=True)
-st.markdown('<div class="cell header">3</div>', unsafe_allow_html=True)
-
-# HOURS (START 06:00)
+# ================= BUILD GRID =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
+
+html = '<div class="grid">'
+
+# HEADER
+html += '<div class="cell header">T</div>'
+html += '<div class="cell header">1</div>'
+html += '<div class="cell header">2</div>'
+html += '<div class="cell header">3</div>'
 
 for idx, t in enumerate(HOURS):
 
-    block = ["timeA","timeB","timeC","timeD"][(idx // 8) % 4]
+    color = ["tA","tB","tC","tD"][(idx//8)%4]
 
-    # TIME CELL
-    st.markdown(f'<div class="cell {block}">{t}</div>', unsafe_allow_html=True)
+    # TIME
+    html += f'<div class="cell {color}">{t}</div>'
 
-    # TABLES
     for i in range(3):
-        t_n = f"Table {i+1}"
+        table = f"Table {i+1}"
 
         match = bookings[
-            (bookings["Table"]==t_n)&
+            (bookings["Table"]==table)&
             (bookings["Time"]==t)&
             (bookings["Date"]==st.session_state.sel_date)
         ]
 
         if not match.empty:
             b_user = match.iloc[0]["User"]
-            b_name = match.iloc[0]["Name"][:3]
+            name = match.iloc[0]["Name"][:3]
 
             if b_user == st.session_state.user:
-                st.markdown(f'<div class="cell mine">{b_name}</div>', unsafe_allow_html=True)
+                html += f'<a href="?del={t}|{table}" class="cell mine">{name}</a>'
             else:
-                st.markdown(f'<div class="cell taken">{b_name}</div>', unsafe_allow_html=True)
+                html += f'<div class="cell taken">{name}</div>'
         else:
-            st.markdown('<div class="cell free">+</div>', unsafe_allow_html=True)
+            html += f'<a href="?book={t}|{table}" class="cell free">+</a>'
 
-st.markdown('</div>', unsafe_allow_html=True)
+html += '</div>'
+
+st.markdown(html, unsafe_allow_html=True)
