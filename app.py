@@ -7,12 +7,11 @@ import streamlit.components.v1 as components
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# Design Lock: Keeping your exact mobile outlook
+# DESIGN LOCK: DO NOT CHANGE
 st.markdown("""
 <style>
     .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
     header {visibility: hidden;}
-    footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -38,62 +37,18 @@ for k in ["user","name","role","sel_date","page"]:
 if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
 if not st.session_state.page: st.session_state.page = "Booking"
 
-# ================= 2. THE ADMIN PANEL (SIMPLE) =================
-if st.session_state.page == "Admin":
-    st.title("⚙️ Admin")
-    if st.button("← Back to Grid", use_container_width=True): 
-        st.session_state.page = "Booking"
-        st.rerun()
-
-    # Simple User List with Delete
-    st.subheader("Manage Users")
-    for idx, u in st.session_state.users.iterrows():
-        c1, c2 = st.columns([4, 1])
-        c1.write(f"**{u['Name']}** ({u['Role']})")
-        if c2.button("🗑️", key=f"del_u_{idx}"):
-            st.session_state.users = st.session_state.users.drop(idx)
-            save_data(st.session_state.users, USERS_FILE)
-            st.rerun()
-
-    st.divider()
-    # Simple Add Form
-    with st.expander("➕ Quick Add User"):
-        ae = st.text_input("Email")
-        an = st.text_input("Name")
-        ap = st.text_input("Pass")
-        ar = st.selectbox("Role", ["user","admin"])
-        if st.button("Add Now", use_container_width=True):
-            nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
-            st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
-            save_data(st.session_state.users, USERS_FILE)
-            st.rerun()
+# ================= 2. THE BUTTON BRIDGE (THE REPAIR) =================
+# We check query params at the VERY START of every run.
+qp = st.query_params
+if "a" in qp:
+    act, val = qp["a"], qp["v"]
     
-    st.divider()
-    st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
-    st.stop()
-
-# ================= 3. LOGIN =================
-if st.session_state.user is None:
-    st.title("🏊 Pool")
-    e = st.text_input("Email").strip().lower()
-    p_in = st.text_input("Password", type="password")
-    if st.button("Login", use_container_width=True):
-        match = st.session_state.users[(st.session_state.users["Email"]==e) & (st.session_state.users["Password"]==p_in)]
-        if not match.empty:
-            st.session_state.user, st.session_state.name, st.session_state.role = e, match.iloc[0]["Name"], match.iloc[0]["Role"]
-            st.rerun()
-    st.stop()
-
-# ================= 4. THE DATA BRIDGE (THE REPAIR) =================
-# We use a trick: the HTML sends data to a hidden input that Streamlit reads
-query = st.query_params
-if "a" in query:
-    act, val = query["a"], query["v"]
     if act == "date":
         st.session_state.sel_date = val
     elif act == "book":
         t, table = val.split("|", 1)
-        new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, "Date": st.session_state.sel_date, "Table": table, "Time": t}])
+        new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, 
+                                 "Date": st.session_state.sel_date, "Table": table, "Time": t}])
         st.session_state.bookings = pd.concat([st.session_state.bookings, new_row], ignore_index=True)
         save_data(st.session_state.bookings, BOOKINGS_FILE)
     elif act == "del":
@@ -108,7 +63,52 @@ if "a" in query:
     st.query_params.clear()
     st.rerun()
 
-# ================= 5. THE LOOKOUT (UNCHANGED) =================
+# ================= 3. ADMIN PANEL (SIMPLE EDIT/REMOVE) =================
+if st.session_state.page == "Admin":
+    st.title("⚙️ Admin")
+    if st.button("← Back", use_container_width=True): 
+        st.session_state.page = "Booking"
+        st.rerun()
+
+    st.write("### 👥 Quick User Manager")
+    # Table-like edit for users
+    for idx, u in st.session_state.users.iterrows():
+        with st.container(border=True):
+            c1, c2 = st.columns([3, 1])
+            c1.write(f"**{u['Name']}**\n{u['Email']} ({u['Role']})")
+            if c2.button("🗑️", key=f"u_{idx}"):
+                st.session_state.users = st.session_state.users.drop(idx)
+                save_data(st.session_state.users, USERS_FILE)
+                st.rerun()
+
+    with st.expander("➕ Add New User"):
+        ae = st.text_input("Email")
+        an = st.text_input("Name")
+        ap = st.text_input("Pass")
+        ar = st.selectbox("Role", ["user","admin"])
+        if st.button("Save New User", use_container_width=True):
+            nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
+            st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
+            save_data(st.session_state.users, USERS_FILE)
+            st.rerun()
+
+    st.divider()
+    st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
+    st.stop()
+
+# ================= 4. LOGIN =================
+if st.session_state.user is None:
+    st.title("🏊 Pool")
+    e = st.text_input("Email").strip().lower()
+    p_in = st.text_input("Password", type="password")
+    if st.button("Login", use_container_width=True):
+        match = st.session_state.users[(st.session_state.users["Email"]==e) & (st.session_state.users["Password"]==p_in)]
+        if not match.empty:
+            st.session_state.user, st.session_state.name, st.session_state.role = e, match.iloc[0]["Name"], match.iloc[0]["Role"]
+            st.rerun()
+    st.stop()
+
+# ================= 5. THE LOOKOUT (UNCHANGED DESIGN) =================
 today = datetime.now().date()
 HOURS = [f"{h:02d}:{m}" for h in range(6, 24) for m in ["00","30"]] + \
         [f"{h:02d}:{m}" for h in range(0, 6) for m in ["00","30"]]
@@ -155,11 +155,6 @@ html_code = f"""
     .taken {{ background:#e5e7eb; color:#9ca3af; cursor:default; }}
     .tA {{ background:#f3f4f6; }} .tB {{ background:#e0f2fe; }} .tC {{ background:#fef3c7; }} .tD {{ background:#ede9fe; }}
 </style></head><body>
-    <div class="dates">{date_cells}</div>
-    <div class="grid">
-        <div class="cell header">Time</div><div class="cell header">T 1</div><div class="cell header">T 2</div><div class="cell header">T 3</div>
-        {grid_rows}
-    </div>
     <script>
         function go(a, v) {{
             const url = new URL(window.parent.location.href);
@@ -168,6 +163,11 @@ html_code = f"""
             window.parent.location.href = url.href;
         }}
     </script>
+    <div class="dates">{date_cells}</div>
+    <div class="grid">
+        <div class="cell header">Time</div><div class="cell header">T 1</div><div class="cell header">T 2</div><div class="cell header">T 3</div>
+        {grid_rows}
+    </div>
 </body></html>
 """
 
