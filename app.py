@@ -58,68 +58,37 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ================= CSS =================
+# ================= SIMPLE CSS (SAFE) =================
 st.markdown("""
 <style>
-.block-container {
-    max-width: 360px;
-    margin:auto;
-    padding-top: 10px;
-}
-
-/* columns FIX */
-div[data-testid="stHorizontalBlock"] {
-    display:flex !important;
-    flex-wrap:nowrap !important;
-    gap:4px !important;
-}
-
-/* EXACT 4 columns */
-[data-testid="column"] {
-    flex:1 !important;
-    min-width:0 !important;
-}
+.block-container { max-width: 420px; margin:auto; }
 
 /* buttons */
 .stButton > button {
-    width:100% !important;
-    height:32px !important;
-    font-size:10px !important;
-    border-radius:8px !important;
-    padding:0 !important;
+    height:34px;
+    font-size:11px;
+    border-radius:8px;
 }
 
-/* DATE buttons */
-.date button { height:34px !important; }
-
-/* COLORS */
-.tod button { background:#22c55e !important; color:white; }
-.tom button { background:#3b82f6 !important; color:white; }
-.sel button { background:#4f46e5 !important; color:white; }
-
+/* states */
 .free button { background:#bbf7d0 !important; }
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* TIME COLORS (every 4 hours) */
-.time0 { background:#f3f4f6 !important; }
-.time1 { background:#e0f2fe !important; }
-.time2 { background:#fef3c7 !important; }
-.time3 { background:#ede9fe !important; }
+/* dates */
+.sel button { background:#4f46e5 !important; color:white; }
+.tod button { background:#22c55e !important; color:white; }
+.tom button { background:#3b82f6 !important; color:white; }
 
-.timebox {
-    height:32px;
-    border-radius:8px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:10px;
-    font-weight:600;
-}
+/* time blocks */
+.timeA { background:#f3f4f6; padding:6px; border-radius:8px; text-align:center; }
+.timeB { background:#e0f2fe; padding:6px; border-radius:8px; text-align:center; }
+.timeC { background:#fef3c7; padding:6px; border-radius:8px; text-align:center; }
+.timeD { background:#ede9fe; padding:6px; border-radius:8px; text-align:center; }
 </style>
 """, unsafe_allow_html=True)
 
-# ================= DATES (2 ROWS FIXED) =================
+# ================= DATES (WORKING CLEAN) =================
 today = datetime.now().date()
 
 for row in [range(7), range(7,14)]:
@@ -129,14 +98,14 @@ for row in [range(7), range(7,14)]:
         d_str = str(d)
 
         label = f"{d.day}.{d.strftime('%a')}"
-        cls = "date"
+        cls = ""
 
         if i == 0:
             label = "TOD"
-            cls += " tod"
+            cls = "tod"
         elif i == 1:
             label = "TOM"
-            cls += " tom"
+            cls = "tom"
 
         if d_str == st.session_state.sel_date:
             cls += " sel"
@@ -148,31 +117,28 @@ for row in [range(7), range(7,14)]:
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
+st.divider()
 
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# HEADER
+# header
 h = st.columns(4)
-h[0].markdown("**T**")
-h[1].markdown("**1**")
-h[2].markdown("**2**")
-h[3].markdown("**3**")
+h[0].write("T")
+h[1].write("1")
+h[2].write("2")
+h[3].write("3")
 
-# ROWS
 for idx, t in enumerate(HOURS):
 
     cols = st.columns(4)
 
-    color_class = f"time{(idx//8)%4}"
+    # time color group (every 4h)
+    group = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
 
-    # TIME (NOT CLICKABLE anymore)
+    # TIME (not clickable)
     with cols[0]:
-        st.markdown(
-            f'<div class="timebox {color_class}">{t}</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown(f'<div class="{group}">{t}</div>', unsafe_allow_html=True)
 
     # TABLES
     for i in range(3):
