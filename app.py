@@ -25,6 +25,8 @@ if "user" not in st.session_state:
     st.session_state.user = None
 if "name" not in st.session_state:
     st.session_state.name = None
+if "role" not in st.session_state:
+    st.session_state.role = None
 if "sel_date" not in st.session_state:
     st.session_state.sel_date = str(datetime.now().date())
 
@@ -40,44 +42,54 @@ if st.session_state.user is None:
         if not m.empty:
             st.session_state.user = e
             st.session_state.name = m.iloc[0]["Name"]
+            st.session_state.role = m.iloc[0]["Role"]
             st.rerun()
     st.stop()
 
+# ================= SIDEBAR =================
+with st.sidebar:
+    st.write(f"👤 {st.session_state.name}")
+
+    if st.session_state.role == "admin":
+        st.markdown("### Admin")
+        st.write(f"Bookings: {len(bookings)}")
+
+        st.download_button(
+            "Download CSV",
+            bookings.to_csv(index=False),
+            "bookings.csv"
+        )
+
+    if st.button("Logout"):
+        st.session_state.clear()
+        st.rerun()
+
 # ================= ACTION HANDLER =================
-params = st.query_params
+action = st.session_state.get("action", None)
 
-if "date" in params:
-    st.session_state.sel_date = params["date"]
-    st.query_params.clear()
-    st.rerun()
+if action:
+    typ, t, table = action.split("|")
 
-if "book" in params:
-    t, table = params["book"].split("|")
+    if typ == "book":
+        new = pd.DataFrame([{
+            "User": st.session_state.user,
+            "Name": st.session_state.name,
+            "Date": st.session_state.sel_date,
+            "Table": table,
+            "Time": t
+        }])
+        bookings = pd.concat([bookings,new])
+        save_data(bookings, BOOKINGS_FILE)
 
-    new = pd.DataFrame([{
-        "User": st.session_state.user,
-        "Name": st.session_state.name,
-        "Date": st.session_state.sel_date,
-        "Table": table,
-        "Time": t
-    }])
-    bookings = pd.concat([bookings,new])
-    save_data(bookings, BOOKINGS_FILE)
+    if typ == "del":
+        bookings = bookings[
+            ~((bookings["Table"]==table)&
+              (bookings["Time"]==t)&
+              (bookings["Date"]==st.session_state.sel_date))
+        ]
+        save_data(bookings, BOOKINGS_FILE)
 
-    st.query_params.clear()
-    st.rerun()
-
-if "del" in params:
-    t, table = params["del"].split("|")
-
-    bookings = bookings[
-        ~((bookings["Table"]==table)&
-          (bookings["Time"]==t)&
-          (bookings["Date"]==st.session_state.sel_date))
-    ]
-    save_data(bookings, BOOKINGS_FILE)
-
-    st.query_params.clear()
+    st.session_state.action = None
     st.rerun()
 
 # ================= CSS =================
@@ -100,8 +112,6 @@ st.markdown("""
     text-align:center;
     border-radius:6px;
     background:#eee;
-    text-decoration:none;
-    color:black;
 }
 
 .date.sel { background:#4f46e5; color:white; }
@@ -123,7 +133,7 @@ st.markdown("""
     align-items:center;
     justify-content:center;
     border-radius:6px;
-    text-decoration:none;
+    cursor:pointer;
 }
 
 /* HEADER */
@@ -164,7 +174,7 @@ for i in range(14):
     if d_str == st.session_state.sel_date:
         cls += " sel"
 
-    html += f'<a href="?date={d_str}" class="{cls}">{label}</a>'
+    html += f'<div class="{cls}" onclick="window.parent.postMessage({{type: \'streamlit:setSessionState\', key: \'sel_date\', value: \'{d_str}\'}}, \'*\')">{label}</div>'
 html += '</div>'
 
 # ================= GRID =================
@@ -179,7 +189,6 @@ html += '<div class="cell header">3</div>'
 for idx, t in enumerate(HOURS):
 
     color = ["tA","tB","tC","tD"][(idx//8)%4]
-
     html += f'<div class="cell {color}">{t}</div>'
 
     for i in range(3):
@@ -196,11 +205,11 @@ for idx, t in enumerate(HOURS):
             name = match.iloc[0]["Name"][:3]
 
             if user == st.session_state.user:
-                html += f'<a href="?del={t}|{table}" class="cell mine">{name}</a>'
+                html += f'<div class="cell mine" onclick="window.parent.postMessage({{type: \'streamlit:setSessionState\', key: \'action\', value: \'del|{t}|{table}\'}} , \'*\')">{name}</div>'
             else:
                 html += f'<div class="cell taken">{name}</div>'
         else:
-            html += f'<a href="?book={t}|{table}" class="cell free">+</a>'
+            html += f'<div class="cell free" onclick="window.parent.postMessage({{type: \'streamlit:setSessionState\', key: \'action\', value: \'book|{t}|{table}\'}} , \'*\')">+</div>'
 
 html += '</div>'
 
