@@ -3,11 +3,11 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import streamlit.components.v1 as components
+import json
 
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# This forces the Streamlit container to be mobile-width only
 st.markdown("""
 <style>
     .block-container { max-width:320px !important; padding: 0.5rem !important; margin: auto; }
@@ -32,18 +32,17 @@ if "users" not in st.session_state:
 if "bookings" not in st.session_state:
     st.session_state.bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# Init State
 for k in ["user","name","role","sel_date","page"]:
     if k not in st.session_state: st.session_state[k] = None
 
 if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
 if not st.session_state.page: st.session_state.page = "Booking"
 
-# ================= 2. THE ENGINE =================
-params = st.query_params
-if "action" in params:
-    act = params["action"]
-    val = params["value"]
+# ================= 2. THE BRIDGE (CORRECTED) =================
+# We use a hidden component to catch messages from the HTML grid
+def handle_action(action_data):
+    act = action_data.get("action")
+    val = action_data.get("value")
     
     if act == "date":
         st.session_state.sel_date = val
@@ -61,9 +60,13 @@ if "action" in params:
             mask = mask & (df["User"] == st.session_state.user)
         st.session_state.bookings = df[~mask]
         save_data(st.session_state.bookings, BOOKINGS_FILE)
-    
-    st.query_params.clear()
     st.rerun()
+
+# This reads the query params which are now set reliably by the JS below
+params = st.query_params
+if "action" in params:
+    handle_action({"action": params["action"], "value": params["value"]})
+    st.query_params.clear()
 
 # ================= 3. LOGIN & ADMIN =================
 if st.session_state.user is None:
@@ -80,8 +83,7 @@ if st.session_state.user is None:
 
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin")
-    if st.button("← Back to Grid"): st.session_state.page = "Booking"; st.rerun()
-    
+    if st.button("← Back"): st.session_state.page = "Booking"; st.rerun()
     t1, t2 = st.tabs(["Users", "Stats"])
     with t1:
         with st.form("au"):
@@ -98,7 +100,7 @@ if st.session_state.page == "Admin":
             st.bar_chart(st.session_state.bookings["Name"].value_counts())
     st.stop()
 
-# ================= 4. THE ORIGINAL LOOKOUT (RESTORED) =================
+# ================= 4. THE OUTLOOK (PROTECTED) =================
 today = datetime.now().date()
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
@@ -132,7 +134,7 @@ html_code = f"""
 <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
     * {{ box-sizing:border-box; margin:0; padding:0; font-family:sans-serif; }}
-    body {{ padding: 10px 2px; background: white; }}
+    body {{ padding: 15px 2px; background: white; }}
     .dates {{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:10px; }}
     .date {{ font-size:9px; padding:6px 2px; text-align:center; border-radius:6px; background:#e5e7eb; cursor:pointer; line-height:1.2; }}
     .date.sel {{ background:#4f46e5; color:#fff; font-weight:bold; }}
@@ -152,6 +154,7 @@ html_code = f"""
     </div>
     <script>
         function go(action, value) {{
+            // This is the most compatible way to force Streamlit to refresh with new data
             const url = new URL(window.parent.location.href);
             url.searchParams.set("action", action);
             url.searchParams.set("value", value);
@@ -161,10 +164,9 @@ html_code = f"""
 </body></html>
 """
 
-# Bottom Nav for mobile feel
 st.write(f"**{st.session_state.name}** | {st.session_state.sel_date}")
 if st.session_state.role == "admin":
-    if st.button("⚙️ Admin Panel", use_container_width=True): 
+    if st.button("⚙️ Admin", use_container_width=True): 
         st.session_state.page = "Admin"
         st.rerun()
 
