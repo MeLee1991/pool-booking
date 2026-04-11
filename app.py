@@ -43,121 +43,144 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
+# ================= ACTION HANDLER =================
+params = st.query_params
+
+if "date" in params:
+    st.session_state.sel_date = params["date"]
+    st.query_params.clear()
+    st.rerun()
+
+if "book" in params:
+    t, table = params["book"].split("|")
+
+    new = pd.DataFrame([{
+        "User": st.session_state.user,
+        "Name": st.session_state.name,
+        "Date": st.session_state.sel_date,
+        "Table": table,
+        "Time": t
+    }])
+    bookings = pd.concat([bookings,new])
+    save_data(bookings, BOOKINGS_FILE)
+
+    st.query_params.clear()
+    st.rerun()
+
+if "del" in params:
+    t, table = params["del"].split("|")
+
+    bookings = bookings[
+        ~((bookings["Table"]==table)&
+          (bookings["Time"]==t)&
+          (bookings["Date"]==st.session_state.sel_date))
+    ]
+    save_data(bookings, BOOKINGS_FILE)
+
+    st.query_params.clear()
+    st.rerun()
+
 # ================= CSS =================
 st.markdown("""
 <style>
 
-/* tighter layout */
-.block-container {
-    max-width: 300px;
-    margin:auto;
+.block-container { max-width: 300px; margin:auto; }
+
+/* DATE GRID */
+.dates {
+    display:grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap:3px;
+    margin-bottom:6px;
 }
 
-/* remove gaps */
-div[data-testid="stVerticalBlock"] > div { gap:0 !important; }
-
-/* force row */
-[data-testid="stHorizontalBlock"] {
-    display:flex !important;
-    flex-wrap:nowrap !important;
-    gap:2px !important;
+.date {
+    font-size:9px;
+    padding:5px;
+    text-align:center;
+    border-radius:6px;
+    background:#eee;
+    text-decoration:none;
+    color:black;
 }
 
-/* columns */
-[data-testid="column"] {
-    flex:0 0 auto !important;
-    width:68px !important;
+.date.sel { background:#4f46e5; color:white; }
+.date-today { background:#22c55e; color:white; }
+.date-tomorrow { background:#3b82f6; color:white; }
+
+/* GRID */
+.grid {
+    display:grid;
+    grid-template-columns: repeat(4, 60px);
+    gap:3px;
 }
 
-/* buttons */
-.stButton > button {
-    width:68px !important;
-    height:28px !important;
-    font-size:9px !important;
-    border-radius:6px !important;
+.cell {
+    width:60px;
+    height:28px;
+    font-size:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+    text-decoration:none;
 }
 
-/* date */
-.date button {
-    width:44px !important;
-    height:30px !important;
-}
+/* HEADER */
+.header { background:#111; color:white; }
 
-/* today/tomorrow */
-.tod button { background:#22c55e !important; color:white; }
-.tom button { background:#3b82f6 !important; color:white; }
-.sel button { background:#4f46e5 !important; color:white; }
+/* STATES */
+.free { background:#bbf7d0; }
+.mine { background:#93c5fd; }
+.taken { background:#e5e7eb; }
 
-/* states */
-.free button { background:#bbf7d0 !important; }
-.mine button { background:#93c5fd !important; }
-.taken button { background:#e5e7eb !important; }
-
-/* time blocks */
-.timeA button { background:#f3f4f6 !important; }
-.timeB button { background:#e0f2fe !important; }
-.timeC button { background:#fef3c7 !important; }
-.timeD button { background:#ede9fe !important; }
+/* TIME COLORS */
+.tA { background:#f3f4f6; }
+.tB { background:#e0f2fe; }
+.tC { background:#fef3c7; }
+.tD { background:#ede9fe; }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ================= DATES =================
+# ================= DATE PICKER =================
 today = datetime.now().date()
 
-weeks = [
-    [today + timedelta(days=i) for i in range(7)],
-    [today + timedelta(days=i) for i in range(7,14)]
-]
+html = '<div class="dates">'
+for i in range(14):
+    d = today + timedelta(days=i)
+    d_str = str(d)
 
-for week in weeks:
-    cols = st.columns(7)
-    for i, d in enumerate(week):
-        d_str = str(d)
+    cls = "date"
+    label = f"{d.day}.{d.strftime('%a')}"
 
-        cls = "date"
-        label = f"{d.day}.{d.strftime('%a')}"
+    if i == 0:
+        cls += " date-today"
+        label = "TOD"
+    elif i == 1:
+        cls += " date-tomorrow"
+        label = "TOM"
 
-        if d == today:
-            cls += " tod"
-            label = "TOD"
-        elif d == today + timedelta(days=1):
-            cls += " tom"
-            label = "TOM"
+    if d_str == st.session_state.sel_date:
+        cls += " sel"
 
-        if d_str == st.session_state.sel_date:
-            cls += " sel"
+    html += f'<a href="?date={d_str}" class="{cls}">{label}</a>'
+html += '</div>'
 
-        with cols[i]:
-            st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-            if st.button(label, key=f"d_{d_str}"):
-                st.session_state.sel_date = d_str
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-st.divider()
-
-# ================= TABLE =================
+# ================= GRID =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
-h = st.columns(4)
-h[0].markdown("**T**")
-h[1].markdown("**1**")
-h[2].markdown("**2**")
-h[3].markdown("**3**")
+html += '<div class="grid">'
+html += '<div class="cell header">T</div>'
+html += '<div class="cell header">1</div>'
+html += '<div class="cell header">2</div>'
+html += '<div class="cell header">3</div>'
 
 for idx, t in enumerate(HOURS):
 
-    cols = st.columns(4)
+    color = ["tA","tB","tC","tD"][(idx//8)%4]
 
-    block = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
-
-    # time
-    with cols[0]:
-        st.markdown(f'<div class="{block}">', unsafe_allow_html=True)
-        st.button(t, key=f"time_{t}")
-        st.markdown("</div>", unsafe_allow_html=True)
+    html += f'<div class="cell {color}">{t}</div>'
 
     for i in range(3):
         table = f"Table {i+1}"
@@ -168,34 +191,17 @@ for idx, t in enumerate(HOURS):
             (bookings["Date"]==st.session_state.sel_date)
         ]
 
-        with cols[i+1]:
-            if not match.empty:
-                user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:4]
+        if not match.empty:
+            user = match.iloc[0]["User"]
+            name = match.iloc[0]["Name"][:3]
 
-                if user == st.session_state.user:
-                    st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"❌ {name}", key=f"{t}_{i}"):
-                        bookings = bookings.drop(match.index)
-                        save_data(bookings, BOOKINGS_FILE)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="taken">', unsafe_allow_html=True)
-                    st.button(name, key=f"{t}_{i}", disabled=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-
+            if user == st.session_state.user:
+                html += f'<a href="?del={t}|{table}" class="cell mine">{name}</a>'
             else:
-                st.markdown('<div class="free">', unsafe_allow_html=True)
-                if st.button("+", key=f"{t}_{i}"):
-                    new = pd.DataFrame([{
-                        "User": st.session_state.user,
-                        "Name": st.session_state.name,
-                        "Date": st.session_state.sel_date,
-                        "Table": table,
-                        "Time": t
-                    }])
-                    bookings = pd.concat([bookings,new])
-                    save_data(bookings, BOOKINGS_FILE)
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+                html += f'<div class="cell taken">{name}</div>'
+        else:
+            html += f'<a href="?book={t}|{table}" class="cell free">+</a>'
+
+html += '</div>'
+
+st.markdown(html, unsafe_allow_html=True)
