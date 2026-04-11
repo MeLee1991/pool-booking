@@ -46,9 +46,10 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= SIDEBAR =================
+# ================= SIDEBAR (ADMIN FIXED) =================
 with st.sidebar:
     st.write(f"👤 {st.session_state.name}")
+
     if st.session_state.role == "admin":
         st.write(f"Bookings: {len(bookings)}")
         st.download_button("Download CSV", bookings.to_csv(index=False), "bookings.csv")
@@ -60,55 +61,70 @@ with st.sidebar:
 # ================= CSS =================
 st.markdown("""
 <style>
-.block-container { max-width: 320px; margin:auto; }
+.block-container {
+    max-width: 360px;
+    margin:auto;
+    padding-top: 10px;
+}
 
+/* columns FIX */
 div[data-testid="stHorizontalBlock"] {
     display:flex !important;
     flex-wrap:nowrap !important;
-    gap:3px !important;
+    gap:4px !important;
 }
 
+/* EXACT 4 columns */
 [data-testid="column"] {
-    flex:0 0 auto !important;
-    width:70px !important;
+    flex:1 !important;
+    min-width:0 !important;
 }
 
 /* buttons */
 .stButton > button {
-    width:70px !important;
-    height:28px !important;
-    font-size:9px !important;
-    border-radius:6px !important;
+    width:100% !important;
+    height:32px !important;
+    font-size:10px !important;
+    border-radius:8px !important;
     padding:0 !important;
 }
 
-/* dates */
-.date button { width:45px !important; height:30px !important; }
+/* DATE buttons */
+.date button { height:34px !important; }
 
+/* COLORS */
 .tod button { background:#22c55e !important; color:white; }
 .tom button { background:#3b82f6 !important; color:white; }
 .sel button { background:#4f46e5 !important; color:white; }
 
-/* states */
 .free button { background:#bbf7d0 !important; }
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* time */
-.timeA button { background:#f3f4f6 !important; }
-.timeB button { background:#e0f2fe !important; }
-.timeC button { background:#fef3c7 !important; }
-.timeD button { background:#ede9fe !important; }
+/* TIME COLORS (every 4 hours) */
+.time0 { background:#f3f4f6 !important; }
+.time1 { background:#e0f2fe !important; }
+.time2 { background:#fef3c7 !important; }
+.time3 { background:#ede9fe !important; }
 
+.timebox {
+    height:32px;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:10px;
+    font-weight:600;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ================= DATES =================
+# ================= DATES (2 ROWS FIXED) =================
 today = datetime.now().date()
 
-for week in [range(7), range(7,14)]:
+for row in [range(7), range(7,14)]:
     cols = st.columns(7)
-    for i in week:
+    for i in row:
         d = today + timedelta(days=i)
         d_str = str(d)
 
@@ -132,28 +148,31 @@ for week in [range(7), range(7,14)]:
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-st.divider()
+st.markdown("<hr style='margin:6px 0'>", unsafe_allow_html=True)
 
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
+# HEADER
 h = st.columns(4)
 h[0].markdown("**T**")
 h[1].markdown("**1**")
 h[2].markdown("**2**")
 h[3].markdown("**3**")
 
+# ROWS
 for idx, t in enumerate(HOURS):
 
     cols = st.columns(4)
-    block = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
 
-    # TIME
+    color_class = f"time{(idx//8)%4}"
+
+    # TIME (NOT CLICKABLE anymore)
     with cols[0]:
-        st.markdown(f'<div class="{block}">', unsafe_allow_html=True)
-        st.button(t, key=f"time_{t}")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="timebox {color_class}">{t}</div>',
+            unsafe_allow_html=True
+        )
 
     # TABLES
     for i in range(3):
