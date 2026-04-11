@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# DESIGN LOCK: Your exact mobile lookout
+# Design Lock: Keeping your exact mobile outlook
 st.markdown("""
 <style>
     .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
@@ -38,35 +38,36 @@ for k in ["user","name","role","sel_date","page"]:
 if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now().date())
 if not st.session_state.page: st.session_state.page = "Booking"
 
-# ================= 2. THE ADMIN PANEL (SIMPLE) =================
+# ================= 2. THE ADMIN PANEL (SIMPLIFIED) =================
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin")
-    if st.button("← Back", use_container_width=True): 
+    if st.button("← Back to Grid", use_container_width=True): 
         st.session_state.page = "Booking"
         st.rerun()
 
-    st.subheader("👥 Users")
-    # Simple list with one-click delete
+    st.subheader("👥 User Management")
+    # Clean list with one-click delete
     for idx, u in st.session_state.users.iterrows():
         with st.container(border=True):
             c1, c2 = st.columns([4, 1])
-            c1.write(f"**{u['Name']}** ({u['Role']})\n{u['Email']}")
-            if c2.button("🗑️", key=f"u_{idx}"):
+            c1.write(f"**{u['Name']}**\n{u['Email']} ({u['Role']})")
+            if c2.button("🗑️", key=f"u_del_{idx}"):
                 st.session_state.users = st.session_state.users.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.users, USERS_FILE)
                 st.rerun()
 
-    with st.expander("➕ Add User"):
-        ae = st.text_input("Email")
-        an = st.text_input("Name")
-        ap = st.text_input("Pass")
+    with st.expander("➕ Quick Add User"):
+        ae = st.text_input("Email").strip().lower()
+        an = st.text_input("Name").strip()
+        ap = st.text_input("Pass").strip()
         ar = st.selectbox("Role", ["user","admin"])
-        if st.button("Save", use_container_width=True):
-            nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
-            st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
-            save_data(st.session_state.users, USERS_FILE)
-            st.rerun()
-    
+        if st.button("Add Now", use_container_width=True):
+            if ae and an and ap:
+                nu = pd.DataFrame([{"Email":ae,"Name":an,"Password":ap,"Role":ar}])
+                st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
+                save_data(st.session_state.users, USERS_FILE)
+                st.rerun()
+
     st.divider()
     st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
     st.stop()
@@ -83,18 +84,16 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= 4. THE COMMAND ENGINE =================
-# This handles the clicks by listening to the query string
+# ================= 4. THE COMMAND ENGINE (THE REPAIR) =================
 p = st.query_params
-if "action" in p or "date" in p:
-    if "date" in p: 
-        st.session_state.sel_date = p["date"]
-    if "action" in p:
-        act, val = p["action"], p["value"]
+if "a" in p or "d" in p:
+    if "d" in p: st.session_state.sel_date = p["d"]
+    if "a" in p:
+        act, val = p["a"], p["v"]
         if act == "book":
             t, table = val.split("|", 1)
-            new_row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, "Date": st.session_state.sel_date, "Table": table, "Time": t}])
-            st.session_state.bookings = pd.concat([st.session_state.bookings, new_row], ignore_index=True)
+            row = pd.DataFrame([{"User": st.session_state.user, "Name": st.session_state.name, "Date": st.session_state.sel_date, "Table": table, "Time": t}])
+            st.session_state.bookings = pd.concat([st.session_state.bookings, row], ignore_index=True)
             save_data(st.session_state.bookings, BOOKINGS_FILE)
         elif act == "del":
             t, table = val.split("|", 1)
@@ -118,7 +117,7 @@ for i in range(14):
     d_str = str(d)
     label = f"TOD<br>{d.day}" if i==0 else (f"TOM<br>{d.day}" if i==1 else f"{d.strftime('%a').upper()}<br>{d.day}")
     cls = "date" + (" sel" if d_str == st.session_state.sel_date else "") + (" d-today" if i==0 else "")
-    date_cells += f'<div class="{cls}" onclick="go(\'date\', \'{d_str}\')">{label}</div>'
+    date_cells += f'<div class="{cls}" onclick="go(\'d\', \'{d_str}\')">{label}</div>'
 
 grid_rows = ""
 for idx, t in enumerate(HOURS):
@@ -126,16 +125,13 @@ for idx, t in enumerate(HOURS):
     grid_rows += f'<div class="cell {band}">{t}</div>'
     for i in range(1, 4):
         table = f"Table {i}"
-        match = st.session_state.bookings[(st.session_state.bookings["Table"]==table) & 
-                                          (st.session_state.bookings["Time"]==t) & 
-                                          (st.session_state.bookings["Date"]==st.session_state.sel_date)]
+        match = st.session_state.bookings[(st.session_state.bookings["Table"]==table) & (st.session_state.bookings["Time"]==t) & (st.session_state.bookings["Date"]==st.session_state.sel_date)]
         if not match.empty:
             b_name = match.iloc[0]["Name"][:3]
             is_mine = (match.iloc[0]["User"] == st.session_state.user) or (st.session_state.role == "admin")
-            cls = "mine" if is_mine else "taken"
-            grid_rows += f'<div class="cell {cls}" onclick="{"go(\'del\', \''+t+'|'+table+'\')" if is_mine else ""}">{"✕" if is_mine else ""}{b_name}</div>'
+            grid_rows += f'<div class="cell {"mine" if is_mine else "taken"}" onclick="{"go_act(\'del\',\''+t+'|'+table+'\')" if is_mine else ""}">{"✕" if is_mine else ""}{b_name}</div>'
         else:
-            grid_rows += f'<div class="cell free" onclick="go(\'book\', \'{t}|{table}\')">+</div>'
+            grid_rows += f'<div class="cell free" onclick="go_act(\'book\',\'{t}|{table}\')">+</div>'
 
 html_code = f"""
 <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
@@ -156,14 +152,19 @@ html_code = f"""
 </style></head><body>
     <div class="dates">{date_cells}</div>
     <div class="grid">
-        <div class="cell header">Time</div><div class="cell header">T 1</div><div class="cell header">T 2</div><div class="cell header">T 3</div>
+        <div class="cell header">Time</div><div class="cell header">T1</div><div class="cell header">T2</div><div class="cell header">T3</div>
         {grid_rows}
     </div>
     <script>
-        function go(action, value) {{
+        function go(k, v) {{
             const url = new URL(window.parent.location.href);
-            url.searchParams.set('action', action);
-            url.searchParams.set('value', value);
+            url.searchParams.set(k, v);
+            window.parent.location.href = url.href;
+        }}
+        function go_act(a, v) {{
+            const url = new URL(window.parent.location.href);
+            url.searchParams.set('a', a);
+            url.searchParams.set('v', v);
             window.parent.location.href = url.href;
         }}
     </script>
