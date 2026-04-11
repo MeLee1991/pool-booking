@@ -48,201 +48,102 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= CLICK HANDLER =================
-params = st.query_params
-
-if "date" in params:
-    st.session_state.sel_date = params["date"]
-    st.query_params.clear()
-    st.rerun()
-
-if "nav" in params:
-    st.session_state.page = params["nav"]
-    st.query_params.clear()
-    st.rerun()
-
-if "book" in params:
-    t, table = params["book"].split("|")
-
-    new = pd.DataFrame([{
-        "User": st.session_state.user,
-        "Name": st.session_state.name,
-        "Date": st.session_state.sel_date,
-        "Table": table,
-        "Time": t
-    }])
-    bookings = pd.concat([bookings,new])
-    save_data(bookings, BOOKINGS_FILE)
-
-    st.query_params.clear()
-    st.rerun()
-
-if "del" in params:
-    t, table = params["del"].split("|")
-
-    match = bookings[
-        (bookings["Table"]==table)&
-        (bookings["Time"]==t)&
-        (bookings["Date"]==st.session_state.sel_date)
-    ]
-
-    bookings = bookings.drop(match.index)
-    save_data(bookings, BOOKINGS_FILE)
-
-    st.query_params.clear()
-    st.rerun()
-
-# ================= CSS =================
-st.markdown("""
-<style>
-
-.block-container {
-    max-width: 160px;
-    margin:auto;
-}
-
-/* DATE GRID */
-.dates {
-    display:grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap:4px;
-    margin-bottom:6px;
-}
-
-.date {
-    font-size:8px;
-    padding:4px;
-    text-align:center;
-    border-radius:6px;
-    background:#eee;
-    text-decoration:none;
-    color:black;
-}
-
-.date.sel {
-    background:#4f46e5;
-    color:white;
-}
-
-/* NAV */
-.nav {
-    text-align:center;
-    margin-bottom:6px;
-}
-
-/* TABLE GRID */
-.grid {
-    display:grid;
-    grid-template-columns: repeat(4, 30px);
-    gap:2px;
-}
-
-.cell {
-    width:30px;
-    height:24px;
-    font-size:8px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:5px;
-    text-decoration:none;
-}
-
-/* HEADER */
-.header {
-    background:#111;
-    color:white;
-}
-
-/* STATES */
-.free { background:#bbf7d0; }
-.mine { background:#93c5fd; }
-.taken { background:#e5e7eb; }
-
-/* TIME COLORS */
-.tA { background:#f3f4f6; }
-.tB { background:#e0f2fe; }
-.tC { background:#fef3c7; }
-.tD { background:#ede9fe; }
-
-</style>
-""", unsafe_allow_html=True)
-
-# ================= NAV BAR =================
-html = '<div class="nav">'
-html += f'{st.session_state.name} | '
-html += '<a href="?nav=booking">Booking</a> '
+# ================= TOP NAV =================
+c1, c2 = st.columns([3,1])
+c1.write(f"👤 {st.session_state.name}")
 if st.session_state.role == "admin":
-    html += '| <a href="?nav=admin">Admin</a>'
-html += '</div>'
+    if c2.button("Admin"):
+        st.session_state.page = "admin"
+        st.rerun()
+
+if st.session_state.page == "admin":
+    st.title("Admin")
+    st.write(f"Bookings: {len(bookings)}")
+    st.download_button("Download CSV", bookings.to_csv(index=False), "bookings.csv")
+    if st.button("⬅ Back"):
+        st.session_state.page = "booking"
+        st.rerun()
+    st.stop()
 
 # ================= DATE PICKER =================
 today = datetime.now().date()
 
-html += '<div class="dates">'
-for i in range(14):
-    d = today + timedelta(days=i)
-    d_str = str(d)
-    cls = "date sel" if d_str == st.session_state.sel_date else "date"
-    label = f"{d.day}.{d.strftime('%a')}"
-    html += f'<a href="?date={d_str}" class="{cls}">{label}</a>'
-html += '</div>'
+weeks = [
+    [today + timedelta(days=i) for i in range(7)],
+    [today + timedelta(days=i) for i in range(7,14)]
+]
 
-# ================= PAGE =================
-if st.session_state.page == "booking":
+for week in weeks:
+    cols = st.columns(7)
+    for i, d in enumerate(week):
+        d_str = str(d)
 
-    HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
+        label = f"{d.day}.{d.strftime('%a')}"
 
-    html += '<div class="grid">'
+        if d == today:
+            label = "TOD"
+        elif d == today + timedelta(days=1):
+            label = "TOM"
 
-    # HEADER
-    html += '<div class="cell header">T</div>'
-    html += '<div class="cell header">1</div>'
-    html += '<div class="cell header">2</div>'
-    html += '<div class="cell header">3</div>'
+        if cols[i].button(label, key=f"d_{d_str}"):
+            st.session_state.sel_date = d_str
+            st.rerun()
 
-    for idx, t in enumerate(HOURS):
+st.divider()
 
-        color = ["tA","tB","tC","tD"][(idx//8)%4]
+# ================= GRID =================
+HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-        html += f'<div class="cell {color}">{t}</div>'
+# headers
+hcols = st.columns(4)
+hcols[0].markdown("**Time**")
+hcols[1].markdown("**T1**")
+hcols[2].markdown("**T2**")
+hcols[3].markdown("**T3**")
 
-        for i in range(3):
-            table = f"Table {i+1}"
+# rows
+for idx, t in enumerate(HOURS):
 
-            match = bookings[
-                (bookings["Table"]==table)&
-                (bookings["Time"]==t)&
-                (bookings["Date"]==st.session_state.sel_date)
-            ]
+    cols = st.columns(4)
 
-            if not match.empty:
-                b_user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:3]
-
-                if b_user == st.session_state.user:
-                    html += f'<a href="?del={t}|{table}" class="cell mine">{name}</a>'
-                else:
-                    html += f'<div class="cell taken">{name}</div>'
-            else:
-                html += f'<a href="?book={t}|{table}" class="cell free">+</a>'
-
-    html += '</div>'
-
-elif st.session_state.page == "admin":
-
-    html += "<b>Admin Panel</b><br><br>"
-    html += f"Bookings: {len(bookings)}<br><br>"
-    html += "Download CSV below ⬇️"
-
-    st.markdown(html, unsafe_allow_html=True)
-
-    st.download_button(
-        "Download bookings",
-        bookings.to_csv(index=False),
-        "bookings.csv"
+    # time (colored blocks every 4h)
+    block = (idx // 8) % 4
+    colors = ["#f3f4f6","#e0f2fe","#fef3c7","#ede9fe"]
+    cols[0].markdown(
+        f"<div style='background:{colors[block]};padding:6px;border-radius:6px;text-align:center;font-size:11px'>{t}</div>",
+        unsafe_allow_html=True
     )
 
-    st.stop()
+    for i in range(3):
+        table = f"Table {i+1}"
 
-st.markdown(html, unsafe_allow_html=True)
+        match = bookings[
+            (bookings["Table"]==table)&
+            (bookings["Time"]==t)&
+            (bookings["Date"]==st.session_state.sel_date)
+        ]
+
+        if not match.empty:
+            user = match.iloc[0]["User"]
+            name = match.iloc[0]["Name"][:4]
+
+            if user == st.session_state.user:
+                if cols[i+1].button(f"❌ {name}", key=f"{t}_{i}"):
+                    bookings = bookings.drop(match.index)
+                    save_data(bookings, BOOKINGS_FILE)
+                    st.rerun()
+            else:
+                cols[i+1].button(name, key=f"{t}_{i}", disabled=True)
+
+        else:
+            if cols[i+1].button("+", key=f"{t}_{i}"):
+                new = pd.DataFrame([{
+                    "User": st.session_state.user,
+                    "Name": st.session_state.name,
+                    "Date": st.session_state.sel_date,
+                    "Table": table,
+                    "Time": t
+                }])
+                bookings = pd.concat([bookings,new])
+                save_data(bookings, BOOKINGS_FILE)
+                st.rerun()
