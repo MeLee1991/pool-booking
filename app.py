@@ -25,8 +25,6 @@ if "user" not in st.session_state:
     st.session_state.user = None
 if "name" not in st.session_state:
     st.session_state.name = None
-if "role" not in st.session_state:
-    st.session_state.role = None
 if "sel_date" not in st.session_state:
     st.session_state.sel_date = str(datetime.now().date())
 
@@ -42,93 +40,64 @@ if st.session_state.user is None:
         if not m.empty:
             st.session_state.user = e
             st.session_state.name = m.iloc[0]["Name"]
-            st.session_state.role = m.iloc[0]["Role"]
             st.rerun()
     st.stop()
 
-# ================= CLICK HANDLING =================
-params = st.query_params
+# ================= CLICK HANDLER =================
+click = st.session_state.get("click", "")
 
-if "date" in params:
-    st.session_state.sel_date = params["date"]
-    st.query_params.clear()
-    st.rerun()
+if click:
+    action, t, table = click.split("|")
 
-if "book" in params:
-    t, table = params["book"].split("|")
-    new = pd.DataFrame([{
-        "User": st.session_state.user,
-        "Name": st.session_state.name,
-        "Date": st.session_state.sel_date,
-        "Table": table,
-        "Time": t
-    }])
-    bookings = pd.concat([bookings,new])
-    save_data(bookings, BOOKINGS_FILE)
-    st.query_params.clear()
-    st.rerun()
+    if action == "book":
+        new = pd.DataFrame([{
+            "User": st.session_state.user,
+            "Name": st.session_state.name,
+            "Date": st.session_state.sel_date,
+            "Table": table,
+            "Time": t
+        }])
+        bookings = pd.concat([bookings,new])
+        save_data(bookings, BOOKINGS_FILE)
 
-if "del" in params:
-    t, table = params["del"].split("|")
-    match = bookings[
-        (bookings["Table"]==table)&
-        (bookings["Time"]==t)&
-        (bookings["Date"]==st.session_state.sel_date)
-    ]
-    bookings = bookings.drop(match.index)
-    save_data(bookings, BOOKINGS_FILE)
-    st.query_params.clear()
+    if action == "del":
+        bookings = bookings[
+            ~((bookings["Table"]==table)&
+              (bookings["Time"]==t)&
+              (bookings["Date"]==st.session_state.sel_date))
+        ]
+        save_data(bookings, BOOKINGS_FILE)
+
+    st.session_state.click = ""
     st.rerun()
 
 # ================= CSS =================
 st.markdown("""
 <style>
+.block-container { max-width:280px; margin:auto; }
 
-.block-container {
-    max-width: 280px;
-    margin:auto;
-}
-
-/* DATE GRID */
 .dates {
     display:grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7,1fr);
     gap:3px;
     margin-bottom:6px;
 }
-
 .date {
     font-size:9px;
     padding:5px;
     text-align:center;
     border-radius:6px;
     background:#eee;
-    text-decoration:none;
-    color:black;
 }
+.date.sel { background:#4f46e5; color:white; }
+.date-today { background:#22c55e; color:white; }
+.date-tomorrow { background:#3b82f6; color:white; }
 
-.date.sel {
-    background:#4f46e5;
-    color:white;
-}
-
-.date-today {
-    background:#22c55e !important;
-    color:white !important;
-}
-
-.date-tomorrow {
-    background:#3b82f6 !important;
-    color:white !important;
-}
-
-/* GRID */
 .grid {
     display:grid;
-    grid-template-columns: repeat(4, 60px);
+    grid-template-columns: repeat(4,60px);
     gap:3px;
 }
-
 .cell {
     width:60px;
     height:28px;
@@ -137,26 +106,16 @@ st.markdown("""
     align-items:center;
     justify-content:center;
     border-radius:6px;
-    text-decoration:none;
+    cursor:pointer;
 }
-
-/* HEADER */
-.header {
-    background:#111;
-    color:white;
-}
-
-/* STATES */
+.header { background:#111; color:white; }
 .free { background:#bbf7d0; }
 .mine { background:#93c5fd; }
 .taken { background:#e5e7eb; }
-
-/* TIME COLORS */
 .tA { background:#f3f4f6; }
 .tB { background:#e0f2fe; }
 .tC { background:#fef3c7; }
 .tD { background:#ede9fe; }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -181,15 +140,13 @@ for i in range(14):
     if d_str == st.session_state.sel_date:
         cls += " sel"
 
-    html += f'<a href="?date={d_str}" class="{cls}">{label}</a>'
+    html += f'<div class="{cls}" onclick="send(\'date|{d_str}|x\')">{label}</div>'
 html += '</div>'
 
 # ================= GRID =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
 html += '<div class="grid">'
-
-# header
 html += '<div class="cell header">T</div>'
 html += '<div class="cell header">1</div>'
 html += '<div class="cell header">2</div>'
@@ -198,7 +155,6 @@ html += '<div class="cell header">3</div>'
 for idx, t in enumerate(HOURS):
 
     color = ["tA","tB","tC","tD"][(idx//8)%4]
-
     html += f'<div class="cell {color}">{t}</div>'
 
     for i in range(3):
@@ -215,12 +171,24 @@ for idx, t in enumerate(HOURS):
             name = match.iloc[0]["Name"][:3]
 
             if user == st.session_state.user:
-                html += f'<a href="?del={t}|{table}" class="cell mine">{name}</a>'
+                html += f'<div class="cell mine" onclick="send(\'del|{t}|{table}\')">{name}</div>'
             else:
                 html += f'<div class="cell taken">{name}</div>'
         else:
-            html += f'<a href="?book={t}|{table}" class="cell free">+</a>'
+            html += f'<div class="cell free" onclick="send(\'book|{t}|{table}\')">+</div>'
 
 html += '</div>'
+
+# ================= JS =================
+st.markdown("""
+<script>
+function send(val){
+    window.parent.postMessage({type: "streamlit:setComponentValue", value: val}, "*");
+}
+</script>
+""", unsafe_allow_html=True)
+
+# hidden input to receive clicks
+st.text_input("hidden", key="click", label_visibility="collapsed")
 
 st.markdown(html, unsafe_allow_html=True)
