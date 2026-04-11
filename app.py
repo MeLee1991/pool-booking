@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 # ================= 1. SETUP & DATA =================
 st.set_page_config(page_title="Pool", layout="centered")
 
-# DESIGN LOCK: Keeps your exact mobile look
+# DESIGN LOCK: Keeps your exact 4-column lookout
 st.markdown("""
 <style>
     .block-container { max-width:320px !important; padding-top: 0rem !important; margin: auto; }
@@ -39,8 +39,7 @@ if not st.session_state.sel_date: st.session_state.sel_date = str(datetime.now()
 if not st.session_state.page: st.session_state.page = "Booking"
 
 # ================= 2. THE BUTTON ENGINE =================
-# This reads the clicks from the HTML. 
-# It MUST be at the top to catch the refresh.
+# This is where the "logic" lives. It catches the clicks from the grid.
 p = st.query_params
 if "a" in p or "d" in p:
     if "d" in p:
@@ -68,15 +67,16 @@ if "a" in p or "d" in p:
 # ================= 3. ADMIN PANEL (SIMPLE USER EDIT) =================
 if st.session_state.page == "Admin":
     st.title("⚙️ Admin")
-    if st.button("← Back to Grid", use_container_width=True): 
+    if st.button("← Back", use_container_width=True): 
         st.session_state.page = "Booking"
         st.rerun()
 
-    st.subheader("👥 Manage Users")
+    st.write("### 👥 Quick User Management")
+    # Loop through users and provide a delete button for each
     for idx, u in st.session_state.users.iterrows():
         with st.container(border=True):
             c1, c2 = st.columns([4, 1])
-            c1.write(f"**{u['Name']}** ({u['Role']})\n{u['Email']}")
+            c1.write(f"**{u['Name']}**\n{u['Email']} ({u['Role']})")
             if c2.button("🗑️", key=f"u_{idx}"):
                 st.session_state.users = st.session_state.users.drop(idx).reset_index(drop=True)
                 save_data(st.session_state.users, USERS_FILE)
@@ -87,16 +87,11 @@ if st.session_state.page == "Admin":
         an = st.text_input("Name")
         ap = st.text_input("Pass")
         ar = st.selectbox("Role", ["user","admin"])
-        if st.button("Save User", use_container_width=True):
+        if st.button("Save", use_container_width=True):
             nu = pd.DataFrame([{"Email":ae.lower().strip(),"Name":an,"Password":ap,"Role":ar}])
             st.session_state.users = pd.concat([st.session_state.users, nu], ignore_index=True)
             save_data(st.session_state.users, USERS_FILE)
             st.rerun()
-    
-    st.divider()
-    st.write("📊 Statistics")
-    st.metric("Total Bookings", len(st.session_state.bookings))
-    st.download_button("📥 Export CSV", st.session_state.bookings.to_csv(index=False), "bookings.csv")
     st.stop()
 
 # ================= 4. LOGIN =================
@@ -113,7 +108,7 @@ if st.session_state.user is None:
 
 # ================= 5. THE OUTLOOK (FRONT-END PROTECTED) =================
 today = datetime.now().date()
-# Full 24h cycle starting from 6 AM
+# Full cycle starting from 6 AM
 HOURS = [f"{h:02d}:{m}" for h in range(6, 24) for m in ["00","30"]] + \
         [f"{h:02d}:{m}" for h in range(0, 6) for m in ["00","30"]]
 
