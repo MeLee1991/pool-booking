@@ -20,7 +20,7 @@ def save(df, file):
 users = load(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# AUTO USER
+# AUTO TEST USER
 if "tom3@gmail.com" not in users["Email"].values:
     users = pd.concat([users, pd.DataFrame([{
         "Email":"tom3@gmail.com",
@@ -39,67 +39,68 @@ if "date" not in st.session_state: st.session_state.date=str(datetime.now().date
 # ================= LOGIN =================
 if st.session_state.user is None:
     st.title("Pool")
+
     e = st.text_input("Email", value="tom3@gmail.com")
     p = st.text_input("Password", type="password", value="1234")
 
     if st.button("Login"):
         m = users[(users["Email"]==e)&(users["Password"]==p)]
         if not m.empty:
-            st.session_state.user=e
-            st.session_state.name=m.iloc[0]["Name"]
-            st.session_state.role=m.iloc[0]["Role"]
+            st.session_state.user = e
+            st.session_state.name = m.iloc[0]["Name"]
+            st.session_state.role = m.iloc[0]["Role"]
             st.rerun()
     st.stop()
 
-# ================= CSS (CRITICAL FIX) =================
+# ================= CSS (ULTRA COMPACT) =================
 st.markdown("""
 <style>
 
-/* MOBILE WIDTH */
+/* container */
 .block-container {
-    max-width: 340px !important;
-    padding: 0.5rem !important;
+    max-width: 220px !important;
+    padding: 0.2rem !important;
     margin: auto !important;
 }
 
-/* FORCE TRUE ROW */
+/* rows */
 div[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    gap:2px !important;
 }
 
-/* FORCE 4 COLUMNS ALWAYS */
+/* columns (VERY NARROW) */
 div[data-testid="column"] {
-    flex: 0 0 70px !important;
-    width: 70px !important;
-    min-width: 70px !important;
+    flex: 0 0 28px !important;
+    width: 28px !important;
+    min-width: 28px !important;
 }
 
-/* BUTTON STYLE */
+/* buttons */
 .stButton > button {
-    width: 70px !important;
-    height: 36px !important;
-    font-size: 11px !important;
-    border-radius: 10px !important;
+    width: 28px !important;
+    height: 22px !important;
+    font-size: 7px !important;
+    padding: 0 !important;
+    border-radius: 6px !important;
 }
 
-/* COLORS */
+/* states */
 .free button { background:#bbf7d0 !important; }
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* DATE */
+/* dates */
 .date button {
-    width: 46px !important;
-    height: 36px !important;
-    font-size: 10px !important;
+    width: 24px !important;
+    height: 20px !important;
+    font-size: 6px !important;
 }
 
 .sel button {
     background:#4f46e5 !important;
     color:white !important;
-    font-weight:bold;
 }
 
 </style>
@@ -132,18 +133,17 @@ st.divider()
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# HEADER
+# header
 h = st.columns(4)
-h[0].markdown("**Time**")
-h[1].markdown("**T1**")
-h[2].markdown("**T2**")
-h[3].markdown("**T3**")
+h[0].write("T")
+h[1].write("1")
+h[2].write("2")
+h[3].write("3")
 
-# ROWS
 for t in HOURS:
     cols = st.columns(4)
 
-    cols[0].markdown(f"**{t}**")
+    cols[0].write(t)
 
     for i in range(3):
         table = f"Table {i+1}"
@@ -157,11 +157,11 @@ for t in HOURS:
         with cols[i+1]:
             if not match.empty:
                 user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:3]
+                name = match.iloc[0]["Name"][:2]  # shorter for tiny width
 
                 if user == st.session_state.user:
                     st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"❌ {name}", key=f"{t}_{i}"):
+                    if st.button(f"❌{name}", key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save(bookings, BOOKINGS_FILE)
                         st.rerun()
