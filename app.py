@@ -3,9 +3,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Pool", layout="centered")
+st.set_page_config(layout="wide")
 
-# ================= FILES =================
+# ================= DATA =================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
@@ -20,7 +20,7 @@ def save(df, file):
 users = load(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# ================= TEST USER =================
+# AUTO USER
 if "tom3@gmail.com" not in users["Email"].values:
     users = pd.concat([users, pd.DataFrame([{
         "Email":"tom3@gmail.com",
@@ -42,109 +42,76 @@ if not st.session_state.date:
 if st.session_state.user is None:
     st.title("Pool")
 
-    email = st.text_input("Email", value="tom3@gmail.com")
-    password = st.text_input("Password", type="password", value="1234")
+    e = st.text_input("Email", value="tom3@gmail.com")
+    p = st.text_input("Password", type="password", value="1234")
 
     if st.button("Login"):
-        m = users[(users["Email"] == email) & (users["Password"] == password)]
+        m = users[(users["Email"]==e)&(users["Password"]==p)]
         if not m.empty:
-            st.session_state.user = email
-            st.session_state.name = m.iloc[0]["Name"]
-            st.session_state.role = m.iloc[0]["Role"]
+            st.session_state.user=e
+            st.session_state.name=m.iloc[0]["Name"]
+            st.session_state.role=m.iloc[0]["Role"]
             st.rerun()
-
     st.stop()
 
-# ================= CSS =================
+# ================= CSS (KEY FIX) =================
 st.markdown("""
 <style>
+
+/* FULL WIDTH */
 .block-container {
-    max-width: 300px !important;
-    margin: auto;
-    padding: 0.2rem !important;
+    max-width: 100% !important;
+    padding: 0.5rem !important;
 }
 
-/* horizontal rows */
+/* FORCE TRUE GRID ROW */
 div[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 2px !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important;
 }
 
-/* FIXED compact columns */
+/* ALL CELLS SAME WIDTH */
 div[data-testid="column"] {
-    flex: 0 0 65px !important;
-    width: 65px !important;
-    min-width: 65px !important;
+    width: 100% !important;
 }
 
-/* buttons */
+/* BUTTONS FILL CELL */
 .stButton > button {
     width: 100% !important;
-    height: 34px !important;
+    height: 38px !important;
     font-size: 9px !important;
-    border-radius: 8px !important;
-    padding: 0 !important;
+    border-radius: 10px !important;
 }
 
-/* states */
+/* STATES */
 .free button { background:#bbf7d0 !important; }
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* date buttons */
-.date button {
-    width: 100% !important;
-    height: 30px !important;
-    font-size: 9px !important;
-}
-
-.sel button {
-    background:#4f46e5 !important;
-    color:white !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # ================= HEADER =================
 st.write(f"👤 {st.session_state.name} | {st.session_state.date}")
 
-# ================= DATE PICKER =================
-today = datetime.now().date()
-
-for week in [range(7), range(7,14)]:
-    cols = st.columns(7)
-    for i in week:
-        d = today + timedelta(days=i)
-        d_str = str(d)
-
-        label = f"{d.day}.{d.strftime('%a')}"
-        cls = "sel" if d_str == st.session_state.date else ""
-
-        with cols[i % 7]:
-            st.markdown(f'<div class="{cls} date">', unsafe_allow_html=True)
-            if st.button(label, key=f"d_{d_str}"):
-                st.session_state.date = d_str
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-st.divider()
-
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
-h = st.columns(4)
-h[0].write("Time")
-h[1].write("T1")
-h[2].write("T2")
-h[3].write("T3")
+# HEADER ROW
+cols = st.columns(4)
+cols[0].markdown("**Time**")
+cols[1].markdown("**T1**")
+cols[2].markdown("**T2**")
+cols[3].markdown("**T3**")
 
-# rows
+# ROWS
 for t in HOURS:
     cols = st.columns(4)
 
-    cols[0].write(t)
+    # time as button → SAME WIDTH
+    with cols[0]:
+        st.button(t, disabled=True, key=f"time_{t}")
 
     for i in range(3):
         table = f"Table {i+1}"
@@ -169,19 +136,18 @@ for t in HOURS:
                     st.markdown("</div>", unsafe_allow_html=True)
                 else:
                     st.markdown('<div class="taken">', unsafe_allow_html=True)
-                    st.button(name, key=f"{t}_{i}", disabled=True)
+                    st.button(name, disabled=True, key=f"{t}_{i}")
                     st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.markdown('<div class="free">', unsafe_allow_html=True)
                 if st.button("+", key=f"{t}_{i}"):
-                    new = pd.DataFrame([{
+                    bookings = pd.concat([bookings, pd.DataFrame([{
                         "User": st.session_state.user,
                         "Name": st.session_state.name,
                         "Date": st.session_state.date,
                         "Table": table,
                         "Time": t
-                    }])
-                    bookings = pd.concat([bookings, new], ignore_index=True)
+                    }])])
                     save(bookings, BOOKINGS_FILE)
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
