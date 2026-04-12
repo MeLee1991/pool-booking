@@ -5,12 +5,12 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Pool", layout="centered")
 
-# ================= DATA =================
+# ================= FILES =================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
 def load(file, cols):
-    if os.path.exists(file):
+    if os.path.exists(file) and os.path.getsize(file) > 0:
         return pd.read_csv(file, dtype=str)
     return pd.DataFrame(columns=cols)
 
@@ -19,6 +19,16 @@ def save(df, file):
 
 users = load(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
+
+# ================= AUTO TEST USER =================
+if "tom3@gmail.com" not in users["Email"].values:
+    users = pd.concat([users, pd.DataFrame([{
+        "Email":"tom3@gmail.com",
+        "Name":"Tom",
+        "Password":"1234",
+        "Role":"admin"
+    }])])
+    save(users, USERS_FILE)
 
 # ================= SESSION =================
 if "user" not in st.session_state: st.session_state.user=None
@@ -31,24 +41,25 @@ if "page" not in st.session_state: st.session_state.page="booking"
 if st.session_state.user is None:
     st.title("Pool")
 
-    e = st.text_input("Email")
-    p = st.text_input("Password", type="password")
+    e = st.text_input("Email", value="tom3@gmail.com")
+    p = st.text_input("Password", type="password", value="1234")
 
     if st.button("Login"):
         m = users[(users["Email"]==e)&(users["Password"]==p)]
         if not m.empty:
-            st.session_state.user=e
-            st.session_state.name=m.iloc[0]["Name"]
-            st.session_state.role=m.iloc[0]["Role"]
+            st.session_state.user = e
+            st.session_state.name = m.iloc[0]["Name"]
+            st.session_state.role = m.iloc[0]["Role"]
             st.rerun()
+
     st.stop()
 
 # ================= ADMIN =================
-if st.session_state.page=="admin":
+if st.session_state.page == "admin":
     st.title("Admin")
 
     if st.button("Back"):
-        st.session_state.page="booking"
+        st.session_state.page = "booking"
         st.rerun()
 
     st.dataframe(users, use_container_width=True)
@@ -57,20 +68,24 @@ if st.session_state.page=="admin":
     e = st.text_input("Email", key="ae")
     n = st.text_input("Name", key="an")
     p = st.text_input("Password", key="ap")
-    r = st.selectbox("Role",["user","admin"], key="ar")
+    r = st.selectbox("Role", ["user","admin"], key="ar")
 
     if st.button("Add"):
-        users = pd.concat([users, pd.DataFrame([{"Email":e,"Name":n,"Password":p,"Role":r}])])
+        users = pd.concat([users, pd.DataFrame([{
+            "Email":e,"Name":n,"Password":p,"Role":r
+        }])])
         save(users, USERS_FILE)
-        st.session_state.ae=""
-        st.session_state.an=""
-        st.session_state.ap=""
+
+        st.session_state.ae = ""
+        st.session_state.an = ""
+        st.session_state.ap = ""
+
         st.rerun()
 
     st.subheader("Delete user")
     u = st.selectbox("User", users["Email"])
     if st.button("Delete"):
-        users = users[users["Email"]!=u]
+        users = users[users["Email"] != u]
         save(users, USERS_FILE)
         st.rerun()
 
@@ -79,9 +94,9 @@ if st.session_state.page=="admin":
 # ================= HEADER =================
 st.markdown(f"**👤 {st.session_state.name} | {st.session_state.date}**")
 
-if st.session_state.role=="admin":
+if st.session_state.role == "admin":
     if st.button("Admin"):
-        st.session_state.page="admin"
+        st.session_state.page = "admin"
         st.rerun()
 
 # ================= CSS =================
@@ -119,7 +134,7 @@ div[data-testid="column"] {
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* dates */
+/* date */
 .date button {
     width:34px !important;
     height:26px !important;
@@ -143,9 +158,9 @@ for week in [range(7), range(7,14)]:
         d_str = str(d)
 
         label = f"{d.day}.{d.strftime('%a')}"
-        cls = "sel" if d_str==st.session_state.date else ""
+        cls = "sel" if d_str == st.session_state.date else ""
 
-        with cols[i%7]:
+        with cols[i % 7]:
             st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
             if st.button(label, key=f"d_{d_str}"):
                 st.session_state.date = d_str
@@ -195,4 +210,15 @@ for t in HOURS:
                     st.button(name, key=f"{t}_{i}", disabled=True)
                     st.markdown("</div>", unsafe_allow_html=True)
             else:
-                st.mark
+                st.markdown('<div class="free">', unsafe_allow_html=True)
+                if st.button("+", key=f"{t}_{i}"):
+                    bookings = pd.concat([bookings, pd.DataFrame([{
+                        "User": st.session_state.user,
+                        "Name": st.session_state.name,
+                        "Date": st.session_state.date,
+                        "Table": table,
+                        "Time": t
+                    }])])
+                    save(bookings, BOOKINGS_FILE)
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
