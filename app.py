@@ -64,8 +64,7 @@ if st.session_state.page == "Admin":
     st.subheader("Users")
 
     for idx, u in users.iterrows():
-        col1, col2, col3 = st.columns([4,2,1])
-
+        col1, col2, col3, col4 = st.columns([3,3,1,1])
         col1.write(f"{u['Name']} ({u['Role']})")
         col2.write(u["Email"])
 
@@ -73,7 +72,7 @@ if st.session_state.page == "Admin":
             st.session_state.edit_user = idx
             st.rerun()
 
-        if st.button("🗑️", key=f"del_{idx}"):
+        if col4.button("🗑️", key=f"del_{idx}"):
             users = users.drop(idx).reset_index(drop=True)
             st.session_state.users = users
             save_data(users, USERS_FILE)
@@ -83,7 +82,6 @@ if st.session_state.page == "Admin":
 
     # ===== ADD / EDIT =====
     mode = "Add" if st.session_state.edit_user is None else "Edit"
-
     st.subheader(f"{mode} User")
 
     if st.session_state.edit_user is not None:
@@ -96,9 +94,9 @@ if st.session_state.page == "Admin":
         default_email = default_name = default_pass = ""
         default_role = "user"
 
-    email = st.text_input("Email", value=default_email, key="email")
-    name = st.text_input("Name", value=default_name, key="name")
-    password = st.text_input("Password", value=default_pass, key="pass")
+    email = st.text_input("Email", value=default_email, key="email_input")
+    name = st.text_input("Name", value=default_name, key="name_input")
+    password = st.text_input("Password", value=default_pass, key="password_input")
     role = st.selectbox("Role", ["user","admin"], index=0 if default_role=="user" else 1)
 
     if st.button("Save User"):
@@ -113,9 +111,9 @@ if st.session_state.page == "Admin":
 
         # RESET FORM
         st.session_state.edit_user = None
-        st.session_state.email = ""
-        st.session_state.name = ""
-        st.session_state.pass = ""
+        st.session_state.email_input = ""
+        st.session_state.name_input = ""
+        st.session_state.password_input = ""
 
         st.rerun()
 
