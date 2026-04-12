@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 
 st.set_page_config(layout="wide")
 
@@ -20,7 +20,7 @@ def save(df, file):
 users = load(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# AUTO USER
+# test user
 if "tom3@gmail.com" not in users["Email"].values:
     users = pd.concat([users, pd.DataFrame([{
         "Email":"tom3@gmail.com",
@@ -40,8 +40,6 @@ if not st.session_state.date:
 
 # ================= LOGIN =================
 if st.session_state.user is None:
-    st.title("Pool")
-
     e = st.text_input("Email", value="tom3@gmail.com")
     p = st.text_input("Password", type="password", value="1234")
 
@@ -54,40 +52,44 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= CSS (KEY FIX) =================
+# ================= CSS =================
 st.markdown("""
 <style>
 
-/* FULL WIDTH */
 .block-container {
     max-width: 100% !important;
-    padding: 0.5rem !important;
+    padding: 0.4rem !important;
 }
 
-/* FORCE TRUE GRID ROW */
+/* GRID */
 div[data-testid="stHorizontalBlock"] {
-    display: grid !important;
+    display:grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
-    gap: 4px !important;
+    gap:3px !important;
 }
 
-/* ALL CELLS SAME WIDTH */
-div[data-testid="column"] {
-    width: 100% !important;
-}
-
-/* BUTTONS FILL CELL */
+/* BUTTONS */
 .stButton > button {
-    width: 100% !important;
-    height: 38px !important;
-    font-size: 9px !important;
-    border-radius: 10px !important;
+    width:100% !important;
+    height:36px !important;
+    font-size:9px !important;
+    border-radius:8px !important;
+    padding:0 2px !important;
+    overflow:hidden !important;
+    white-space:nowrap !important;
+    text-overflow:ellipsis !important;
 }
 
-/* STATES */
-.free button { background:#bbf7d0 !important; }
-.mine button { background:#93c5fd !important; }
-.taken button { background:#e5e7eb !important; }
+/* COLORS */
+.free button { background:#bbf7d0 !important; }   /* light green */
+.taken button { background:#fecaca !important; }  /* light red */
+.mine button { background:#93c5fd !important; }   /* blue */
+
+/* TIME BANDS */
+.band0 button { background:#f3f4f6 !important; }
+.band1 button { background:#e0f2fe !important; }
+.band2 button { background:#fef3c7 !important; }
+.band3 button { background:#ede9fe !important; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -98,46 +100,55 @@ st.write(f"👤 {st.session_state.name} | {st.session_state.date}")
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# HEADER ROW
-cols = st.columns(4)
-cols[0].markdown("**Time**")
-cols[1].markdown("**T1**")
-cols[2].markdown("**T2**")
-cols[3].markdown("**T3**")
+# header
+h = st.columns(4)
+h[0].button("Time", disabled=True)
+h[1].button("T1", disabled=True)
+h[2].button("T2", disabled=True)
+h[3].button("T3", disabled=True)
 
-# ROWS
-for t in HOURS:
+# rows
+for idx, t in enumerate(HOURS):
+
     cols = st.columns(4)
 
-    # time as button → SAME WIDTH
+    # 4-hour band (8 slots)
+    band = f"band{(idx//8)%4}"
+
+    # TIME COLUMN (same button!)
     with cols[0]:
+        st.markdown(f'<div class="{band}">', unsafe_allow_html=True)
         st.button(t, disabled=True, key=f"time_{t}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
     for i in range(3):
         table = f"Table {i+1}"
 
         match = bookings[
-            (bookings["Table"] == table) &
-            (bookings["Time"] == t) &
-            (bookings["Date"] == st.session_state.date)
+            (bookings["Table"]==table) &
+            (bookings["Time"]==t) &
+            (bookings["Date"]==st.session_state.date)
         ]
 
         with cols[i+1]:
+
             if not match.empty:
                 user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:3]
+                name = match.iloc[0]["Name"][:6]  # FIT TEXT
 
                 if user == st.session_state.user:
                     st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"❌{name}", key=f"{t}_{i}"):
+                    if st.button(f"✕{name}", key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save(bookings, BOOKINGS_FILE)
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
+
                 else:
                     st.markdown('<div class="taken">', unsafe_allow_html=True)
                     st.button(name, disabled=True, key=f"{t}_{i}")
                     st.markdown("</div>", unsafe_allow_html=True)
+
             else:
                 st.markdown('<div class="free">', unsafe_allow_html=True)
                 if st.button("+", key=f"{t}_{i}"):
