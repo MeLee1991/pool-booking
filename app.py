@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="centered")
 
 # ================= DATA =================
 USERS_FILE = "users.csv"
@@ -56,40 +56,52 @@ if st.session_state.user is None:
 st.markdown("""
 <style>
 
+/* compact container */
 .block-container {
-    max-width: 100% !important;
-    padding: 0.4rem !important;
+    max-width: 300px !important;
+    margin: auto;
+    padding: 0.3rem !important;
 }
 
-/* GRID */
+/* 4 tight columns */
 div[data-testid="stHorizontalBlock"] {
-    display:grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
+    display:flex !important;
+    flex-wrap:nowrap !important;
     gap:3px !important;
 }
 
-/* BUTTONS */
+/* fixed column width */
+div[data-testid="column"] {
+    flex: 0 0 65px !important;
+    max-width: 65px !important;
+    min-width: 65px !important;
+}
+
+/* FIXED BUTTON SIZE */
 .stButton > button {
-    width:100% !important;
-    height:36px !important;
+    width:65px !important;
+    height:34px !important;
     font-size:9px !important;
     border-radius:8px !important;
-    padding:0 2px !important;
-    overflow:hidden !important;
-    white-space:nowrap !important;
-    text-overflow:ellipsis !important;
+    padding:0 !important;
+
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
 }
 
 /* COLORS */
-.free button { background:#bbf7d0 !important; }   /* light green */
-.taken button { background:#fecaca !important; }  /* light red */
-.mine button { background:#93c5fd !important; }   /* blue */
+.free button {
+    background:#bbf7d0 !important;   /* green */
+}
 
-/* TIME BANDS */
-.band0 button { background:#f3f4f6 !important; }
-.band1 button { background:#e0f2fe !important; }
-.band2 button { background:#fef3c7 !important; }
-.band3 button { background:#ede9fe !important; }
+.taken button {
+    background:#fecaca !important;   /* red */
+}
+
+.mine button {
+    background:#93c5fd !important;   /* blue */
+}
 
 </style>
 """, unsafe_allow_html=True)
@@ -108,37 +120,30 @@ h[2].button("T2", disabled=True)
 h[3].button("T3", disabled=True)
 
 # rows
-for idx, t in enumerate(HOURS):
-
+for t in HOURS:
     cols = st.columns(4)
 
-    # 4-hour band (8 slots)
-    band = f"band{(idx//8)%4}"
-
-    # TIME COLUMN (same button!)
+    # TIME COLUMN (same size button)
     with cols[0]:
-        st.markdown(f'<div class="{band}">', unsafe_allow_html=True)
         st.button(t, disabled=True, key=f"time_{t}")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     for i in range(3):
         table = f"Table {i+1}"
 
         match = bookings[
-            (bookings["Table"]==table) &
-            (bookings["Time"]==t) &
-            (bookings["Date"]==st.session_state.date)
+            (bookings["Table"] == table) &
+            (bookings["Time"] == t) &
+            (bookings["Date"] == st.session_state.date)
         ]
 
         with cols[i+1]:
 
             if not match.empty:
                 user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:6]  # FIT TEXT
 
                 if user == st.session_state.user:
                     st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"✕{name}", key=f"{t}_{i}"):
+                    if st.button("X", key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save(bookings, BOOKINGS_FILE)
                         st.rerun()
@@ -146,12 +151,12 @@ for idx, t in enumerate(HOURS):
 
                 else:
                     st.markdown('<div class="taken">', unsafe_allow_html=True)
-                    st.button(name, disabled=True, key=f"{t}_{i}")
+                    st.button("X", key=f"{t}_{i}", disabled=True)
                     st.markdown("</div>", unsafe_allow_html=True)
 
             else:
                 st.markdown('<div class="free">', unsafe_allow_html=True)
-                if st.button("+", key=f"{t}_{i}"):
+                if st.button("", key=f"{t}_{i}"):
                     bookings = pd.concat([bookings, pd.DataFrame([{
                         "User": st.session_state.user,
                         "Name": st.session_state.name,
