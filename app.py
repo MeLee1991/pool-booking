@@ -31,10 +31,12 @@ if "tom3@gmail.com" not in users["Email"].values:
     save(users, USERS_FILE)
 
 # ================= SESSION =================
-if "user" not in st.session_state: st.session_state.user=None
-if "name" not in st.session_state: st.session_state.name=None
-if "role" not in st.session_state: st.session_state.role=None
-if "date" not in st.session_state: st.session_state.date=str(datetime.now().date())
+for k in ["user","name","role","date"]:
+    if k not in st.session_state:
+        st.session_state[k] = None
+
+if not st.session_state.date:
+    st.session_state.date = str(datetime.now().date())
 
 # ================= LOGIN =================
 if st.session_state.user is None:
@@ -52,7 +54,7 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= CSS (REAL FIX) =================
+# ================= CSS (FINAL CORRECT) =================
 st.markdown("""
 <style>
 
@@ -70,18 +72,20 @@ div[data-testid="stHorizontalBlock"] {
     gap:2px !important;
 }
 
-/* 🔥 columns shrink to content */
+/* 🔥 FIXED SMALL COLUMNS */
 div[data-testid="column"] {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
+    flex: 0 0 60px !important;
+    width: 60px !important;
+    min-width: 60px !important;
+    padding:0 !important;
 }
 
-/* 🔥 buttons fill columns */
+/* 🔥 BUTTON = FULL COLUMN */
 .stButton > button {
-    width: 100% !important;
-    height: 34px !important;
-    font-size: 9px !important;
-    border-radius: 8px !important;
+    width:100% !important;
+    height:34px !important;
+    font-size:9px !important;
+    border-radius:8px !important;
     padding:0 !important;
 }
 
@@ -93,7 +97,7 @@ div[data-testid="column"] {
 /* dates */
 .date button {
     width:100% !important;
-    height:28px !important;
+    height:30px !important;
     font-size:9px !important;
 }
 
@@ -108,7 +112,7 @@ div[data-testid="column"] {
 # ================= HEADER =================
 st.write(f"👤 {st.session_state.name} | {st.session_state.date}")
 
-# ================= DATES =================
+# ================= DATE PICKER =================
 today = datetime.now().date()
 
 for week in [range(7), range(7,14)]:
@@ -148,37 +152,4 @@ for t in HOURS:
         table = f"Table {i+1}"
 
         match = bookings[
-            (bookings["Table"]==table)&
-            (bookings["Time"]==t)&
-            (bookings["Date"]==st.session_state.date)
-        ]
-
-        with cols[i+1]:
-            if not match.empty:
-                user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:3]
-
-                if user == st.session_state.user:
-                    st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"❌{name}", key=f"{t}_{i}"):
-                        bookings = bookings.drop(match.index)
-                        save(bookings, BOOKINGS_FILE)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="taken">', unsafe_allow_html=True)
-                    st.button(name, key=f"{t}_{i}", disabled=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="free">', unsafe_allow_html=True)
-                if st.button("+", key=f"{t}_{i}"):
-                    bookings = pd.concat([bookings, pd.DataFrame([{
-                        "User": st.session_state.user,
-                        "Name": st.session_state.name,
-                        "Date": st.session_state.date,
-                        "Table": table,
-                        "Time": t
-                    }])])
-                    save(bookings, BOOKINGS_FILE)
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+            (bookings["Table"]==
