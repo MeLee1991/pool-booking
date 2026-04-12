@@ -77,7 +77,7 @@ if st.session_state.page=="admin":
     st.stop()
 
 # ================= HEADER =================
-st.write(f"👤 {st.session_state.name} | {st.session_state.date}")
+st.markdown(f"**👤 {st.session_state.name} | {st.session_state.date}**")
 
 if st.session_state.role=="admin":
     if st.button("Admin"):
@@ -87,23 +87,31 @@ if st.session_state.role=="admin":
 # ================= CSS =================
 st.markdown("""
 <style>
-.block-container { max-width:340px; margin:auto; }
+.block-container {
+    max-width: 280px !important;
+    padding: 0.3rem !important;
+    margin: auto !important;
+}
 
 div[data-testid="stHorizontalBlock"] {
     display:flex !important;
     flex-wrap:nowrap !important;
-    gap:3px !important;
+    gap:2px !important;
 }
 
-[data-testid="column"] {
-    flex:0 0 auto !important;
-    width:70px !important;
+div[data-testid="column"] {
+    flex:0 0 48px !important;
+    width:48px !important;
+    min-width:48px !important;
+    padding:0 !important;
 }
 
 .stButton > button {
-    width:70px !important;
-    height:30px !important;
-    font-size:9px !important;
+    width:48px !important;
+    height:24px !important;
+    font-size:8px !important;
+    padding:0 !important;
+    border-radius:4px !important;
 }
 
 /* states */
@@ -111,8 +119,17 @@ div[data-testid="stHorizontalBlock"] {
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* selected date */
-.sel button { background:#4f46e5 !important; color:white !important; }
+/* dates */
+.date button {
+    width:34px !important;
+    height:26px !important;
+    font-size:7px !important;
+}
+
+.sel button {
+    background:#4f46e5 !important;
+    color:white !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -164,24 +181,18 @@ for t in HOURS:
         with cols[i+1]:
             if not match.empty:
                 user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:4]
+                name = match.iloc[0]["Name"][:3]
 
                 if user == st.session_state.user:
-                    if st.button(f"❌ {name}", key=f"{t}_{i}"):
+                    st.markdown('<div class="mine">', unsafe_allow_html=True)
+                    if st.button(f"❌{name}", key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save(bookings, BOOKINGS_FILE)
                         st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
                 else:
+                    st.markdown('<div class="taken">', unsafe_allow_html=True)
                     st.button(name, key=f"{t}_{i}", disabled=True)
-
+                    st.markdown("</div>", unsafe_allow_html=True)
             else:
-                if st.button("+", key=f"{t}_{i}"):
-                    bookings = pd.concat([bookings, pd.DataFrame([{
-                        "User": st.session_state.user,
-                        "Name": st.session_state.name,
-                        "Date": st.session_state.date,
-                        "Table": table,
-                        "Time": t
-                    }])])
-                    save(bookings, BOOKINGS_FILE)
-                    st.rerun()
+                st.mark
