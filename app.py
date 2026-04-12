@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Pool", layout="centered")
 
-# ================= FILES =================
+# ================= DATA =================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 
@@ -20,7 +20,7 @@ def save(df, file):
 users = load(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# ================= AUTO TEST USER =================
+# AUTO USER
 if "tom3@gmail.com" not in users["Email"].values:
     users = pd.concat([users, pd.DataFrame([{
         "Email":"tom3@gmail.com",
@@ -30,159 +30,110 @@ if "tom3@gmail.com" not in users["Email"].values:
     }])])
     save(users, USERS_FILE)
 
-# ================= SESSION =================
+# SESSION
 if "user" not in st.session_state: st.session_state.user=None
 if "name" not in st.session_state: st.session_state.name=None
 if "role" not in st.session_state: st.session_state.role=None
 if "date" not in st.session_state: st.session_state.date=str(datetime.now().date())
-if "page" not in st.session_state: st.session_state.page="booking"
 
-# ================= LOGIN =================
+# LOGIN
 if st.session_state.user is None:
     st.title("Pool")
-
     e = st.text_input("Email", value="tom3@gmail.com")
     p = st.text_input("Password", type="password", value="1234")
 
     if st.button("Login"):
         m = users[(users["Email"]==e)&(users["Password"]==p)]
         if not m.empty:
-            st.session_state.user = e
-            st.session_state.name = m.iloc[0]["Name"]
-            st.session_state.role = m.iloc[0]["Role"]
+            st.session_state.user=e
+            st.session_state.name=m.iloc[0]["Name"]
+            st.session_state.role=m.iloc[0]["Role"]
             st.rerun()
-
     st.stop()
 
-# ================= ADMIN =================
-if st.session_state.page == "admin":
-    st.title("Admin")
-
-    if st.button("Back"):
-        st.session_state.page = "booking"
-        st.rerun()
-
-    st.dataframe(users, use_container_width=True)
-
-    st.subheader("Add user")
-    e = st.text_input("Email", key="ae")
-    n = st.text_input("Name", key="an")
-    p = st.text_input("Password", key="ap")
-    r = st.selectbox("Role", ["user","admin"], key="ar")
-
-    if st.button("Add"):
-        users = pd.concat([users, pd.DataFrame([{
-            "Email":e,"Name":n,"Password":p,"Role":r
-        }])])
-        save(users, USERS_FILE)
-
-        st.session_state.ae = ""
-        st.session_state.an = ""
-        st.session_state.ap = ""
-
-        st.rerun()
-
-    st.subheader("Delete user")
-    u = st.selectbox("User", users["Email"])
-    if st.button("Delete"):
-        users = users[users["Email"] != u]
-        save(users, USERS_FILE)
-        st.rerun()
-
-    st.stop()
-
-# ================= HEADER =================
-st.markdown(f"**👤 {st.session_state.name} | {st.session_state.date}**")
-
-if st.session_state.role == "admin":
-    if st.button("Admin"):
-        st.session_state.page = "admin"
-        st.rerun()
-
-# ================= CSS =================
+# ================= STYLE =================
 st.markdown("""
 <style>
-.block-container {
-    max-width: 280px !important;
-    padding: 0.3rem !important;
-    margin: auto !important;
+.block-container { max-width:340px; margin:auto; }
+
+.grid {
+    display:grid;
+    grid-template-columns: 60px 1fr 1fr 1fr;
+    gap:6px;
 }
 
-div[data-testid="stHorizontalBlock"] {
-    display:flex !important;
-    flex-wrap:nowrap !important;
-    gap:2px !important;
+.cell {
+    height:36px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:8px;
+    font-size:11px;
+    cursor:pointer;
 }
 
-div[data-testid="column"] {
-    flex:0 0 48px !important;
-    width:48px !important;
-    min-width:48px !important;
-    padding:0 !important;
+.header { background:#111; color:white; font-weight:bold; }
+.free { background:#bbf7d0; }
+.mine { background:#93c5fd; }
+.taken { background:#e5e7eb; }
+
+.time { background:#f3f4f6; }
+
+.date-row {
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:6px;
+    margin-bottom:8px;
 }
 
-.stButton > button {
-    width:48px !important;
-    height:24px !important;
-    font-size:8px !important;
-    padding:0 !important;
-    border-radius:4px !important;
+.date {
+    padding:8px 0;
+    background:#e5e7eb;
+    text-align:center;
+    border-radius:8px;
+    font-size:10px;
+    cursor:pointer;
 }
 
-/* states */
-.free button { background:#bbf7d0 !important; }
-.mine button { background:#93c5fd !important; }
-.taken button { background:#e5e7eb !important; }
-
-/* date */
-.date button {
-    width:34px !important;
-    height:26px !important;
-    font-size:7px !important;
-}
-
-.sel button {
-    background:#4f46e5 !important;
-    color:white !important;
-}
+.sel { background:#4f46e5 !important; color:white; }
 </style>
 """, unsafe_allow_html=True)
 
 # ================= DATE PICKER =================
 today = datetime.now().date()
 
-for week in [range(7), range(7,14)]:
-    cols = st.columns(7)
-    for i in week:
+for w in [0,7]:
+    st.markdown('<div class="date-row">', unsafe_allow_html=True)
+    for i in range(w, w+7):
         d = today + timedelta(days=i)
         d_str = str(d)
 
-        label = f"{d.day}.{d.strftime('%a')}"
-        cls = "sel" if d_str == st.session_state.date else ""
+        cls = "date"
+        if d_str == st.session_state.date:
+            cls += " sel"
 
-        with cols[i % 7]:
-            st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-            if st.button(label, key=f"d_{d_str}"):
-                st.session_state.date = d_str
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+        if st.button(f"{d.day}.{d.strftime('%a')}", key=f"d_{d_str}"):
+            st.session_state.date = d_str
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-st.divider()
+st.markdown("---")
 
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
-h = st.columns(4)
-h[0].write("T")
-h[1].write("1")
-h[2].write("2")
-h[3].write("3")
+# HEADER
+st.markdown('<div class="grid">', unsafe_allow_html=True)
+for h in ["Time","T1","T2","T3"]:
+    st.markdown(f'<div class="cell header">{h}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
+# ROWS
 for t in HOURS:
-    cols = st.columns(4)
+    st.markdown('<div class="grid">', unsafe_allow_html=True)
 
-    cols[0].write(t)
+    # TIME
+    st.markdown(f'<div class="cell time">{t}</div>', unsafe_allow_html=True)
 
     for i in range(3):
         table = f"Table {i+1}"
@@ -193,32 +144,30 @@ for t in HOURS:
             (bookings["Date"]==st.session_state.date)
         ]
 
-        with cols[i+1]:
-            if not match.empty:
-                user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:3]
+        key = f"{t}_{i}"
 
-                if user == st.session_state.user:
-                    st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"❌{name}", key=f"{t}_{i}"):
-                        bookings = bookings.drop(match.index)
-                        save(bookings, BOOKINGS_FILE)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="taken">', unsafe_allow_html=True)
-                    st.button(name, key=f"{t}_{i}", disabled=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="free">', unsafe_allow_html=True)
-                if st.button("+", key=f"{t}_{i}"):
-                    bookings = pd.concat([bookings, pd.DataFrame([{
-                        "User": st.session_state.user,
-                        "Name": st.session_state.name,
-                        "Date": st.session_state.date,
-                        "Table": table,
-                        "Time": t
-                    }])])
+        if not match.empty:
+            user = match.iloc[0]["User"]
+            name = match.iloc[0]["Name"][:3]
+
+            if user == st.session_state.user:
+                if st.button(f"❌{name}", key=key):
+                    bookings = bookings.drop(match.index)
                     save(bookings, BOOKINGS_FILE)
                     st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.button(name, key=key, disabled=True)
+
+        else:
+            if st.button("+", key=key):
+                bookings = pd.concat([bookings, pd.DataFrame([{
+                    "User": st.session_state.user,
+                    "Name": st.session_state.name,
+                    "Date": st.session_state.date,
+                    "Table": table,
+                    "Time": t
+                }])])
+                save(bookings, BOOKINGS_FILE)
+                st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
