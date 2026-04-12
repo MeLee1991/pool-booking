@@ -22,25 +22,23 @@ if "users" not in st.session_state:
 if "bookings" not in st.session_state:
     st.session_state.bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-for k in ["user","name","role","sel_date","page"]:
+for k in ["user","name","role","sel_date"]:
     if k not in st.session_state:
         st.session_state[k] = None
 
 if not st.session_state.sel_date:
     st.session_state.sel_date = str(datetime.now().date())
-if not st.session_state.page:
-    st.session_state.page = "Booking"
 
 # ================= LOGIN =================
 if st.session_state.user is None:
-    st.title("Pool Login")
+    st.title("Pool")
 
-    e = st.text_input("Email").lower().strip()
+    e = st.text_input("Email")
     p = st.text_input("Password", type="password")
 
     if st.button("Login"):
         m = st.session_state.users[
-            (st.session_state.users["Email"]==e) &
+            (st.session_state.users["Email"]==e)&
             (st.session_state.users["Password"]==p)
         ]
         if not m.empty:
@@ -50,71 +48,67 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= ADMIN =================
-if st.session_state.page == "Admin":
-    st.title("Admin")
-
-    if st.button("← Back"):
-        st.session_state.page = "Booking"
-        st.rerun()
-
-    st.subheader("Users")
-    st.dataframe(st.session_state.users)
-
-    e = st.text_input("Email")
-    n = st.text_input("Name")
-    p = st.text_input("Password")
-    r = st.selectbox("Role", ["user","admin"])
-
-    if st.button("Add User"):
-        new = pd.DataFrame([{"Email":e,"Name":n,"Password":p,"Role":r}])
-        st.session_state.users = pd.concat([st.session_state.users,new], ignore_index=True)
-        save_data(st.session_state.users, USERS_FILE)
-        st.rerun()
-
-    st.download_button("Download bookings", st.session_state.bookings.to_csv(index=False))
-    st.stop()
-
 # ================= CSS =================
 st.markdown("""
 <style>
-.block-container { max-width: 320px; margin:auto; }
+.block-container { max-width:340px; margin:auto; }
 
-div[data-testid="stHorizontalBlock"] {
-    display:flex !important;
-    flex-wrap:nowrap !important;
-    gap:3px !important;
+/* FORCE 4 COLUMN GRID */
+.row {
+    display:flex;
+    gap:4px;
+    margin-bottom:4px;
 }
 
-[data-testid="column"] {
-    flex:0 0 auto !important;
-    width:70px !important;
+/* each cell */
+.cell {
+    width:70px;
+    height:32px;
+    font-size:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
 }
 
-/* buttons */
-.stButton > button {
-    width:70px !important;
-    height:28px !important;
-    font-size:9px !important;
-    border-radius:6px !important;
+/* headers */
+.header {
+    background:#111;
+    color:white;
+    font-weight:bold;
 }
-
-/* date */
-.date button { width:45px !important; height:30px !important; }
-.sel button { background:#4f46e5 !important; color:white; }
-.tod button { background:#22c55e !important; color:white; }
-.tom button { background:#3b82f6 !important; color:white; }
 
 /* states */
 .free button { background:#bbf7d0 !important; }
 .mine button { background:#93c5fd !important; }
 .taken button { background:#e5e7eb !important; }
 
-/* time blocks */
-.timeA { background:#f3f4f6; padding:4px; border-radius:6px; text-align:center; }
-.timeB { background:#e0f2fe; padding:4px; border-radius:6px; text-align:center; }
-.timeC { background:#fef3c7; padding:4px; border-radius:6px; text-align:center; }
-.timeD { background:#ede9fe; padding:4px; border-radius:6px; text-align:center; }
+/* time color blocks */
+.timeA { background:#f3f4f6; }
+.timeB { background:#e0f2fe; }
+.timeC { background:#fef3c7; }
+.timeD { background:#ede9fe; }
+
+/* buttons EXACT size */
+.stButton > button {
+    width:70px !important;
+    height:32px !important;
+    font-size:10px !important;
+    border-radius:6px !important;
+    padding:0 !important;
+}
+
+/* dates */
+.date button {
+    width:42px !important;
+    height:34px !important;
+    font-size:9px !important;
+}
+
+.sel button { background:#4f46e5 !important; color:white; }
+.tod button { background:#22c55e !important; color:white; }
+.tom button { background:#3b82f6 !important; color:white; }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -152,39 +146,42 @@ st.divider()
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
-h = st.columns(4)
-h[0].markdown("**T**")
-h[1].markdown("**1**")
-h[2].markdown("**2**")
-h[3].markdown("**3**")
+# HEADER ROW
+cols = st.columns(4)
+cols[0].markdown('<div class="cell header">Time</div>', unsafe_allow_html=True)
+cols[1].markdown('<div class="cell header">T1</div>', unsafe_allow_html=True)
+cols[2].markdown('<div class="cell header">T2</div>', unsafe_allow_html=True)
+cols[3].markdown('<div class="cell header">T3</div>', unsafe_allow_html=True)
 
+# DATA ROWS
 for idx, t in enumerate(HOURS):
 
     cols = st.columns(4)
     block = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
 
-    # TIME (not clickable)
+    # TIME (aligned properly now)
     with cols[0]:
-        st.markdown(f'<div class="{block}">{t}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="cell {block}">{t}</div>', unsafe_allow_html=True)
 
+    # TABLES
     for i in range(3):
         table = f"Table {i+1}"
 
         match = st.session_state.bookings[
-            (st.session_state.bookings["Table"]==table) &
-            (st.session_state.bookings["Time"]==t) &
+            (st.session_state.bookings["Table"]==table)&
+            (st.session_state.bookings["Time"]==t)&
             (st.session_state.bookings["Date"]==st.session_state.sel_date)
         ]
 
         with cols[i+1]:
+
             if not match.empty:
                 user = match.iloc[0]["User"]
                 name = match.iloc[0]["Name"][:4]
 
                 if user == st.session_state.user:
                     st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"❌ {name}", key=f"{t}_{i}"):
+                    if st.button(f"✕ {name}", key=f"{t}_{i}"):
                         st.session_state.bookings = st.session_state.bookings.drop(match.index)
                         save_data(st.session_state.bookings, BOOKINGS_FILE)
                         st.rerun()
@@ -193,6 +190,7 @@ for idx, t in enumerate(HOURS):
                     st.markdown('<div class="taken">', unsafe_allow_html=True)
                     st.button(name, key=f"{t}_{i}", disabled=True)
                     st.markdown("</div>", unsafe_allow_html=True)
+
             else:
                 st.markdown('<div class="free">', unsafe_allow_html=True)
                 if st.button("+", key=f"{t}_{i}"):
@@ -210,8 +208,3 @@ for idx, t in enumerate(HOURS):
 
 # ================= HEADER =================
 st.write(f"👤 {st.session_state.name} | {st.session_state.sel_date}")
-
-if st.session_state.role == "admin":
-    if st.button("Admin"):
-        st.session_state.page = "Admin"
-        st.rerun()
