@@ -23,7 +23,7 @@ if "users" not in st.session_state:
 if "bookings" not in st.session_state:
     st.session_state.bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-for k in ["user","name","role","sel_date","page"]:
+for k in ["user","name","role","sel_date","page","edit_user"]:
     if k not in st.session_state:
         st.session_state[k] = None
 
@@ -59,21 +59,66 @@ if st.session_state.page == "Admin":
         st.session_state.page = "Booking"
         st.rerun()
 
+    users = st.session_state.users
+
     st.subheader("Users")
-    st.dataframe(st.session_state.users)
 
-    e = st.text_input("Email")
-    n = st.text_input("Name")
-    p = st.text_input("Password")
-    r = st.selectbox("Role", ["user","admin"])
+    for idx, u in users.iterrows():
+        col1, col2, col3 = st.columns([4,2,1])
 
-    if st.button("Add User"):
-        new = pd.DataFrame([{"Email":e,"Name":n,"Password":p,"Role":r}])
-        st.session_state.users = pd.concat([st.session_state.users,new], ignore_index=True)
-        save_data(st.session_state.users, USERS_FILE)
+        col1.write(f"{u['Name']} ({u['Role']})")
+        col2.write(u["Email"])
+
+        if col3.button("✏️", key=f"edit_{idx}"):
+            st.session_state.edit_user = idx
+            st.rerun()
+
+        if st.button("🗑️", key=f"del_{idx}"):
+            users = users.drop(idx).reset_index(drop=True)
+            st.session_state.users = users
+            save_data(users, USERS_FILE)
+            st.rerun()
+
+    st.divider()
+
+    # ===== ADD / EDIT =====
+    mode = "Add" if st.session_state.edit_user is None else "Edit"
+
+    st.subheader(f"{mode} User")
+
+    if st.session_state.edit_user is not None:
+        u = users.iloc[st.session_state.edit_user]
+        default_email = u["Email"]
+        default_name = u["Name"]
+        default_pass = u["Password"]
+        default_role = u["Role"]
+    else:
+        default_email = default_name = default_pass = ""
+        default_role = "user"
+
+    email = st.text_input("Email", value=default_email, key="email")
+    name = st.text_input("Name", value=default_name, key="name")
+    password = st.text_input("Password", value=default_pass, key="pass")
+    role = st.selectbox("Role", ["user","admin"], index=0 if default_role=="user" else 1)
+
+    if st.button("Save User"):
+        if st.session_state.edit_user is None:
+            new = pd.DataFrame([{"Email":email,"Name":name,"Password":password,"Role":role}])
+            users = pd.concat([users,new], ignore_index=True)
+        else:
+            users.loc[st.session_state.edit_user] = [email,name,password,role]
+
+        st.session_state.users = users
+        save_data(users, USERS_FILE)
+
+        # RESET FORM
+        st.session_state.edit_user = None
+        st.session_state.email = ""
+        st.session_state.name = ""
+        st.session_state.pass = ""
+
         st.rerun()
 
-    st.download_button("Download bookings", st.session_state.bookings.to_csv(index=False))
     st.stop()
 
 # ================= ACTION HANDLER =================
@@ -120,7 +165,7 @@ if st.session_state.role == "admin":
         st.session_state.page = "Admin"
         st.rerun()
 
-# ================= BUILD HTML =================
+# ================= GRID =================
 today = datetime.now().date()
 
 date_html = ""
@@ -148,7 +193,6 @@ HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 grid_html = ""
 for idx, t in enumerate(HOURS):
     band = ["tA","tB","tC","tD"][(idx//8)%4]
-
     grid_html += f"<div class='cell time {band}'>{t}</div>"
 
     for i in range(1,4):
@@ -173,42 +217,16 @@ for idx, t in enumerate(HOURS):
 
 html = f"""
 <style>
-.dates {{
-    display:grid;
-    grid-template-columns:repeat(7,1fr);
-    gap:4px;
-    margin-bottom:10px;
-}}
-
-.date {{
-    font-size:9px;
-    padding:6px;
-    text-align:center;
-    border-radius:6px;
-    background:#e5e7eb;
-}}
-
+.dates {{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:10px; }}
+.date {{ font-size:9px; padding:6px; text-align:center; border-radius:6px; background:#e5e7eb; }}
 .sel {{ background:#4f46e5; color:white; }}
 .tod {{ background:#22c55e; color:white; }}
 .tom {{ background:#3b82f6; color:white; }}
 
-.grid {{
-    display:grid;
-    grid-template-columns:60px repeat(3,1fr);
-    gap:4px;
-}}
-
-.cell {{
-    height:32px;
-    font-size:10px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:6px;
-}}
+.grid {{ display:grid; grid-template-columns:60px repeat(3,1fr); gap:4px; }}
+.cell {{ height:32px; font-size:10px; display:flex; align-items:center; justify-content:center; border-radius:6px; }}
 
 .header {{ background:#111; color:white; }}
-
 .time {{ background:#f3f4f6; }}
 .tA {{ background:#f3f4f6; }}
 .tB {{ background:#e0f2fe; }}
