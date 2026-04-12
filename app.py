@@ -56,51 +56,56 @@ if st.session_state.user is None:
 st.markdown("""
 <style>
 
-/* compact container */
+/* container */
 .block-container {
-    max-width: 300px !important;
+    max-width: 460px !important;
     margin: auto;
-    padding: 0.3rem !important;
+    padding: 0.2rem !important;
 }
 
-/* 4 tight columns */
+/* rows tight */
 div[data-testid="stHorizontalBlock"] {
     display:flex !important;
     flex-wrap:nowrap !important;
-    gap:3px !important;
+    gap:2px !important;
 }
 
-/* fixed column width */
+/* FIXED WIDTH (fits ~10 chars) */
 div[data-testid="column"] {
-    flex: 0 0 65px !important;
-    max-width: 65px !important;
-    min-width: 65px !important;
+    flex: 0 0 130px !important;
+    max-width: 130px !important;
+    min-width: 130px !important;
 }
 
-/* FIXED BUTTON SIZE */
+/* BUTTON */
 .stButton > button {
-    width:65px !important;
-    height:34px !important;
-    font-size:9px !important;
-    border-radius:8px !important;
-    padding:0 !important;
+    width:130px !important;
+    height:38px !important;
+    font-size:10px !important;
+    border-radius:10px !important;
+    padding:0 4px !important;
 
     display:flex !important;
     align-items:center !important;
     justify-content:center !important;
+
+    overflow:hidden !important;
+    white-space:nowrap !important;
+    text-overflow:ellipsis !important;
 }
 
 /* COLORS */
 .free button {
-    background:#bbf7d0 !important;   /* green */
+    background:#bbf7d0 !important;
 }
 
 .taken button {
-    background:#fecaca !important;   /* red */
+    background:#fecaca !important;
+    color:#7f1d1d !important;
 }
 
 .mine button {
-    background:#93c5fd !important;   /* blue */
+    background:#93c5fd !important;
 }
 
 </style>
@@ -123,7 +128,7 @@ h[3].button("T3", disabled=True)
 for t in HOURS:
     cols = st.columns(4)
 
-    # TIME COLUMN (same size button)
+    # TIME
     with cols[0]:
         st.button(t, disabled=True, key=f"time_{t}")
 
@@ -140,10 +145,13 @@ for t in HOURS:
 
             if not match.empty:
                 user = match.iloc[0]["User"]
+                name = match.iloc[0]["Name"][:10]  # FIT 10 chars
+
+                label = f"X {name}"
 
                 if user == st.session_state.user:
                     st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button("X", key=f"{t}_{i}"):
+                    if st.button(label, key=f"{t}_{i}"):
                         bookings = bookings.drop(match.index)
                         save(bookings, BOOKINGS_FILE)
                         st.rerun()
@@ -151,7 +159,7 @@ for t in HOURS:
 
                 else:
                     st.markdown('<div class="taken">', unsafe_allow_html=True)
-                    st.button("X", key=f"{t}_{i}", disabled=True)
+                    st.button(label, key=f"{t}_{i}", disabled=True)
                     st.markdown("</div>", unsafe_allow_html=True)
 
             else:
