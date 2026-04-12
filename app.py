@@ -76,8 +76,9 @@ if st.session_state.page == "Admin":
     st.download_button("Download bookings", st.session_state.bookings.to_csv(index=False))
     st.stop()
 
-# ================= GRID UI =================
+# ================= GRID =================
 today = datetime.now().date()
+now_time = datetime.now().strftime("%H:%M")
 
 # DATES
 date_cells = ""
@@ -87,7 +88,6 @@ for i in range(14):
 
     label = f"{d.day}.{d.strftime('%a')}"
     cls = "date"
-
     if d_str == st.session_state.sel_date:
         cls += " sel"
 
@@ -100,7 +100,9 @@ grid_rows = ""
 for idx, t in enumerate(HOURS):
 
     color = ["tA","tB","tC","tD"][(idx//8)%4]
-    grid_rows += f'<div class="cell {color}">{t}</div>'
+    now_class = " now" if t == now_time else ""
+
+    grid_rows += f'<div class="cell {color}{now_class}">{t}</div>'
 
     for i in range(1,4):
         table = f"Table {i}"
@@ -128,15 +130,31 @@ body {{ margin:0; font-family:sans-serif; }}
 .dates {{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:10px; }}
 .date {{ padding:6px; text-align:center; background:#eee; border-radius:6px; font-size:9px; }}
 .sel {{ background:#4f46e5; color:white; }}
+
 .grid {{ display:grid; grid-template-columns:44px repeat(3,1fr); gap:3px; }}
-.cell {{ height:28px; display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:9px; }}
+
+.cell {{
+    height:28px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+    font-size:9px;
+}}
+
 .free {{ background:#bbf7d0; }}
 .mine {{ background:#93c5fd; }}
 .taken {{ background:#e5e7eb; }}
+
 .tA {{ background:#f3f4f6; }}
 .tB {{ background:#e0f2fe; }}
 .tC {{ background:#fef3c7; }}
 .tD {{ background:#ede9fe; }}
+
+.now {{
+    outline:2px solid red;
+}}
+
 </style>
 
 <div class="dates">{date_cells}</div>
@@ -151,15 +169,21 @@ body {{ margin:0; font-family:sans-serif; }}
 
 <script>
 function send(a,v){{
+    sessionStorage.setItem("scrollY", window.scrollY);
+
     const url = new URL(window.parent.location.href);
     url.searchParams.set("a", a);
     url.searchParams.set("v", v);
     window.parent.location.href = url.toString();
 }}
+
+window.onload = () => {{
+    const y = sessionStorage.getItem("scrollY");
+    if (y) window.scrollTo(0, y);
+}};
 </script>
 """
 
-# ================= RENDER =================
 components.html(html, height=1500, scrolling=False)
 
 # ================= ACTION HANDLER =================
@@ -176,17 +200,27 @@ if "a" in params and "v" in params:
 
     elif a == "book":
         t, table = v.split("|")
-        new = pd.DataFrame([{
-            "User": st.session_state.user,
-            "Name": st.session_state.name,
-            "Date": st.session_state.sel_date,
-            "Table": table,
-            "Time": t
-        }])
-        bookings = pd.concat([bookings,new], ignore_index=True)
+
+        # prevent double booking
+        existing = bookings[
+            (bookings["Table"]==table) &
+            (bookings["Time"]==t) &
+            (bookings["Date"]==st.session_state.sel_date)
+        ]
+
+        if existing.empty:
+            new = pd.DataFrame([{
+                "User": st.session_state.user,
+                "Name": st.session_state.name,
+                "Date": st.session_state.sel_date,
+                "Table": table,
+                "Time": t
+            }])
+            bookings = pd.concat([bookings,new], ignore_index=True)
 
     elif a == "del":
         t, table = v.split("|")
+
         bookings = bookings[
             ~(
                 (bookings["Table"]==table) &
