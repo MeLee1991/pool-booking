@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Pool", layout="centered")
 
@@ -22,19 +23,16 @@ if "users" not in st.session_state:
 if "bookings" not in st.session_state:
     st.session_state.bookings = load_data(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-for k in ["user","name","role","sel_date","page"]:
+for k in ["user","name","role","sel_date"]:
     if k not in st.session_state:
         st.session_state[k] = None
 
 if not st.session_state.sel_date:
     st.session_state.sel_date = str(datetime.now().date())
-if not st.session_state.page:
-    st.session_state.page = "Booking"
 
 # ================= LOGIN =================
 if st.session_state.user is None:
     st.title("Pool Login")
-
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
 
@@ -50,136 +48,79 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= ADMIN =================
-if st.session_state.page == "Admin":
-    st.title("⚙️ Admin")
+# ================= ACTION HANDLER =================
+params = st.query_params
 
-    if st.button("← Back"):
-        st.session_state.page = "Booking"
-        st.rerun()
+if "a" in params and "v" in params:
+    a = params["a"]
+    v = params["v"]
 
-    # TABLE VIEW
-    st.subheader("Users")
-    st.dataframe(st.session_state.users, use_container_width=True)
+    if a == "date":
+        st.session_state.sel_date = v
 
-    st.divider()
+    elif a == "swipe":
+        d = datetime.strptime(st.session_state.sel_date, "%Y-%m-%d").date()
+        if v == "next":
+            d += timedelta(days=1)
+        else:
+            d -= timedelta(days=1)
+        st.session_state.sel_date = str(d)
 
-    # ADD USER
-    st.subheader("Add User")
-    e = st.text_input("Email", key="a_email")
-    n = st.text_input("Name", key="a_name")
-    p = st.text_input("Password", key="a_pass")
-    r = st.selectbox("Role", ["user","admin"], key="a_role")
+    else:
+        t, table = v.split("|")
 
-    if st.button("Add"):
-        new = pd.DataFrame([{"Email":e,"Name":n,"Password":p,"Role":r}])
-        st.session_state.users = pd.concat([st.session_state.users,new], ignore_index=True)
-        save_data(st.session_state.users, USERS_FILE)
+        if a == "book":
+            new = pd.DataFrame([{
+                "User": st.session_state.user,
+                "Name": st.session_state.name,
+                "Date": st.session_state.sel_date,
+                "Table": table,
+                "Time": t
+            }])
+            st.session_state.bookings = pd.concat([st.session_state.bookings,new])
 
-        # reset
-        st.session_state.a_email = ""
-        st.session_state.a_name = ""
-        st.session_state.a_pass = ""
+        elif a == "del":
+            df = st.session_state.bookings
+            st.session_state.bookings = df[
+                ~((df["Table"]==table)&
+                  (df["Time"]==t)&
+                  (df["Date"]==st.session_state.sel_date))
+            ]
 
-        st.rerun()
+        save_data(st.session_state.bookings, BOOKINGS_FILE)
 
-    st.divider()
+    st.query_params.clear()
+    st.rerun()
 
-    # DELETE USER
-    st.subheader("Delete User")
-    u = st.selectbox("Select user", st.session_state.users["Email"])
-    if st.button("Delete"):
-        df = st.session_state.users
-        st.session_state.users = df[df["Email"]!=u]
-        save_data(st.session_state.users, USERS_FILE)
-        st.rerun()
-
-    st.stop()
-
-# ================= HEADER =================
+# ================= UI HEADER =================
 st.write(f"👤 {st.session_state.name} | {st.session_state.sel_date}")
 
-if st.session_state.role == "admin":
-    if st.button("⚙️ Admin"):
-        st.session_state.page = "Admin"
-        st.rerun()
-
-# ================= CSS =================
-st.markdown("""
-<style>
-.block-container { max-width:340px; margin:auto; }
-
-div[data-testid="stHorizontalBlock"] {
-    display:flex !important;
-    flex-wrap:nowrap !important;
-    gap:3px !important;
-}
-
-[data-testid="column"] {
-    flex:0 0 auto !important;
-    width:70px !important;
-}
-
-.stButton > button {
-    width:70px !important;
-    height:30px !important;
-    font-size:9px !important;
-    border-radius:6px !important;
-}
-
-/* states */
-.free button { background:#bbf7d0 !important; }
-.mine button { background:#93c5fd !important; }
-.taken button { background:#e5e7eb !important; }
-
-/* time */
-.timeA { background:#f3f4f6; }
-.timeB { background:#e0f2fe; }
-.timeC { background:#fef3c7; }
-.timeD { background:#ede9fe; }
-</style>
-""", unsafe_allow_html=True)
-
-# ================= DATES =================
+# ================= HTML =================
 today = datetime.now().date()
 
-for week in [range(7), range(7,14)]:
-    cols = st.columns(7)
-    for i in week:
-        d = today + timedelta(days=i)
-        d_str = str(d)
+# DATES (2 rows)
+dates_html = ""
+for i in range(14):
+    d = today + timedelta(days=i)
+    d_str = str(d)
 
-        label = f"{d.day}.{d.strftime('%a')}"
-        if i == 0: label = "TOD"
-        if i == 1: label = "TOM"
+    label = f"{d.day}.{d.strftime('%a')}"
+    cls = "date"
 
-        with cols[i % 7]:
-            if st.button(label, key=f"d_{d_str}"):
-                st.session_state.sel_date = d_str
-                st.rerun()
+    if d_str == st.session_state.sel_date:
+        cls += " sel"
 
-st.divider()
+    dates_html += f"<div class='{cls}' onclick=\"go('date','{d_str}')\">{label}</div>"
 
-# ================= TABLE =================
+# TABLE
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
-h = st.columns(4)
-h[0].write("T")
-h[1].write("1")
-h[2].write("2")
-h[3].write("3")
+grid_html = ""
+for t in HOURS:
+    grid_html += f"<div class='cell time'>{t}</div>"
 
-for idx, t in enumerate(HOURS):
-
-    cols = st.columns(4)
-    block = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
-
-    # time
-    cols[0].markdown(f"<div class='{block}'>{t}</div>", unsafe_allow_html=True)
-
-    for i in range(3):
-        table = f"Table {i+1}"
+    for i in range(1,4):
+        table = f"Table {i}"
 
         match = st.session_state.bookings[
             (st.session_state.bookings["Table"]==table)&
@@ -187,28 +128,96 @@ for idx, t in enumerate(HOURS):
             (st.session_state.bookings["Date"]==st.session_state.sel_date)
         ]
 
-        with cols[i+1]:
-            if not match.empty:
-                user = match.iloc[0]["User"]
-                name = match.iloc[0]["Name"][:4]
+        if not match.empty:
+            user = match.iloc[0]["User"]
+            name = match.iloc[0]["Name"][:3]
 
-                if user == st.session_state.user:
-                    if st.button(f"❌ {name}", key=f"{t}_{i}"):
-                        st.session_state.bookings = st.session_state.bookings.drop(match.index)
-                        save_data(st.session_state.bookings, BOOKINGS_FILE)
-                        st.rerun()
-                else:
-                    st.button(name, key=f"{t}_{i}", disabled=True)
-
+            if user == st.session_state.user:
+                grid_html += f"<div class='cell mine' onclick=\"go('del','{t}|{table}')\">✕ {name}</div>"
             else:
-                if st.button("+", key=f"{t}_{i}"):
-                    new = pd.DataFrame([{
-                        "User": st.session_state.user,
-                        "Name": st.session_state.name,
-                        "Date": st.session_state.sel_date,
-                        "Table": table,
-                        "Time": t
-                    }])
-                    st.session_state.bookings = pd.concat([st.session_state.bookings,new], ignore_index=True)
-                    save_data(st.session_state.bookings, BOOKINGS_FILE)
-                    st.rerun()
+                grid_html += f"<div class='cell taken'>{name}</div>"
+        else:
+            grid_html += f"<div class='cell free' onclick=\"go('book','{t}|{table}')\">+</div>"
+
+html = f"""
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {{ margin:0; font-family:sans-serif; }}
+
+.dates {{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:4px;
+    margin-bottom:10px;
+}}
+
+.date {{
+    padding:6px;
+    font-size:10px;
+    text-align:center;
+    background:#e5e7eb;
+    border-radius:6px;
+}}
+
+.sel {{
+    background:#4f46e5;
+    color:white;
+    font-weight:bold;
+}}
+
+.grid {{
+    display:grid;
+    grid-template-columns:60px repeat(3,1fr);
+    gap:4px;
+}}
+
+.cell {{
+    height:30px;
+    font-size:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+}}
+
+.time {{ background:#f3f4f6; }}
+.free {{ background:#bbf7d0; }}
+.mine {{ background:#93c5fd; }}
+.taken {{ background:#e5e7eb; }}
+</style>
+
+<div class="dates">{dates_html}</div>
+
+<div class="grid">
+<div class="cell">T</div>
+<div class="cell">1</div>
+<div class="cell">2</div>
+<div class="cell">3</div>
+{grid_html}
+</div>
+
+<script>
+function go(a,v){{
+    const url = new URL(window.parent.location.href);
+    url.searchParams.set("a", a);
+    url.searchParams.set("v", v);
+    window.parent.location.href = url;
+}}
+
+// SWIPE
+let startX = 0;
+
+document.addEventListener("touchstart", e => {{
+    startX = e.touches[0].clientX;
+}});
+
+document.addEventListener("touchend", e => {{
+    let endX = e.changedTouches[0].clientX;
+    if (endX - startX > 80) go("swipe","prev");
+    if (startX - endX > 80) go("swipe","next");
+}});
+</script>
+"""
+
+components.html(html, height=1500, scrolling=True)
