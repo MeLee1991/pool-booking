@@ -39,6 +39,7 @@ if "date" not in st.session_state: st.session_state.date=str(datetime.now().date
 # ================= LOGIN =================
 if st.session_state.user is None:
     st.title("Pool")
+
     e = st.text_input("Email", value="tom3@gmail.com")
     p = st.text_input("Password", type="password", value="1234")
 
@@ -51,32 +52,31 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= CSS (THIS IS THE FIX) =================
+# ================= CSS (REAL FIX) =================
 st.markdown("""
 <style>
 
 /* container */
 .block-container {
-    max-width: 240px !important;
+    max-width: 260px !important;
     margin:auto;
-    padding:0.3rem !important;
+    padding:0.2rem !important;
 }
 
-/* keep rows horizontal */
+/* rows tight */
 div[data-testid="stHorizontalBlock"] {
     display:flex !important;
     flex-wrap:nowrap !important;
-    gap:3px !important;
+    gap:2px !important;
 }
 
-/* 🔥 narrower columns */
+/* 🔥 columns shrink to content */
 div[data-testid="column"] {
-    flex: 0 0 45px !important;
-    width: 45px !important;
-    min-width: 45px !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
 }
 
-/* buttons fill column */
+/* 🔥 buttons fill columns */
 .stButton > button {
     width: 100% !important;
     height: 34px !important;
@@ -93,8 +93,8 @@ div[data-testid="column"] {
 /* dates */
 .date button {
     width:100% !important;
-    height:30px !important;
-    font-size:8px !important;
+    height:28px !important;
+    font-size:9px !important;
 }
 
 .sel button {
