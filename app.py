@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime, timedelta
+import streamlit.components.v1 as components
 
 st.set_page_config(layout="centered")
 
@@ -31,15 +32,12 @@ if "tom3@gmail.com" not in users["Email"].values:
     save(users, USERS_FILE)
 
 # ================= SESSION =================
-for k in ["user","name","role","date","page"]:
+for k in ["user","name","role","date"]:
     if k not in st.session_state:
         st.session_state[k] = None
 
 if not st.session_state.date:
     st.session_state.date = str(datetime.now().date())
-
-if not st.session_state.page:
-    st.session_state.page = "grid"
 
 # ================= LOGIN =================
 if st.session_state.user is None:
@@ -55,126 +53,75 @@ if st.session_state.user is None:
             st.rerun()
     st.stop()
 
-# ================= ADMIN =================
-if st.session_state.page == "admin":
-    st.title("Admin")
+# ================= ACTION HANDLER =================
+params = st.query_params
+if "a" in params:
+    act = params["a"]
+    val = params.get("v","")
 
-    if st.button("← Back"):
-        st.session_state.page = "grid"
-        st.rerun()
+    if act == "date":
+        st.session_state.date = val
 
-    edited = st.data_editor(users, use_container_width=True)
+    elif act == "book":
+        t, table = val.split("|")
+        bookings = pd.concat([bookings, pd.DataFrame([{
+            "User": st.session_state.user,
+            "Name": st.session_state.name,
+            "Date": st.session_state.date,
+            "Table": table,
+            "Time": t
+        }])])
+        save(bookings, BOOKINGS_FILE)
 
-    if st.button("Save"):
-        save(edited, USERS_FILE)
+    elif act == "del":
+        t, table = val.split("|")
+        mask = (
+            (bookings["Table"]==table) &
+            (bookings["Time"]==t) &
+            (bookings["Date"]==st.session_state.date)
+        )
+        bookings = bookings[~mask]
+        save(bookings, BOOKINGS_FILE)
 
-    st.stop()
+    st.query_params.clear()
+    st.rerun()
 
 # ================= HEADER =================
 st.markdown(f"👤 **{st.session_state.name} | {st.session_state.date}**")
 
-if st.session_state.role == "admin":
-    if st.button("⚙️ Admin", use_container_width=True):
-        st.session_state.page = "admin"
-        st.rerun()
-
-# ================= CSS =================
-st.markdown("""
-<style>
-
-.block-container {
-    max-width:360px !important;
-    margin:auto !important;
-}
-
-/* DATE GRID */
-.date-row {
-    display:flex;
-    gap:4px;
-    margin-bottom:4px;
-}
-.date-row button {
-    flex:1;
-    height:34px;
-    font-size:10px;
-    border-radius:10px;
-}
-
-/* TABLE GRID */
-.table {
-    display:grid;
-    grid-template-columns: 60px repeat(3, 1fr);
-    gap:4px;
-}
-
-/* BUTTONS */
-.cell button {
-    width:100%;
-    height:34px;
-    font-size:10px;
-    border-radius:10px;
-    padding:0;
-}
-
-/* COLORS */
-.free button { background:#bbf7d0 !important; }
-.taken button { background:#fecaca !important; }
-.mine button { background:#93c5fd !important; }
-
-/* TIME COLORS */
-.tA button { background:#f3f4f6 !important; }
-.tB button { background:#e0f2fe !important; }
-.tC button { background:#fef3c7 !important; }
-.tD button { background:#ede9fe !important; }
-
-</style>
-""", unsafe_allow_html=True)
-
-# ================= DATES =================
+# ================= UI =================
 today = datetime.now().date()
-
-for r in [range(7), range(7,14)]:
-    st.markdown('<div class="date-row">', unsafe_allow_html=True)
-    for i in r:
-        d = today + timedelta(days=i)
-        ds = str(d)
-
-        label = "TOD" if i==0 else ("TOM" if i==1 else d.strftime("%a"))
-
-        if st.button(f"{label}\n{d.day}", key=f"d_{ds}"):
-            st.session_state.date = ds
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.divider()
-
-# ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-st.markdown('<div class="table">', unsafe_allow_html=True)
+# -------- DATE GRID --------
+dates_html = ""
+for i in range(14):
+    d = today + timedelta(days=i)
+    ds = str(d)
+    label = "TOD" if i==0 else ("TOM" if i==1 else d.strftime("%a"))
 
-# HEADER
-st.markdown("**Time**")
-st.markdown("**T1**")
-st.markdown("**T2**")
-st.markdown("**T3**")
+    cls = "date"
+    if ds == st.session_state.date:
+        cls += " sel"
 
-for idx, t in enumerate(HOURS):
+    dates_html += f"""
+    <div class="{cls}" onclick="go('date','{ds}')">
+        {label}<br>{d.day}
+    </div>
+    """
 
-    band = ["tA","tB","tC","tD"][(idx//8)%4]
+# -------- TABLE --------
+rows_html = ""
 
-    # TIME
-    st.markdown(f'<div class="cell {band}">', unsafe_allow_html=True)
-    st.button(t, key=f"time_{t}")
-    st.markdown('</div>', unsafe_allow_html=True)
+for t in HOURS:
+    rows_html += f'<div class="cell time">{t}</div>'
 
-    # TABLES
-    for i in range(3):
-        table = f"Table {i+1}"
+    for i in range(1,4):
+        table = f"Table {i}"
 
         match = bookings[
-            (bookings["Table"]==table)&
-            (bookings["Time"]==t)&
+            (bookings["Table"]==table) &
+            (bookings["Time"]==t) &
             (bookings["Date"]==st.session_state.date)
         ]
 
@@ -183,28 +130,92 @@ for idx, t in enumerate(HOURS):
             user = match.iloc[0]["User"]
 
             if user == st.session_state.user:
-                st.markdown('<div class="cell mine">', unsafe_allow_html=True)
-                if st.button(f"✖ {name}", key=f"{t}_{i}"):
-                    bookings = bookings.drop(match.index)
-                    save(bookings, BOOKINGS_FILE)
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
+                rows_html += f"""
+                <div class="cell mine" onclick="go('del','{t}|{table}')">
+                    ✖ {name}
+                </div>
+                """
             else:
-                st.markdown('<div class="cell taken">', unsafe_allow_html=True)
-                st.button(name, key=f"{t}_{i}", disabled=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                rows_html += f"""
+                <div class="cell taken">{name}</div>
+                """
         else:
-            st.markdown('<div class="cell free">', unsafe_allow_html=True)
-            if st.button("+", key=f"{t}_{i}"):
-                bookings = pd.concat([bookings, pd.DataFrame([{
-                    "User": st.session_state.user,
-                    "Name": st.session_state.name,
-                    "Date": st.session_state.date,
-                    "Table": table,
-                    "Time": t
-                }])])
-                save(bookings, BOOKINGS_FILE)
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+            rows_html += f"""
+            <div class="cell free" onclick="go('book','{t}|{table}')">+</div>
+            """
 
-st.markdown('</div>', unsafe_allow_html=True)
+# -------- HTML --------
+html = f"""
+<style>
+body {{ margin:0; }}
+
+.wrap {{
+    max-width:360px;
+    margin:auto;
+    font-family:sans-serif;
+}}
+
+.dates {{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:4px;
+}}
+
+.date {{
+    background:#e5e7eb;
+    text-align:center;
+    padding:6px 2px;
+    font-size:10px;
+    border-radius:10px;
+}}
+
+.date.sel {{
+    background:#4f46e5;
+    color:white;
+}}
+
+.grid {{
+    display:grid;
+    grid-template-columns:60px repeat(3,1fr);
+    gap:4px;
+    margin-top:10px;
+}}
+
+.cell {{
+    height:34px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:10px;
+    border-radius:10px;
+}}
+
+.time {{ background:#f3f4f6; }}
+.free {{ background:#bbf7d0; }}
+.taken {{ background:#fecaca; }}
+.mine {{ background:#93c5fd; }}
+
+</style>
+
+<div class="wrap">
+    <div class="dates">{dates_html}</div>
+    <div class="grid">
+        <div class="cell">Time</div>
+        <div class="cell">T1</div>
+        <div class="cell">T2</div>
+        <div class="cell">T3</div>
+        {rows_html}
+    </div>
+</div>
+
+<script>
+function go(a,v){{
+    const url = new URL(window.parent.location);
+    url.searchParams.set("a",a);
+    url.searchParams.set("v",v);
+    window.parent.location.href = url;
+}}
+</script>
+"""
+
+components.html(html, height=1600, scrolling=True)
