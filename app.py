@@ -6,16 +6,16 @@ import streamlit.components.v1 as components
 
 st.set_page_config(layout="centered")
 
-# ===== DATA =====
-BOOKINGS_FILE = "bookings.csv"
+# ===== FILE =====
+FILE = "bookings.csv"
 
 def load():
-    if os.path.exists(BOOKINGS_FILE):
-        return pd.read_csv(BOOKINGS_FILE, dtype=str)
+    if os.path.exists(FILE):
+        return pd.read_csv(FILE, dtype=str)
     return pd.DataFrame(columns=["Name","Date","Table","Time"])
 
 def save(df):
-    df.to_csv(BOOKINGS_FILE, index=False)
+    df.to_csv(FILE, index=False)
 
 bookings = load()
 
@@ -26,45 +26,10 @@ if "name" not in st.session_state:
 if "date" not in st.session_state:
     st.session_state.date = str(datetime.now().date())
 
-# ===== ACTION =====
-params = st.query_params
-
-if "a" in params:
-    a = params["a"]
-    v = params.get("v","")
-
-    if a == "date":
-        st.session_state.date = v
-
-    elif a == "book":
-        t, table = v.split("|")
-        bookings = pd.concat([bookings, pd.DataFrame([{
-            "Name": st.session_state.name,
-            "Date": st.session_state.date,
-            "Table": table,
-            "Time": t
-        }])])
-        save(bookings)
-
-    elif a == "del":
-        t, table = v.split("|")
-        bookings = bookings[~(
-            (bookings["Date"]==st.session_state.date) &
-            (bookings["Table"]==table) &
-            (bookings["Time"]==t)
-        )]
-        save(bookings)
-
-    st.query_params.clear()
-    st.rerun()
-
-# ===== HEADER =====
-st.markdown(f"👤 **{st.session_state.name} | {st.session_state.date}**")
-
-# ===== BUILD UI =====
+# ===== UI BUILD =====
 today = datetime.now().date()
 
-# ---- DATE GRID ----
+# ---- DATES ----
 dates_html = ""
 for i in range(7):
     d = today + timedelta(days=i)
@@ -106,7 +71,9 @@ for t in HOURS:
             """
         else:
             rows += f"""
-            <div class="cell free" onclick="go('book','{t}|{table}')">+</div>
+            <div class="cell free" onclick="go('book','{t}|{table}')">
+                +
+            </div>
             """
 
 # ===== HTML =====
@@ -122,15 +89,15 @@ html = f"""
 .dates {{
     display:grid;
     grid-template-columns:repeat(4,1fr);
-    gap:4px;
+    gap:6px;
 }}
 
 .date {{
     text-align:center;
     background:#e5e7eb;
-    padding:6px 0;
+    padding:8px 0;
     font-size:10px;
-    border-radius:10px;
+    border-radius:12px;
 }}
 
 .sel {{
@@ -141,20 +108,21 @@ html = f"""
 .grid {{
     display:grid;
     grid-template-columns:60px repeat(3,1fr);
-    gap:4px;
-    margin-top:10px;
+    gap:6px;
+    margin-top:12px;
 }}
 
 .cell {{
-    height:34px;
+    height:38px;
     display:flex;
     align-items:center;
     justify-content:center;
     font-size:10px;
-    border-radius:10px;
+    border-radius:12px;
+    font-weight:500;
 }}
 
-.time {{ background:#f3f4f6; }}
+.time {{ background:#e5e7eb; }}
 .free {{ background:#bbf7d0; }}
 .taken {{ background:#fecaca; }}
 
@@ -174,13 +142,42 @@ html = f"""
 </div>
 
 <script>
-function go(a,v){{
-    const url = new URL(window.parent.location);
-    url.searchParams.set("a",a);
-    url.searchParams.set("v",v);
-    window.parent.location.href = url;
+function go(action, value){{
+    window.parent.postMessage({{
+        type: "streamlit:setComponentValue",
+        value: action + "|" + value
+    }}, "*");
 }}
 </script>
 """
 
-components.html(html, height=1200, scrolling=True)
+# ===== RENDER =====
+result = components.html(html, height=1200, scrolling=True)
+
+# ===== ACTION HANDLER =====
+if result:
+    action, value = result.split("|")
+
+    if action == "date":
+        st.session_state.date = value
+
+    elif action == "book":
+        t, table = value.split("|")
+        bookings = pd.concat([bookings, pd.DataFrame([{
+            "Name": st.session_state.name,
+            "Date": st.session_state.date,
+            "Table": table,
+            "Time": t
+        }])])
+        save(bookings)
+
+    elif action == "del":
+        t, table = value.split("|")
+        bookings = bookings[~(
+            (bookings["Date"]==st.session_state.date) &
+            (bookings["Table"]==table) &
+            (bookings["Time"]==t)
+        )]
+        save(bookings)
+
+    st.rerun()
