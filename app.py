@@ -20,7 +20,7 @@ def save(df, file):
 users = load(USERS_FILE, ["Email","Name","Password","Role"])
 bookings = load(BOOKINGS_FILE, ["User","Name","Date","Table","Time"])
 
-# default login
+# default user
 if "tom3@gmail.com" not in users["Email"].values:
     users = pd.concat([users, pd.DataFrame([{
         "Email":"tom3@gmail.com",
@@ -78,90 +78,95 @@ if st.session_state.role == "admin":
         st.session_state.page = "admin"
         st.rerun()
 
-# ================= CSS (KEY FIX) =================
+# ================= CSS =================
 st.markdown("""
 <style>
 
-/* FORCE MOBILE GRID */
 .block-container {
-    max-width: 360px !important;
-    margin: auto !important;
+    max-width:360px !important;
+    margin:auto !important;
 }
 
-/* FIX ROW ALIGNMENT */
-div[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
+/* DATE GRID */
+.date-row {
+    display:flex;
+    gap:4px;
+    margin-bottom:4px;
+}
+.date-row button {
+    flex:1;
+    height:34px;
+    font-size:10px;
+    border-radius:10px;
 }
 
-/* FORCE EQUAL COLUMNS */
-[data-testid="column"] {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
+/* TABLE GRID */
+.table {
+    display:grid;
+    grid-template-columns: 60px repeat(3, 1fr);
+    gap:4px;
 }
 
-/* BUTTON STYLE */
-.stButton > button {
-    width: 100% !important;
-    height: 34px !important;
-    font-size: 10px !important;
-    border-radius: 10px !important;
-    padding: 0 !important;
+/* BUTTONS */
+.cell button {
+    width:100%;
+    height:34px;
+    font-size:10px;
+    border-radius:10px;
+    padding:0;
 }
 
 /* COLORS */
 .free button { background:#bbf7d0 !important; }
 .taken button { background:#fecaca !important; }
-.mine button  { background:#93c5fd !important; }
+.mine button { background:#93c5fd !important; }
 
-/* TIME COLOR BLOCKS */
-.timeA button { background:#f3f4f6 !important; }
-.timeB button { background:#e0f2fe !important; }
-.timeC button { background:#fef3c7 !important; }
-.timeD button { background:#ede9fe !important; }
+/* TIME COLORS */
+.tA button { background:#f3f4f6 !important; }
+.tB button { background:#e0f2fe !important; }
+.tC button { background:#fef3c7 !important; }
+.tD button { background:#ede9fe !important; }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ================= DATES (FIXED GRID) =================
+# ================= DATES =================
 today = datetime.now().date()
 
-for row in [range(7), range(7,14)]:
-    cols = st.columns(7)
-    for i in row:
+for r in [range(7), range(7,14)]:
+    st.markdown('<div class="date-row">', unsafe_allow_html=True)
+    for i in r:
         d = today + timedelta(days=i)
         ds = str(d)
 
         label = "TOD" if i==0 else ("TOM" if i==1 else d.strftime("%a"))
 
-        with cols[i % 7]:
-            if st.button(f"{label}\n{d.day}", key=f"d_{ds}"):
-                st.session_state.date = ds
-                st.rerun()
+        if st.button(f"{label}\n{d.day}", key=f"d_{ds}"):
+            st.session_state.date = ds
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
 # ================= TABLE =================
 HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 
-# header
-h = st.columns(4)
-h[0].markdown("**Time**")
-h[1].markdown("**T1**")
-h[2].markdown("**T2**")
-h[3].markdown("**T3**")
+st.markdown('<div class="table">', unsafe_allow_html=True)
+
+# HEADER
+st.markdown("**Time**")
+st.markdown("**T1**")
+st.markdown("**T2**")
+st.markdown("**T3**")
 
 for idx, t in enumerate(HOURS):
-    cols = st.columns(4)
 
-    band = ["timeA","timeB","timeC","timeD"][(idx//8)%4]
+    band = ["tA","tB","tC","tD"][(idx//8)%4]
 
     # TIME
-    with cols[0]:
-        st.markdown(f'<div class="{band}">', unsafe_allow_html=True)
-        st.button(t, key=f"time_{t}")
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown(f'<div class="cell {band}">', unsafe_allow_html=True)
+    st.button(t, key=f"time_{t}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # TABLES
     for i in range(3):
@@ -173,32 +178,33 @@ for idx, t in enumerate(HOURS):
             (bookings["Date"]==st.session_state.date)
         ]
 
-        with cols[i+1]:
-            if not match.empty:
-                name = match.iloc[0]["Name"][:10]
-                user = match.iloc[0]["User"]
+        if not match.empty:
+            name = match.iloc[0]["Name"][:10]
+            user = match.iloc[0]["User"]
 
-                if user == st.session_state.user:
-                    st.markdown('<div class="mine">', unsafe_allow_html=True)
-                    if st.button(f"✖ {name}", key=f"{t}_{i}"):
-                        bookings = bookings.drop(match.index)
-                        save(bookings, BOOKINGS_FILE)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="taken">', unsafe_allow_html=True)
-                    st.button(name, key=f"{t}_{i}", disabled=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="free">', unsafe_allow_html=True)
-                if st.button("+", key=f"{t}_{i}"):
-                    bookings = pd.concat([bookings, pd.DataFrame([{
-                        "User": st.session_state.user,
-                        "Name": st.session_state.name,
-                        "Date": st.session_state.date,
-                        "Table": table,
-                        "Time": t
-                    }])])
+            if user == st.session_state.user:
+                st.markdown('<div class="cell mine">', unsafe_allow_html=True)
+                if st.button(f"✖ {name}", key=f"{t}_{i}"):
+                    bookings = bookings.drop(match.index)
                     save(bookings, BOOKINGS_FILE)
                     st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="cell taken">', unsafe_allow_html=True)
+                st.button(name, key=f"{t}_{i}", disabled=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="cell free">', unsafe_allow_html=True)
+            if st.button("+", key=f"{t}_{i}"):
+                bookings = pd.concat([bookings, pd.DataFrame([{
+                    "User": st.session_state.user,
+                    "Name": st.session_state.name,
+                    "Date": st.session_state.date,
+                    "Table": table,
+                    "Time": t
+                }])])
+                save(bookings, BOOKINGS_FILE)
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
