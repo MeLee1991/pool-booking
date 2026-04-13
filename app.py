@@ -3,7 +3,43 @@ import pandas as pd
 import os
 from datetime import datetime, timedelta
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="centered")
+
+# ===== STYLE FIX (IMPORTANT) =====
+st.markdown("""
+<style>
+/* prevent column stacking */
+div[data-testid="column"] {
+    min-width: 70px !important;
+    flex: 1 1 0% !important;
+}
+
+/* tighter gaps */
+.block-container {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+/* buttons full width */
+.stButton button {
+    width: 100%;
+    height: 38px;
+    font-size: 10px;
+    border-radius: 10px;
+}
+
+/* colors */
+.free button { background-color: #bbf7d0 !important; }
+.taken button { background-color: #fecaca !important; }
+.timebox {
+    background: #e5e7eb;
+    border-radius: 10px;
+    text-align: center;
+    padding: 8px 0;
+    font-size: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ===== FILE =====
 FILE = "bookings.csv"
@@ -25,69 +61,41 @@ if "name" not in st.session_state:
 if "date" not in st.session_state:
     st.session_state.date = str(datetime.now().date())
 
-# ===== SIDEBAR =====
-with st.sidebar:
-    st.title("⚙️ Menu")
-
-    st.markdown(f"👤 {st.session_state.name}")
-
-    if st.button("Logout"):
-        st.session_state.name = ""
-        st.rerun()
-
-    st.divider()
-
-    st.subheader("Stats")
-    st.write(f"Bookings: {len(bookings)}")
-
-    st.divider()
-
-    st.subheader("Admin")
-
-    df_edit = st.data_editor(bookings, use_container_width=True)
-
-    if st.button("Save changes"):
-        save(df_edit)
-        st.success("Saved")
-
 # ===== HEADER =====
 st.markdown(f"### 👤 {st.session_state.name} | {st.session_state.date}")
 
-# ===== DATES =====
+# ===== DATES GRID =====
 today = datetime.now().date()
-
-cols = st.columns(4)
+date_cols = st.columns(4)
 
 for i in range(7):
     d = today + timedelta(days=i)
     ds = str(d)
 
-    col = cols[i % 4]
+    col = date_cols[i % 4]
 
-    if col.button(f"{d.strftime('%a')} {d.day}", key=f"d{i}"):
+    label = f"{d.strftime('%a')} {d.day}"
+
+    if col.button(label, key=f"d{i}"):
         st.session_state.date = ds
         st.rerun()
 
 # ===== TABLE =====
 HOURS = [f"{h:02d}:{m}" for h in range(6,22) for m in ["00","30"]]
 
-st.markdown("###")
+# header row
+cols = st.columns([1,1,1,1])
+cols[0].markdown("**Time**")
+cols[1].markdown("**T1**")
+cols[2].markdown("**T2**")
+cols[3].markdown("**T3**")
 
-header = st.columns([1,1,1,1])
-header[0].markdown("**Time**")
-header[1].markdown("**T1**")
-header[2].markdown("**T2**")
-header[3].markdown("**T3**")
+# rows
+for t in HOURS:
 
-for idx, t in enumerate(HOURS):
+    cols = st.columns([1,1,1,1], gap="small")
 
-    # alternating background (every 4 hours)
-    block = (idx // 8) % 2
-    bg = "#f3f4f6" if block == 0 else "#e5e7eb"
-
-    row = st.columns([1,1,1,1], gap="small")
-
-    row[0].markdown(f"<div style='text-align:center'>{t}</div>", unsafe_allow_html=True)
+    cols[0].markdown(f"<div class='timebox'>{t}</div>", unsafe_allow_html=True)
 
     for i in range(1,4):
         table = f"T{i}"
@@ -101,22 +109,28 @@ for idx, t in enumerate(HOURS):
         if not match.empty:
             name = match.iloc[0]["Name"][:10]
 
-            if row[i].button(f"✖ {name}", key=f"{t}_{table}"):
-                bookings = bookings[~(
-                    (bookings["Date"]==st.session_state.date) &
-                    (bookings["Table"]==table) &
-                    (bookings["Time"]==t)
-                )]
-                save(bookings)
-                st.rerun()
+            with cols[i]:
+                st.markdown('<div class="taken">', unsafe_allow_html=True)
+                if st.button(f"✖ {name}", key=f"{t}_{table}"):
+                    bookings = bookings[~(
+                        (bookings["Date"]==st.session_state.date) &
+                        (bookings["Table"]==table) &
+                        (bookings["Time"]==t)
+                    )]
+                    save(bookings)
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         else:
-            if row[i].button("+", key=f"{t}_{table}"):
-                bookings = pd.concat([bookings, pd.DataFrame([{
-                    "Name": st.session_state.name,
-                    "Date": st.session_state.date,
-                    "Table": table,
-                    "Time": t
-                }])])
-                save(bookings)
-                st.rerun()
+            with cols[i]:
+                st.markdown('<div class="free">', unsafe_allow_html=True)
+                if st.button("+", key=f"{t}_{table}"):
+                    bookings = pd.concat([bookings, pd.DataFrame([{
+                        "Name": st.session_state.name,
+                        "Date": st.session_state.date,
+                        "Table": table,
+                        "Time": t
+                    }])])
+                    save(bookings)
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
