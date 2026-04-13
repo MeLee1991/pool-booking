@@ -57,9 +57,10 @@ if st.session_state.user is None:
 
 # ================= ACTION HANDLER =================
 params = st.query_params
-if "a" in params:
-    act = params["a"]
-    val = params.get("v","")
+
+if params.get("a"):
+    act = params.get("a")
+    val = params.get("v")
 
     if act == "date":
         st.session_state.date = val
@@ -124,14 +125,17 @@ if st.session_state.role == "admin":
         st.session_state.page = "admin"
         st.rerun()
 
-# ================= BUILD HTML =================
+# ================= BUILD UI =================
 today = datetime.now().date()
 
-# DATE PICKER (2 rows)
+# DATES
 dates_html = ""
+date_list = []
+
 for i in range(14):
     d = today + timedelta(days=i)
     ds = str(d)
+    date_list.append(ds)
 
     label = "TOD" if i==0 else ("TOM" if i==1 else d.strftime("%a").upper())
     num = d.day
@@ -139,7 +143,7 @@ for i in range(14):
     sel = "sel" if ds == st.session_state.date else ""
 
     dates_html += f"""
-    <div class="date {sel}" onclick="go('date','{ds}')">
+    <div class="date {sel}" data-date="{ds}" onclick="go('date','{ds}')">
         {label}<br>{num}
     </div>
     """
@@ -150,10 +154,7 @@ HOURS = [f"{h:02d}:{m}" for h in range(6,24) for m in ["00","30"]]
 grid = ""
 
 for idx, t in enumerate(HOURS):
-
-    # time color blocks (every 4 hours)
     band = ["b1","b2","b3","b4"][(idx//8)%4]
-
     grid += f'<div class="cell time {band}">{t}</div>'
 
     for i in range(1,4):
@@ -166,7 +167,7 @@ for idx, t in enumerate(HOURS):
         ]
 
         if not match.empty:
-            name = match.iloc[0]["Name"][:8]
+            name = match.iloc[0]["Name"][:10]
             user = match.iloc[0]["User"]
 
             if user == st.session_state.user:
@@ -183,17 +184,12 @@ html = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 
-body {{
-    margin:0;
-    font-family:sans-serif;
-    padding:10px 4px;
-}}
+body {{ margin:0; padding:8px; font-family:sans-serif; }}
 
 .dates {{
     display:grid;
     grid-template-columns:repeat(7,1fr);
     gap:4px;
-    margin-bottom:10px;
 }}
 
 .date {{
@@ -211,12 +207,13 @@ body {{
 
 .grid {{
     display:grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4,1fr);
     gap:4px;
+    margin-top:10px;
 }}
 
 .cell {{
-    height:34px;
+    height:36px;
     font-size:10px;
     display:flex;
     align-items:center;
@@ -224,21 +221,10 @@ body {{
     border-radius:10px;
 }}
 
-.time {{
-    background:#e5e7eb;
-}}
-
-.free {{
-    background:#bbf7d0;
-}}
-
-.taken {{
-    background:#fecaca;
-}}
-
-.mine {{
-    background:#93c5fd;
-}}
+.time {{ background:#e5e7eb; }}
+.free {{ background:#bbf7d0; }}
+.taken {{ background:#fecaca; }}
+.mine {{ background:#93c5fd; }}
 
 .b1 {{ background:#f3f4f6; }}
 .b2 {{ background:#e0f2fe; }}
@@ -263,12 +249,32 @@ body {{
 </div>
 
 <script>
+
 function go(a,v){{
-    const url = new URL(window.location);
+    const url = new URL(window.parent.location.href);
     url.searchParams.set("a",a);
     url.searchParams.set("v",v);
-    window.location.href = url;
+    window.parent.location.href = url;
 }}
+
+// SWIPE
+let startX=0,endX=0;
+
+document.addEventListener('touchstart',e=>startX=e.changedTouches[0].screenX);
+document.addEventListener('touchend',e=>{{
+    endX=e.changedTouches[0].screenX;
+    let diff=endX-startX;
+
+    if(Math.abs(diff)<50) return;
+
+    const dates=[...document.querySelectorAll('.date')];
+    const sel=document.querySelector('.date.sel');
+    let idx=dates.indexOf(sel);
+
+    if(diff<0 && idx<dates.length-1) dates[idx+1].click();
+    if(diff>0 && idx>0) dates[idx-1].click();
+}});
+
 </script>
 
 </body>
