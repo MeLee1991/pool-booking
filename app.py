@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime, timedelta
-import streamlit.components.v1 as components
 
-st.set_page_config(layout="centered")
+st.set_page_config(layout="wide")
 
 # ===== FILE =====
 FILE = "bookings.csv"
@@ -26,32 +25,69 @@ if "name" not in st.session_state:
 if "date" not in st.session_state:
     st.session_state.date = str(datetime.now().date())
 
-# ===== UI BUILD =====
+# ===== SIDEBAR =====
+with st.sidebar:
+    st.title("⚙️ Menu")
+
+    st.markdown(f"👤 {st.session_state.name}")
+
+    if st.button("Logout"):
+        st.session_state.name = ""
+        st.rerun()
+
+    st.divider()
+
+    st.subheader("Stats")
+    st.write(f"Bookings: {len(bookings)}")
+
+    st.divider()
+
+    st.subheader("Admin")
+
+    df_edit = st.data_editor(bookings, use_container_width=True)
+
+    if st.button("Save changes"):
+        save(df_edit)
+        st.success("Saved")
+
+# ===== HEADER =====
+st.markdown(f"### 👤 {st.session_state.name} | {st.session_state.date}")
+
+# ===== DATES =====
 today = datetime.now().date()
 
-# ---- DATES ----
-dates_html = ""
+cols = st.columns(4)
+
 for i in range(7):
     d = today + timedelta(days=i)
     ds = str(d)
 
-    cls = "date"
-    if ds == st.session_state.date:
-        cls += " sel"
+    col = cols[i % 4]
 
-    dates_html += f"""
-    <div class="{cls}" onclick="go('date','{ds}')">
-        {d.strftime('%a')}<br>{d.day}
-    </div>
-    """
+    if col.button(f"{d.strftime('%a')} {d.day}", key=f"d{i}"):
+        st.session_state.date = ds
+        st.rerun()
 
-# ---- TABLE ----
+# ===== TABLE =====
 HOURS = [f"{h:02d}:{m}" for h in range(6,22) for m in ["00","30"]]
 
-rows = ""
+st.markdown("###")
 
-for t in HOURS:
-    rows += f'<div class="cell time">{t}</div>'
+header = st.columns([1,1,1,1])
+header[0].markdown("**Time**")
+header[1].markdown("**T1**")
+header[2].markdown("**T2**")
+header[3].markdown("**T3**")
+
+for idx, t in enumerate(HOURS):
+
+    # alternating background (every 4 hours)
+    block = (idx // 8) % 2
+    bg = "#f3f4f6" if block == 0 else "#e5e7eb"
+
+    row = st.columns([1,1,1,1], gap="small")
+
+    row[0].markdown(f"<div style='text-align:center'>{t}</div>", unsafe_allow_html=True)
 
     for i in range(1,4):
         table = f"T{i}"
@@ -64,120 +100,23 @@ for t in HOURS:
 
         if not match.empty:
             name = match.iloc[0]["Name"][:10]
-            rows += f"""
-            <div class="cell taken" onclick="go('del','{t}|{table}')">
-                ✖ {name}
-            </div>
-            """
+
+            if row[i].button(f"✖ {name}", key=f"{t}_{table}"):
+                bookings = bookings[~(
+                    (bookings["Date"]==st.session_state.date) &
+                    (bookings["Table"]==table) &
+                    (bookings["Time"]==t)
+                )]
+                save(bookings)
+                st.rerun()
+
         else:
-            rows += f"""
-            <div class="cell free" onclick="go('book','{t}|{table}')">
-                +
-            </div>
-            """
-
-# ===== HTML =====
-html = f"""
-<style>
-.wrap {{
-    width:100%;
-    max-width:360px;
-    margin:auto;
-    font-family:sans-serif;
-}}
-
-.dates {{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:6px;
-}}
-
-.date {{
-    text-align:center;
-    background:#e5e7eb;
-    padding:8px 0;
-    font-size:10px;
-    border-radius:12px;
-}}
-
-.sel {{
-    background:#4f46e5;
-    color:white;
-}}
-
-.grid {{
-    display:grid;
-    grid-template-columns:60px repeat(3,1fr);
-    gap:6px;
-    margin-top:12px;
-}}
-
-.cell {{
-    height:38px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:10px;
-    border-radius:12px;
-    font-weight:500;
-}}
-
-.time {{ background:#e5e7eb; }}
-.free {{ background:#bbf7d0; }}
-.taken {{ background:#fecaca; }}
-
-</style>
-
-<div class="wrap">
-    <div class="dates">{dates_html}</div>
-
-    <div class="grid">
-        <div class="cell">Time</div>
-        <div class="cell">T1</div>
-        <div class="cell">T2</div>
-        <div class="cell">T3</div>
-
-        {rows}
-    </div>
-</div>
-
-<script>
-function go(action, value){{
-    window.parent.postMessage({{
-        type: "streamlit:setComponentValue",
-        value: action + "|" + value
-    }}, "*");
-}}
-</script>
-"""
-
-# ===== RENDER =====
-result = components.html(html, height=1200, scrolling=True)
-
-# ===== ACTION HANDLER =====
-if result:
-    action, value = result.split("|")
-
-    if action == "date":
-        st.session_state.date = value
-
-    elif action == "book":
-        t, table = value.split("|")
-        bookings = pd.concat([bookings, pd.DataFrame([{
-            "Name": st.session_state.name,
-            "Date": st.session_state.date,
-            "Table": table,
-            "Time": t
-        }])])
-        save(bookings)
-
-    elif action == "del":
-        t, table = value.split("|")
-        bookings = bookings[~(
-            (bookings["Date"]==st.session_state.date) &
-            (bookings["Table"]==table) &
-            (bookings["Time"]==t)
-        )]
-        save(bookings)
-
-    st.rerun()
+            if row[i].button("+", key=f"{t}_{table}"):
+                bookings = pd.concat([bookings, pd.DataFrame([{
+                    "Name": st.session_state.name,
+                    "Date": st.session_state.date,
+                    "Table": table,
+                    "Time": t
+                }])])
+                save(bookings)
+                st.rerun()
