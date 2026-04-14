@@ -63,21 +63,21 @@ if st.session_state.page == "admin":
     st.stop()
 
 # -----------------------
-# STYLE (IMPORTANT)
+# STYLE (FORCE GRID)
 # -----------------------
 st.markdown("""
 <style>
-/* horizontal scroll container */
+/* horizontal scroll so mobile never stacks */
 .scroll {
     overflow-x: auto;
 }
 
-/* force wide layout so columns don't collapse */
+/* fixed width table */
 .table {
     min-width: 520px;
 }
 
-/* rows */
+/* row layout */
 .row {
     display: flex;
     gap: 6px;
@@ -89,87 +89,71 @@ st.markdown("""
     height: 44px;
     border-radius: 12px;
     font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 }
 
 /* fixed widths */
 .time {
     width: 70px;
-    background: #e5e7eb;
-    flex-shrink: 0;
+    background:#e5e7eb;
+    flex-shrink:0;
 }
 
 .slot {
     width: 110px;
-    flex-shrink: 0;
+    flex-shrink:0;
 }
 
 /* colors */
-.free {
-    background: #bbf7d0;
+.free { background:#bbf7d0; }
+.taken { background:#fecaca; }
+
+/* DATE ROW */
+.date-row {
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    margin-bottom:10px;
 }
 
-.taken {
-    background: #fecaca;
-}
-
-/* date row */
-.dates {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    margin-bottom: 10px;
-}
-
-.date-btn {
-    min-width: 80px;
-    padding: 8px;
-    border-radius: 10px;
-    background: #e5e7eb;
-    text-align: center;
-    font-size: 11px;
-    flex-shrink: 0;
-}
-
-.selected {
-    background: #6366f1;
-    color: white;
+.date-btn button {
+    height:40px;
+    border-radius:10px;
+    font-size:11px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# DATE SELECTOR
+# DATE SELECTOR (FIXED)
 # -----------------------
-st.markdown('<div class="dates">', unsafe_allow_html=True)
+st.markdown('<div class="date-row">', unsafe_allow_html=True)
+
+date_cols = st.columns(7)
 
 for i in range(7):
     d = datetime.today().date() + timedelta(days=i)
 
-    cls = "date-btn"
-    if d == st.session_state.date:
-        cls += " selected"
-
-    if st.button(d.strftime("%a %d"), key=f"date_{i}"):
+    if date_cols[i].button(d.strftime("%a %d"), key=f"d{i}"):
         st.session_state.date = d
         st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------
-# TABLE
+# TABLE (VISUAL GRID)
 # -----------------------
 st.markdown('<div class="scroll"><div class="table">', unsafe_allow_html=True)
 
 # header
 st.markdown("""
 <div class="row">
-    <div class="cell time">Time</div>
-    <div class="cell slot">T1</div>
-    <div class="cell slot">T2</div>
-    <div class="cell slot">T3</div>
+<div class="cell time">Time</div>
+<div class="cell slot">T1</div>
+<div class="cell slot">T2</div>
+<div class="cell slot">T3</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -193,11 +177,13 @@ for t in TIMES:
 st.markdown('</div></div>', unsafe_allow_html=True)
 
 # -----------------------
-# CLICK HANDLING (REAL BUTTON GRID OVERLAY)
+# CLICK LAYER (REAL LOGIC)
 # -----------------------
+st.markdown("###")  # spacing
+
 for t in TIMES:
-    cols = st.columns([1,1,1,1])
-    cols[0].write("")  # spacer
+    cols = st.columns([0.8, 1, 1, 1])
+    cols[0].write("")
 
     for i, s in enumerate(SLOTS):
         if cols[i+1].button(" ", key=f"btn_{t}_{s}"):
