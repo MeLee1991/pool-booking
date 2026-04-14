@@ -4,23 +4,23 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide")
 
 # -----------------------
-# CONFIG
-# -----------------------
-SLOTS = ["T1", "T2", "T3"]
-TIMES = [f"{h:02d}:{m:02d}" for h in range(6, 22) for m in (0, 30)]
-USER = "Tom"
-
-# -----------------------
 # STATE
 # -----------------------
-if "bookings" not in st.session_state:
-    st.session_state.bookings = {}
-
 if "date" not in st.session_state:
     st.session_state.date = datetime.today().date()
 
-if "page" not in st.session_state:
-    st.session_state.page = "main"
+if "bookings" not in st.session_state:
+    st.session_state.bookings = {}
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# -----------------------
+# CONFIG
+# -----------------------
+SLOTS = ["T1", "T2", "T3"]
+TIMES = [f"{h:02d}:{m:02d}" for h in range(6, 12) for m in (0, 30)]
+DATES = [datetime.today().date() + timedelta(days=i) for i in range(7)]
 
 # -----------------------
 # HELPERS
@@ -33,159 +33,114 @@ def toggle(d, t, s):
     if k in st.session_state.bookings:
         del st.session_state.bookings[k]
     else:
-        st.session_state.bookings[k] = USER
+        st.session_state.bookings[k] = st.session_state.user or "Anon"
 
 # -----------------------
-# SIDEBAR
+# LOGIN
 # -----------------------
-with st.sidebar:
-    st.title("Menu")
-    if st.button("Schedule"):
-        st.session_state.page = "main"
-    if st.button("Admin"):
-        st.session_state.page = "admin"
+if not st.session_state.user:
+    st.title("Login")
 
-# -----------------------
-# ADMIN PAGE
-# -----------------------
-if st.session_state.page == "admin":
-    st.title("Admin")
-
-    if not st.session_state.bookings:
-        st.info("No bookings")
-    else:
-        for k, v in list(st.session_state.bookings.items()):
-            st.write(k, "→", v)
-            if st.button("Delete", key=k):
-                del st.session_state.bookings[k]
-                st.rerun()
+    name = st.text_input("Your name")
+    if st.button("Enter"):
+        st.session_state.user = name if name else "Anon"
+        st.rerun()
 
     st.stop()
 
 # -----------------------
-# STYLE (FORCE GRID)
+# HEADER
+# -----------------------
+st.markdown(f"### 👤 {st.session_state.user} | {st.session_state.date}")
+
+colA, colB, colC = st.columns(3)
+with colA:
+    if st.button("Admin"):
+        st.session_state.admin = True
+with colB:
+    if st.button("Logout"):
+        st.session_state.user = None
+        st.rerun()
+
+# -----------------------
+# DATES (GRID FIXED)
 # -----------------------
 st.markdown("""
 <style>
-/* horizontal scroll so mobile never stacks */
-.scroll {
-    overflow-x: auto;
+div[data-testid="column"] {
+    padding: 2px !important;
 }
-
-/* fixed width table */
-.table {
-    min-width: 520px;
-}
-
-/* row layout */
-.row {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 6px;
-}
-
-/* cells */
-.cell {
+.stButton button {
+    width: 100%;
     height: 44px;
     border-radius: 12px;
     font-size: 10px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
-
-/* fixed widths */
-.time {
-    width: 70px;
-    background:#e5e7eb;
-    flex-shrink:0;
-}
-
-.slot {
-    width: 110px;
-    flex-shrink:0;
-}
-
-/* colors */
-.free { background:#bbf7d0; }
-.taken { background:#fecaca; }
-
-/* DATE ROW */
-.date-row {
-    display:flex;
-    gap:6px;
-    overflow-x:auto;
-    margin-bottom:10px;
-}
-
-.date-btn button {
-    height:40px;
-    border-radius:10px;
-    font-size:11px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------
-# DATE SELECTOR (FIXED)
-# -----------------------
-st.markdown('<div class="date-row">', unsafe_allow_html=True)
+for i in range(0, len(DATES), 4):
+    row = DATES[i:i+4]
+    cols = st.columns(4)
 
-date_cols = st.columns(7)
+    for j, d in enumerate(row):
+        label = d.strftime("%a %d")
 
-for i in range(7):
-    d = datetime.today().date() + timedelta(days=i)
-
-    if date_cols[i].button(d.strftime("%a %d"), key=f"d{i}"):
-        st.session_state.date = d
-        st.rerun()
-
-st.markdown('</div>', unsafe_allow_html=True)
+        if cols[j].button(label, key=f"date_{d}"):
+            st.session_state.date = d
+            st.rerun()
 
 # -----------------------
-# TABLE (VISUAL GRID)
+# TABLE HEADER
 # -----------------------
-st.markdown('<div class="scroll"><div class="table">', unsafe_allow_html=True)
+cols = st.columns([1,1,1,1])
+cols[0].markdown("**Time**")
+cols[1].markdown("**T1**")
+cols[2].markdown("**T2**")
+cols[3].markdown("**T3**")
 
-# header
-st.markdown("""
-<div class="row">
-<div class="cell time">Time</div>
-<div class="cell slot">T1</div>
-<div class="cell slot">T2</div>
-<div class="cell slot">T3</div>
-</div>
-""", unsafe_allow_html=True)
-
-# rows
+# -----------------------
+# TABLE BODY
+# -----------------------
 for t in TIMES:
-    row_html = f'<div class="row">'
-    row_html += f'<div class="cell time">{t}</div>'
+    cols = st.columns([1,1,1,1])
 
-    for s in SLOTS:
+    cols[0].markdown(
+        f"<div style='background:#e5e7eb;border-radius:12px;padding:10px;text-align:center;font-size:10px'>{t}</div>",
+        unsafe_allow_html=True
+    )
+
+    for i, s in enumerate(SLOTS):
         k = key(st.session_state.date, t, s)
 
         if k in st.session_state.bookings:
-            name = st.session_state.bookings[k][:10]
-            row_html += f'<div class="cell slot taken">✖ {name}</div>'
+            label = f"✖ {st.session_state.bookings[k][:6]}"
+            color = "#fecaca"
         else:
-            row_html += f'<div class="cell slot free">+</div>'
+            label = "+"
+            color = "#bbf7d0"
 
-    row_html += "</div>"
-    st.markdown(row_html, unsafe_allow_html=True)
-
-st.markdown('</div></div>', unsafe_allow_html=True)
-
-# -----------------------
-# CLICK LAYER (REAL LOGIC)
-# -----------------------
-st.markdown("###")  # spacing
-
-for t in TIMES:
-    cols = st.columns([0.8, 1, 1, 1])
-    cols[0].write("")
-
-    for i, s in enumerate(SLOTS):
-        if cols[i+1].button(" ", key=f"btn_{t}_{s}"):
+        if cols[i+1].button(label, key=f"{t}_{s}"):
             toggle(st.session_state.date, t, s)
             st.rerun()
+
+        cols[i+1].markdown(f"""
+        <style>
+        div[data-testid="stButton"][key="{t}_{s}"] button {{
+            background: {color};
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+
+# -----------------------
+# ADMIN PANEL
+# -----------------------
+if st.session_state.get("admin"):
+    st.markdown("---")
+    st.subheader("Admin panel")
+
+    st.write(st.session_state.bookings)
+
+    if st.button("Clear all"):
+        st.session_state.bookings = {}
+        st.rerun()
