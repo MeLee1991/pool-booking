@@ -16,10 +16,9 @@ OWNER_EMAIL = "admin@gmail.com"
 # ===============================
 st.markdown("""
 <style>
-    /* Prevent general mobile padding issues */
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
     
-    /* 1. DATE SELECTOR - 1.5x Wider (approx 82px) */
+    /* 1. DATE SELECTOR - 1.5x Wider (82px) */
     div[data-testid="stHorizontalBlock"]:has(button[key^="date_"]) {
         display: flex !important;
         flex-direction: row !important;
@@ -35,14 +34,13 @@ st.markdown("""
     /* 2. MAIN TABLE - Locked 4-Column Grid */
     .table-wrapper div[data-testid="stHorizontalBlock"] {
         display: flex !important;
-        flex-direction: row !important; /* Forces side-by-side on mobile */
+        flex-direction: row !important; 
         flex-wrap: nowrap !important;
         gap: 4px !important;
         margin-bottom: 4px !important;
         width: 100% !important;
     }
     
-    /* Force exactly 25% width for each column */
     .table-wrapper div[data-testid="column"] {
         width: 25% !important;
         flex: 1 1 25% !important;
@@ -52,7 +50,7 @@ st.markdown("""
     /* 3. BUTTONS & FONT - 9px (2px smaller) */
     .stButton > button {
         width: 100% !important;
-        height: 44px !important; /* Fixed size same as header */
+        height: 44px !important; 
         border-radius: 4px !important;
         border: none !important;
         padding: 0 !important;
@@ -128,7 +126,6 @@ if "sel_date" not in st.session_state:
 # ===============================
 st.write(f"👤 **{st.session_state.user.split('@')[0].capitalize()}** | {st.session_state.sel_date}")
 
-# 14-Day Selector
 today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
 for row_start in [0, 7]:
@@ -140,15 +137,12 @@ for row_start in [0, 7]:
 
 st.divider()
 
-# Main Table
 st.markdown('<div class="table-wrapper">', unsafe_allow_html=True)
 
-# Headers
 h_cols = st.columns(4)
 for i, title in enumerate(["Time", "T1", "T2", "T3"]):
     h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-# Rows
 times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00", "30")]
 bookings = load_data()
 date_str = str(st.session_state.sel_date)
@@ -157,13 +151,11 @@ for t in times:
     r_cols = st.columns(4)
     r_cols[0].markdown(f"<div class='time-label'>{t}</div>", unsafe_allow_html=True)
     for i, table in enumerate(["T1", "T2", "T3"]):
-        match = bookings[(bookings["date"] == date_str) & (bookings["table"] == table) & (bookings["time"] == t)]
+        match = bookings[(bookings[(bookings["date"] == date_str) & (bookings["table"] == table) & (bookings["time"] == t)]
         btn_key = f"slot_{date_str}_{table}_{t}"
         if not match.empty:
             owner = match.iloc[0]["user"].split("@")[0].capitalize()[:6]
             is_mine = (match.iloc[0]["user"] == st.session_state.user) or (st.session_state.role == "admin")
             r_cols[i+1].button(f"X {owner}" if is_mine else "🔒", key=btn_key, type="primary", on_click=handle_booking, args=(date_str, table, t))
         else:
-            r_cols[i+1].button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(date_str, table, t))
-
-st.markdown('</div>', unsafe_allow_html=True)
+            r_cols[i+1].button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(
