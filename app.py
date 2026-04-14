@@ -27,69 +27,60 @@ def load_data(file, columns):
 # ===============================
 st.markdown("""
 <style>
-/* 1. Eliminate all side padding to give columns room */
+/* 1. Remove all possible padding from the app wrapper */
 .block-container {
-    padding: 1rem 5px !important;
+    padding: 0.5rem 2px !important;
     max-width: 100% !important;
 }
 
-/* 2. FORCE 4 COLUMNS - NO WRAPPING */
-/* We target the horizontal block and force it into a 4-column grid */
+/* 2. FORCE STICKY 4-COLUMN GRID */
+/* This overrides Streamlit's flex logic and forces 4 equal slices */
 div[data-testid="stHorizontalBlock"] {
     display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 4px !important;
-    flex-wrap: nowrap !important;
+    grid-template-columns: repeat(4, 1fr) !important; 
+    gap: 2px !important; /* Minimal gap to save space */
+    align-items: center;
 }
 
-/* 3. RESET COLUMN DEFAULTS */
+/* 3. KILL COLUMN MIN-WIDTH */
+/* This prevents the "Wide Header" issue seen in your screenshot */
 div[data-testid="column"] {
+    min-width: 0 !important; 
     width: 100% !important;
-    min-width: 0 !important;
     flex: none !important;
 }
 
-/* 4. BUTTONS - FIXED HEIGHT & TRUNCATED TEXT */
+/* 4. BUTTONS - 30px target height & fixed width */
 .stButton > button {
     width: 100% !important;
-    height: 40px !important;
+    height: 32px !important; /* Compact height */
     padding: 0 !important;
-    border-radius: 4px !important;
+    margin: 0 !important;
 }
 
-.stButton > button p {
-    font-size: 10px !important; /* Tiny font to fit names */
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
-
-/* 5. TIME CELLS & HEADERS */
+/* 5. HEADER COMPACTNESS */
 .grid-header {
     background-color: #000;
     color: #fff;
     text-align: center;
-    font-size: 11px;
-    font-weight: bold;
-    padding: 10px 0;
+    font-size: 10px; /* Smaller text to fit 30px-ish width */
+    height: 32px;
+    line-height: 32px;
     border-radius: 4px;
+    overflow: hidden;
 }
 
+/* 6. TIME BLOCK COLORS (4-hour intervals) */
 .time-cell {
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
+    text-align: center;
+    height: 32px;
+    line-height: 32px;
     border-radius: 4px;
-    border: 1px solid #ddd;
 }
-
-/* Light alternating 4-hour colors */
-.bg-light { background-color: #ffffff; }
-.bg-dark { background-color: #f0f2f5; }
-
+.bg-light { background-color: #ffffff; border: 1px solid #eee; }
+.bg-dark { background-color: #f0f2f5; border: 1px solid #ddd; }
 </style>
 """, unsafe_allow_html=True)
 
