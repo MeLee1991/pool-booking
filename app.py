@@ -126,6 +126,7 @@ if "sel_date" not in st.session_state:
 # ===============================
 st.write(f"👤 **{st.session_state.user.split('@')[0].capitalize()}** | {st.session_state.sel_date}")
 
+# 14-Day Date Bar
 today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
 for row_start in [0, 7]:
@@ -137,12 +138,15 @@ for row_start in [0, 7]:
 
 st.divider()
 
+# Main Table
 st.markdown('<div class="table-wrapper">', unsafe_allow_html=True)
 
+# Headers Row
 h_cols = st.columns(4)
 for i, title in enumerate(["Time", "T1", "T2", "T3"]):
     h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
+# Time Rows
 times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00", "30")]
 bookings = load_data()
 date_str = str(st.session_state.sel_date)
@@ -151,11 +155,15 @@ for t in times:
     r_cols = st.columns(4)
     r_cols[0].markdown(f"<div class='time-label'>{t}</div>", unsafe_allow_html=True)
     for i, table in enumerate(["T1", "T2", "T3"]):
-        match = bookings[(bookings[(bookings["date"] == date_str) & (bookings["table"] == table) & (bookings["time"] == t)]
+        # CORRECTED MATCH LINE BELOW
+        match = bookings[(bookings["date"] == date_str) & (bookings["table"] == table) & (bookings["time"] == t)]
         btn_key = f"slot_{date_str}_{table}_{t}"
+        
         if not match.empty:
             owner = match.iloc[0]["user"].split("@")[0].capitalize()[:6]
             is_mine = (match.iloc[0]["user"] == st.session_state.user) or (st.session_state.role == "admin")
             r_cols[i+1].button(f"X {owner}" if is_mine else "🔒", key=btn_key, type="primary", on_click=handle_booking, args=(date_str, table, t))
         else:
-            r_cols[i+1].button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(
+            r_cols[i+1].button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(date_str, table, t))
+
+st.markdown('</div>', unsafe_allow_html=True)
