@@ -6,167 +6,225 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Poolhall", layout="centered", initial_sidebar_state="collapsed")
 
 # ===============================
-# CSS: THE "TOM" DESIGN REPLICA
+# CONFIG & FILES
+# ===============================
+USERS_FILE = "users.csv"
+BOOKINGS_FILE = "bookings.csv"
+OWNER_EMAIL = "admin@gmail.com"
+
+# ===============================
+# THE "SEPARATED" CSS
 # ===============================
 st.markdown("""
 <style>
-    .block-container { padding: 1rem 10px !important; }
+    .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
     
-    /* 1. DATE SELECTOR - Simple & Clean */
-    div[data-testid="column"] button p { font-size: 12px !important; font-weight: bold !important; }
-
-    /* 2. THE MAIN TABLE GRID - Equal Column Widths */
-    div.main-table div[data-testid="stHorizontalBlock"] {
+    /* =========================================
+       1. DATE ROWS (7 Columns) - Slidable
+       ========================================= */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        padding-bottom: 5px !important; /* Space for scrollbar */
         gap: 4px !important;
     }
-    div.main-table div[data-testid="column"] {
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) > div {
+        min-width: 55px !important; /* Forces dates to stay wide enough to read */
+        flex: 0 0 auto !important;
     }
 
-    /* 3. BUTTONS: FIXED WIDTH & BLOCKY */
+    /* =========================================
+       2. MAIN TABLE ROWS (4 Columns) - Fixed Grid
+       ========================================= */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 4px !important;
+        margin-bottom: 4px !important;
+        width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) > div {
+        min-width: 0 !important; 
+        width: 100% !important; 
+    }
+
+    /* =========================================
+       3. BUTTON STYLING
+       ========================================= */
     .stButton > button {
         width: 100% !important;
-        height: 45px !important;
+        height: 44px !important;
         border-radius: 6px !important;
-        border: none !important;
-        transition: none !important;
+        padding: 0 2px !important;
+        border: 1px solid rgba(0,0,0,0.1) !important;
+    }
+    .stButton > button p {
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        margin: 0 !important;
+        white-space: pre-wrap !important; /* Allows multi-line for dates */
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 
-    /* Green for Free (+) */
-    div.main-table button[kind="secondary"] {
-        background-color: #28a745 !important;
-        color: white !important;
+    /* =========================================
+       4. COLORS & HEADERS
+       ========================================= */
+    /* Free Buttons (Green) */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] {
+        background-color: #c8e6c9 !important; color: #1b5e20 !important; border-color: #a5d6a7 !important;
+    }
+    /* Booked Buttons (Red) */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] {
+        background-color: #ffcdd2 !important; color: #b71c1c !important; border-color: #ef9a9a !important;
+    }
+    
+    /* Date Selected / Unselected */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) button[kind="primary"] {
+        background-color: #3f51b5 !important; color: white !important;
     }
 
-    /* Red for Booked (X Name) */
-    div.main-table button[kind="primary"] {
-        background-color: #ff4b4b !important;
-        color: white !important;
-    }
-
-    /* 4. HEADERS & LABELS */
+    /* Table Headers */
     .grid-header {
-        background-color: #111;
-        color: #fff;
-        text-align: center;
-        font-weight: bold;
-        height: 45px;
-        line-height: 45px;
-        border-radius: 6px;
-        font-size: 14px;
-        margin-bottom: 5px;
+        background-color: #111; color: #fff; text-align: center;
+        font-size: 13px; font-weight: bold; height: 44px; line-height: 44px;
+        border-radius: 6px; margin-bottom: 12px !important;
     }
 
+    /* Time Column */
     .time-label {
-        background-color: #f1f3f4;
-        height: 45px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        border-radius: 6px;
-        color: #333;
+        height: 44px; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: bold; border-radius: 6px; color: #222;
     }
+    .t-blue { background-color: #e3f2fd; } 
+    .t-yellow { background-color: #fff9c4; } 
+    .t-orange { background-color: #ffe0b2; } 
+    .t-purple { background-color: #f3e5f5; } 
 
     [data-testid="stHeader"] {display: none;}
 </style>
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA HELPERS
+# DATA HELPERS & CALLBACKS (Fixes the logic bugs)
 # ===============================
-BOOKINGS_FILE = "bookings.csv"
+def load_data(file, cols):
+    if not os.path.exists(file): pd.DataFrame(columns=cols).to_csv(file, index=False)
+    try: return pd.read_csv(file)
+    except: return pd.DataFrame(columns=cols)
 
-def load_bookings():
-    if not os.path.exists(BOOKINGS_FILE):
-        return pd.DataFrame(columns=["user", "date", "table", "time"])
-    return pd.read_csv(BOOKINGS_FILE)
+def save_data(df, file): df.to_csv(file, index=False)
 
-def toggle_slot(date_str, table, time_str):
-    df = load_bookings()
+def set_date(new_date):
+    st.session_state.sel_date = new_date
+
+def handle_booking(date_str, table, time_str, user_email, role):
+    df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
     mask = (df["date"] == date_str) & (df["table"] == table) & (df["time"] == time_str)
     
     if df[mask].empty:
-        new_row = pd.DataFrame([[st.session_state.user, date_str, table, time_str]], columns=df.columns)
+        # Save new booking
+        new_row = pd.DataFrame([[user_email, date_str, table, time_str]], columns=df.columns)
         df = pd.concat([df, new_row], ignore_index=True)
     else:
-        # Only allow user or admin to cancel
-        if df[mask].iloc[0]["user"] == st.session_state.user or st.session_state.user == "admin@gmail.com":
+        # Delete booking if owner or admin
+        owner = df[mask].iloc[0]["user"]
+        if owner == user_email or role == "admin":
             df = df[~mask]
-    df.to_csv(BOOKINGS_FILE, index=False)
+            
+    save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# SESSION & LOGIN
+# LOGIN SYSTEM
 # ===============================
 if "user" not in st.session_state:
-    st.title("🎱 Pool Login")
+    st.markdown("<h2 style='text-align:center;'>🎱 Pool Login</h2>", unsafe_allow_html=True)
     email = st.text_input("Email").lower()
-    if st.button("Enter"):
-        st.session_state.user = email
-        st.rerun()
+    pw = st.text_input("Password", type="password")
+    if st.button("Continue", use_container_width=True):
+        if email and pw == "1234":
+            st.session_state.user = email
+            st.session_state.name = email.split('@')[0].capitalize()
+            st.session_state.role = "admin" if email == OWNER_EMAIL else "user"
+            st.rerun()
     st.stop()
 
-if "sel_date" not in st.session_state:
+# ===============================
+# UI START
+# ===============================
+if "sel_date" not in st.session_state: 
     st.session_state.sel_date = datetime.now().date()
 
-# ===============================
-# TOP: DATE SELECTOR (Working Logic)
-# ===============================
-st.write(f"👤 **{st.session_state.user.split('@')[0].capitalize()}** | {st.session_state.sel_date}")
+st.markdown(f"**👤 {st.session_state.name}** &nbsp;|&nbsp; {st.session_state.sel_date}")
 
+# ===============================
+# 14-DAY SELECTOR (Scrollable/Slidable)
+# ===============================
 today = datetime.now().date()
-# Create two rows of dates
-for start_day in [0, 7]:
-    d_cols = st.columns(7)
-    for i in range(7):
-        d = today + timedelta(days=start_day + i)
-        label = f"{d.strftime('%a').upper()}\n{d.day}"
-        # Selected date is highlighted Blue (Primary)
-        is_selected = d == st.session_state.sel_date
-        if d_cols[i].button(label, key=f"date_{d}", type="primary" if is_selected else "secondary"):
-            st.session_state.sel_date = d
-            st.rerun()
+dates = [today + timedelta(days=i) for i in range(14)]
 
-st.divider()
+# ROW 1 (Days 1-7)
+d_cols1 = st.columns(7)
+for i in range(7):
+    d = dates[i]
+    lbl = f"TOD\n{d.day}" if d == today else f"TOM\n{d.day}" if d == today + timedelta(days=1) else f"{d.strftime('%a').upper()}\n{d.day}"
+    with d_cols1[i]:
+        # Using on_click callback fixes "not reacting" bug
+        st.button(lbl, key=f"d1_{d}", type="primary" if d == st.session_state.sel_date else "secondary", on_click=set_date, args=(d,))
+
+# ROW 2 (Days 8-14)
+d_cols2 = st.columns(7)
+for i in range(7, 14):
+    d = dates[i]
+    lbl = f"{d.strftime('%a').upper()}\n{d.day}"
+    with d_cols2[i - 7]:
+        st.button(lbl, key=f"d2_{d}", type="primary" if d == st.session_state.sel_date else "secondary", on_click=set_date, args=(d,))
 
 # ===============================
-# MAIN TABLE: FIXED GRID
+# MAIN TABLE
 # ===============================
-st.markdown('<div class="main-table">', unsafe_allow_html=True)
+times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
+tables = ["T1", "T2", "T3"]
+bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+date_str = str(st.session_state.sel_date)
+df_day = bookings[bookings["date"] == date_str]
 
-# Header Row
+# TABLE HEADER
 h_cols = st.columns(4)
-for i, head in enumerate(["Time", "T 1", "T 2", "T 3"]):
-    h_cols[i].markdown(f"<div class='grid-header'>{head}</div>", unsafe_allow_html=True)
+for title in ["Time", "T1", "T2", "T3"]:
+    with h_cols[["Time", "T1", "T2", "T3"].index(title)]:
+        st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-# Booking Rows
-times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00", "30")]
-df = load_bookings()
-cur_date = str(st.session_state.sel_date)
-
+# TABLE DATA
 for t in times:
     r_cols = st.columns(4)
     
-    # Time Column
-    r_cols[0].markdown(f"<div class='time-label'>{t}</div>", unsafe_allow_html=True)
+    # Time Colors
+    h_int = int(t[:2])
+    if 6 <= h_int < 10: c_cls = "t-blue"
+    elif 10 <= h_int < 14: c_cls = "t-yellow"
+    elif 14 <= h_int < 18: c_cls = "t-orange"
+    else: c_cls = "t-purple"
     
-    # Table Columns (T1, T2, T3)
-    for i, table_id in enumerate(["T1", "T2", "T3"]):
-        slot = df[(df["date"] == cur_date) & (df["table"] == table_id) & (df["time"] == t)]
+    with r_cols[0]:
+        st.markdown(f"<div class='time-label {c_cls}'>{t}</div>", unsafe_allow_html=True)
         
-        btn_key = f"btn_{cur_date}_{table_id}_{t}"
-        
-        if not slot.empty:
-            name = slot.iloc[0]["user"].split("@")[0].capitalize()
-            # Booked Slot: type="primary" renders RED
-            if r_cols[i+1].button(f"X {name}", key=btn_key, type="primary"):
-                toggle_slot(cur_date, table_id, t)
-                st.rerun()
-        else:
-            # Free Slot: type="secondary" renders GREEN
-            if r_cols[i+1].button("+", key=btn_key, type="secondary"):
-                toggle_slot(cur_date, table_id, t)
-                st.rerun()
-
-st.markdown('</div>', unsafe_allow_html=True)
+    for i, table in enumerate(tables):
+        with r_cols[i+1]:
+            match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
+            
+            # Unique key combining date, table, and time prevents the URL/Logic bug
+            btn_key = f"btn_{date_str}_{table}_{t}" 
+            
+            if not match.empty:
+                owner = match.iloc[0]["user"]
+                is_me_or_admin = (owner == st.session_state.user) or (st.session_state.role == "admin")
+                display_name = owner.split("@")[0].capitalize()[:6] if is_me_or_admin else ""
+                label = f"X {display_name}" if is_me_or_admin else "🔒"
+                
+                # Booked = Primary (Styled Red)
+                st.button(label, key=btn_key, type="primary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
+            else:
+                # Free = Secondary (Styled Green)
+                st.button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
