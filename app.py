@@ -19,77 +19,68 @@ st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
     
-    /* =========================================
-       1. DATE ROWS - Wider (approx 1.5x of 55px)
-       ========================================= */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
+    /* 1. DATE SELECTOR - 1.5x Wider (82px) */
+    div[data-testid="stHorizontalBlock"]:has(button[key^="date_"]) {
         display: flex !important;
+        flex-direction: row !important;
         flex-wrap: nowrap !important;
         overflow-x: auto !important;
-        padding-bottom: 8px !important;
         gap: 6px !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) > div {
-        min-width: 82px !important; /* 1.5x wider than before */
+    div[data-testid="stHorizontalBlock"]:has(button[key^="date_"]) > div {
+        min-width: 82px !important; 
         flex: 0 0 auto !important;
     }
 
-    /* =========================================
-       2. MAIN TABLE ROWS - Fixed Grid
-       ========================================= */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
-        display: grid !important;
-        grid-template-columns: repeat(4, 1fr) !important;
+    /* 2. MAIN TABLE ROWS - Fixed Grid (Unbreakable) */
+    .table-wrapper div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
         gap: 4px !important;
         margin-bottom: 4px !important;
         width: 100% !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) > div {
-        min-width: 0 !important; 
-        width: 100% !important; 
+    .table-wrapper div[data-testid="column"] {
+        width: 25% !important;
+        flex: 1 1 25% !important;
+        min-width: 0 !important;
     }
 
-    /* =========================================
-       3. BUTTON STYLING - Smaller Font (9px)
-       ========================================= */
+    /* 3. BUTTON STYLING - Font 9px */
     .stButton > button {
         width: 100% !important;
-        height: 44px !important; /* Fixed size matching headers */
+        height: 44px !important;
         border-radius: 6px !important;
         padding: 0 2px !important;
-        border: 1px solid rgba(0,0,0,0.1) !important;
+        border: 1px solid rgba(0,0,0,0.05) !important;
     }
     .stButton > button p {
-        font-size: 9px !important; /* 2px smaller than before */
+        font-size: 9px !important;
         font-weight: 800 !important;
         margin: 0 !important;
-        white-space: pre-wrap !important;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
 
-    /* =========================================
-       4. COLORS & HEADERS
-       ========================================= */
-    /* Free Buttons (Green) */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] {
-        background-color: #28a745 !important; color: white !important; border: none !important;
+    /* 4. COLORS - Light Green (Free) & Light Red (Booked) */
+    /* Free Buttons */
+    .table-wrapper button[kind="secondary"] {
+        background-color: #c8e6c9 !important; color: #1b5e20 !important;
     }
-    /* Booked Buttons (Red) */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] {
-        background-color: #dc3545 !important; color: white !important; border: none !important;
+    /* Booked Buttons */
+    .table-wrapper button[kind="primary"] {
+        background-color: #ffcdd2 !important; color: #b71c1c !important;
     }
     
     /* Date Selected - Blue */
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) button[kind="primary"] {
-        background-color: #007bff !important; color: white !important;
+    button[key^="date_"][kind="primary"] {
+        background-color: #3f51b5 !important; color: white !important;
     }
 
     /* Table Headers */
     .grid-header {
         background-color: #111; color: #fff; text-align: center;
         font-size: 11px; font-weight: bold; height: 44px; line-height: 44px;
-        border-radius: 6px; margin-bottom: 0 !important;
+        border-radius: 6px;
     }
 
     /* Time Column */
@@ -145,26 +136,22 @@ if "user" not in st.session_state:
             st.rerun()
     st.stop()
 
-# ===============================
-# UI START
-# ===============================
 if "sel_date" not in st.session_state: 
     st.session_state.sel_date = datetime.now().date()
 
 st.markdown(f"**👤 {st.session_state.name}** &nbsp;|&nbsp; {st.session_state.sel_date}")
 
 # ===============================
-# 14-DAY SELECTOR (Slidable)
+# 14-DAY SELECTOR
 # ===============================
 today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
 
-# Rows of Dates (using 7 cols for the selector layout)
 for row_start in [0, 7]:
     d_cols = st.columns(7)
     for i in range(7):
         d = dates[row_start + i]
-        lbl = f"TOD\n{d.day}" if d == today else f"TOM\n{d.day}" if d == today + timedelta(days=1) else f"{d.strftime('%a').upper()}\n{d.day}"
+        lbl = f"TOD\n{d.day}" if d == today else f"{d.strftime('%a').upper()}\n{d.day}"
         with d_cols[i]:
             st.button(lbl, key=f"date_{d}", type="primary" if d == st.session_state.sel_date else "secondary", on_click=set_date, args=(d,))
 
@@ -173,34 +160,36 @@ st.divider()
 # ===============================
 # MAIN TABLE
 # ===============================
+st.markdown('<div class="table-wrapper">', unsafe_allow_html=True)
+
+# Header
+h_cols = st.columns(4)
+for i, title in enumerate(["Time", "T1", "T2", "T3"]):
+    h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
+
+# Data Rows
 times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
-tables = ["T1", "T2", "T3"]
 bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
 date_str = str(st.session_state.sel_date)
 df_day = bookings[bookings["date"] == date_str]
 
-# TABLE HEADER
-h_cols = st.columns(4)
-for title in ["Time", "T1", "T2", "T3"]:
-    with h_cols[["Time", "T1", "T2", "T3"].index(title)]:
-        st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
-
-# TABLE DATA
 for t in times:
     r_cols = st.columns(4)
     with r_cols[0]:
         st.markdown(f"<div class='time-label'>{t}</div>", unsafe_allow_html=True)
         
-    for i, table in enumerate(tables):
-        with r_cols[i+1]:
-            match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
-            btn_key = f"btn_{date_str}_{table}_{t}" 
-            
-            if not match.empty:
-                owner = match.iloc[0]["user"]
-                is_me_or_admin = (owner == st.session_state.user) or (st.session_state.role == "admin")
-                display_name = owner.split("@")[0].capitalize()[:6] if is_me_or_admin else ""
-                label = f"X {display_name}" if is_me_or_admin else "🔒"
-                st.button(label, key=btn_key, type="primary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
-            else:
-                st.button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
+    for i, table in enumerate(["T1", "T2", "T3"]):
+        match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
+        btn_key = f"btn_{date_str}_{table}_{t}" 
+        
+        if not match.empty:
+            owner = match.iloc[0]["user"]
+            is_me_or_admin = (owner == st.session_state.user) or (st.session_state.role == "admin")
+            # Label is name if authorized, otherwise blank (color handles status)
+            label = owner.split("@")[0].capitalize()[:6] if is_me_or_admin else " "
+            r_cols[i+1].button(label, key=btn_key, type="primary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
+        else:
+            # Label is blank for free slots
+            r_cols[i+1].button(" ", key=btn_key, type="secondary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
+
+st.markdown('</div>', unsafe_allow_html=True)
