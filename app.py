@@ -19,10 +19,32 @@ if not os.path.exists(USERS_FILE):
 if not os.path.exists(BOOKINGS_FILE):
     pd.DataFrame(columns=["user","date","table","time"]).to_csv(BOOKINGS_FILE,index=False)
 
-def load_users(): return pd.read_csv(USERS_FILE)
+
+def load_users():
+    try:
+        df = pd.read_csv(USERS_FILE)
+        # If the file loaded but is missing the email column, return a blank template
+        if "email" not in df.columns:
+            return pd.DataFrame(columns=["email","name","pw","role"])
+        return df
+    except pd.errors.EmptyDataError:
+        # If the file is completely empty
+        return pd.DataFrame(columns=["email","name","pw","role"])
+
+def load_bookings():
+    try:
+        df = pd.read_csv(BOOKINGS_FILE)
+        if "user" not in df.columns:
+            return pd.DataFrame(columns=["user","date","table","time"])
+        return df
+    except pd.errors.EmptyDataError:
+        return pd.DataFrame(columns=["user","date","table","time"])
+
+#def load_users(): return pd.read_csv(USERS_FILE)
 def save_users(df): df.to_csv(USERS_FILE,index=False)
-def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
+#def load_bookings(): return pd.read_csv(BOOKINGS_FILE)
 def save_bookings(df): df.to_csv(BOOKINGS_FILE,index=False)
+
 
 # ===============================
 # CSS FIX FOR MOBILE PORTRAIT
