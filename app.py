@@ -34,72 +34,56 @@ def save_users(df): df.to_csv(USERS_FILE,index=False)
 def save_bookings(df): df.to_csv(BOOKINGS_FILE,index=False)
 
 # ===============================
-# STRICT MOBILE CSS
+# AGGRESSIVE ANTI-STACKING CSS
 # ===============================
 st.markdown("""
 <style>
-/* 1. MAIN APP PADDING - Maximize screen space */
+/* 1. Maximize screen space */
 .block-container {
     padding-top: 1rem !important;
     padding-bottom: 1rem !important;
-    padding-left: 0.25rem !important;
-    padding-right: 0.25rem !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
     max-width: 100% !important;
 }
 
-/* 2. TARGET ONLY THE 4-COLUMN MAIN GRID */
-/* This forces exactly 4 equal columns with max 5px gap, no wrapping */
-[data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4):last-child) {
+/* 2. FORCE NO STACKING ON ALL COLUMNS */
+div[data-testid="stHorizontalBlock"] {
     flex-wrap: nowrap !important;
-    gap: 5px !important;
-    margin-bottom: 5px !important;
+    gap: 4px !important;
+    margin-bottom: 4px !important;
     width: 100% !important;
 }
-[data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4):last-child) > [data-testid="column"] {
-    min-width: 0 !important;
-    width: 25% !important; /* 4 Equal columns */
-    flex: 1 1 0% !important;
+
+/* 3. ALLOW COLUMNS TO SQUISH INSTEAD OF STACK */
+div[data-testid="column"] {
+    min-width: 0 !important; /* CRITICAL: removes Streamlit's mobile breakpoint */
+    flex: 1 1 0% !important; 
     padding: 0 !important;
 }
 
-/* 3. TARGET THE 7-COLUMN DATE GRID (Make it scrollable horizontally) */
-[data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    gap: 4px !important;
-    padding-bottom: 5px;
-}
-[data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child)::-webkit-scrollbar {
-    height: 0px; /* Hide scrollbar for a clean UI */
-}
-[data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) > [data-testid="column"] {
-    min-width: 55px !important; /* Force items to keep shape so you can swipe them */
-    flex: 0 0 auto !important;
-}
-
-/* 4. BUTTONS & TEXT TRUNCATION (Fixed width, no matter the name length) */
+/* 4. BUTTON FORMATTING (Fixed sizes, truncating text) */
 .stButton > button {
     width: 100% !important;
     min-height: 40px !important;
     height: 100% !important;
-    padding: 0 !important;
+    padding: 0 2px !important;
     border-radius: 4px !important;
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
 }
+
 .stButton > button p {
     font-size: 11px !important;
     font-weight: 600 !important;
-    width: 100% !important;
     margin: 0 !important;
-    padding: 0 2px !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important; /* Adds "..." if name is too long */
 }
 
-/* 5. HEADERS AND TIME CELLS */
+/* 5. CUSTOM HEADERS & TIME CELLS */
 .grid-header {
     background-color: #111;
     color: #fff;
@@ -109,6 +93,7 @@ st.markdown("""
     font-size: 12px;
     font-weight: 700;
 }
+
 .time-cell {
     color: #111;
     text-align: center;
@@ -121,11 +106,10 @@ st.markdown("""
     height: 100%;
     min-height: 40px;
     width: 100%;
-    border: 1px solid #e0e0e0;
 }
 /* 4-Hour Block Colors */
-.time-bg-white { background-color: #ffffff; }
-.time-bg-gray { background-color: #f0f2f5; }
+.time-bg-white { background-color: #ffffff; border: 1px solid #eee; }
+.time-bg-gray { background-color: #f2f4f7; border: 1px solid #eee; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -176,8 +160,13 @@ with colB:
         st.session_state.clear()
         st.rerun()
 
+if st.button("⚙️ Admin Panel"):
+    pass # Placeholder
+
+st.write("") # Spacer
+
 # ===============================
-# DATE SELECTOR (Scrollable Row)
+# DATE SELECTOR (2 Rows of 7)
 # ===============================
 today = datetime.now().date()
 dates = [today + timedelta(days=i) for i in range(14)]
@@ -186,7 +175,11 @@ for r in range(2):
     row_cols = st.columns(7)
     for i in range(7):
         d = dates[r * 7 + i]
-        lbl = f"TOD {d.day}" if d == today else f"TOM {d.day}" if d == today + timedelta(days=1) else f"{d.strftime('%a').upper()} {d.day}"
+        
+        if d == today: lbl = f"TOD {d.day}"
+        elif d == today + timedelta(days=1): lbl = f"TOM {d.day}"
+        else: lbl = f"{d.strftime('%a').upper()} {d.day}"
+        
         with row_cols[i]:
             if st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.selected_date else "secondary"):
                 st.session_state.selected_date = d
@@ -210,7 +203,7 @@ with header_cols[2]: st.markdown("<div class='grid-header'>T2</div>", unsafe_all
 with header_cols[3]: st.markdown("<div class='grid-header'>T3</div>", unsafe_allow_html=True)
 
 for t in times:
-    row_cols = st.columns(4) # Strict 4 equal columns
+    row_cols = st.columns(4)
     
     # Calculate 4-hour blocks: (Hour - 6) // 4
     hour = int(t[:2])
@@ -225,7 +218,6 @@ for t in times:
             slot = df_today[(df_today["table"] == table) & (df_today["time"] == t)]
             
             if not slot.empty:
-                # Truncate text to avoid breaking columns if name is huge
                 u = slot.iloc[0]["user"]
                 display_name = st.session_state.name if u == st.session_state.user else "🔒"
                 
