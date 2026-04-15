@@ -18,8 +18,6 @@ OWNER_EMAIL = "admin@gmail.com"
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
-    
-    /* Date Selector */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
         display: flex !important; flex-wrap: nowrap !important;
         overflow-x: auto !important; gap: 6px !important;
@@ -27,8 +25,6 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) > div {
         min-width: 85px !important; flex: 0 0 auto !important;
     }
-
-    /* 4-Column Table Grid */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
         gap: 4px !important; margin-bottom: 4px !important;
@@ -36,21 +32,17 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) > div {
         width: 100% !important; min-width: 0 !important;
     }
-
     .stButton > button {
         height: 44px !important; border-radius: 6px !important;
         width: 100% !important; padding: 0 !important;
     }
     .stButton > button p { font-size: 11px !important; font-weight: bold !important; }
-
-    /* Red Booked / Green Available */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] { 
         background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2 !important;
     }
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] { 
         background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9 !important;
     }
-
     .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; height: 44px; 
         line-height: 44px; border-radius: 6px; background-color: #212121; color: white;
@@ -64,7 +56,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# PERSISTENT DATA LOGIC
+# DATA PERSISTENCE LOGIC
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 
@@ -77,9 +69,8 @@ def load_data(file, cols):
         return df
     try:
         df = pd.read_csv(file)
-        for col in cols:
-            if col not in df.columns:
-                df[col] = True if col == "approved" else ("user" if col == "role" else "")
+        for c in cols:
+            if c not in df.columns: df[c] = True if c == "approved" else ("user" if c == "role" else "")
         return df[cols]
     except:
         return pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
@@ -91,7 +82,6 @@ def handle_booking(date_str, table, time_str, user_email, role):
     target = st.session_state.get("admin_target_user", user_email)
     df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
     mask = (df["date"] == date_str) & (df["table"] == table) & (df["time"] == time_str)
-    
     if df[mask].empty:
         new_row = pd.DataFrame([[target, date_str, table, time_str]], columns=df.columns)
         df = pd.concat([df, new_row], ignore_index=True)
@@ -102,7 +92,7 @@ def handle_booking(date_str, table, time_str, user_email, role):
     save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# LOGIN SYSTEM
+# LOGIN
 # ===============================
 if "user" not in st.session_state:
     m = st.radio("M", ["Login", "Register"], horizontal=True, label_visibility="collapsed")
@@ -119,19 +109,19 @@ if "user" not in st.session_state:
                 st.session_state.user, st.session_state.role = u, match.iloc[0]["role"]
                 st.session_state.name = u.split('@')[0].capitalize()
                 st.rerun()
-            else: st.error("Login Error")
+            else: st.error("Login Error.")
     else:
         st.markdown("<h3 style='text-align:center;'>🎱 Register</h3>", unsafe_allow_html=True)
-        ru, rp = st.text_input("User").lower(), st.text_input("Pass", type="password")
+        ru, rp = st.text_input("New User").lower(), st.text_input("New Pass", type="password")
         if st.button("Register"):
             udf = load_data(USERS_FILE, USER_COLS)
             if ru not in udf["email"].values:
                 save_data(pd.concat([udf, pd.DataFrame([[ru, rp, "user", False]], columns=USER_COLS)]), USERS_FILE)
-                st.success("Wait for Admin.")
+                st.success("Pending approval.")
     st.stop()
 
 # ===============================
-# APP TABS
+# MAIN UI
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 udf = load_data(USERS_FILE, USER_COLS)
@@ -143,13 +133,13 @@ else:
 
 if t_admin:
     with t_admin:
-        st.subheader("User Management")
-        edited = st.data_editor(udf, use_container_width=True, key="user_db")
-        if st.button("💾 Save All User Changes"):
+        st.subheader("Manage Users")
+        edited = st.data_editor(udf, use_container_width=True, key="db")
+        if st.button("💾 Save User List"):
             save_data(edited, USERS_FILE); st.success("Saved!"); st.rerun()
         st.divider()
         ulist = udf["email"].astype(str).tolist()
-        st.session_state.admin_target_user = st.selectbox("Assign bookings to:", ulist, index=ulist.index(st.session_state.user) if st.session_state.user in ulist else 0)
+        st.session_state.admin_target_user = st.selectbox("Admin: Book for whom?", ulist, index=ulist.index(st.session_state.user) if st.session_state.user in ulist else 0)
 
 with t_book:
     st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
@@ -183,5 +173,7 @@ with t_book:
                 if not m.empty:
                     owner = str(m.iloc[0]["user"])
                     disp = owner.split('@')[0].capitalize()[:7] if '@' in owner else owner.capitalize()[:7]
-                    can_del = owner.lower() == st.session_state.user.lower() or st.session_state.role == "admin"
-                    st.button(f"{'X' if can_del else '🔒'} {disp}", key=k, type="primary", on_click=handle_booking if can_del else None,
+                    can_edit = owner.lower() == st.session_state.user.lower() or st.session_state.role == "admin"
+                    st.button(f"{'X' if can_edit else '🔒'} {disp}", key=k, type="primary", on_click=handle_booking if can_edit else None, args=(str(st.session_state.sel_date), tab, t, st.session_state.user, st.session_state.role))
+                else:
+                    st.button("➕", key=k, type="secondary", on_click=handle_booking, args=(str(st.session_state.sel_date), tab, t, st.session_state.user, st.session_state.role))
