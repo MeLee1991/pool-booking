@@ -13,7 +13,7 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE DESIGN (EXACTLY AS REQUESTED)
+# THE DESIGN (STRICTLY UNCHANGED)
 # ===============================
 st.markdown("""
 <style>
@@ -56,38 +56,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# SELF-HEALING DATA LOGIC
+# LOGIC: PERSISTENT DATA
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 
 def load_data(file, cols):
-    if not os.path.exists(file):
+    # If file doesn't exist, create it with Admin
+    if not os.path.exists(file) or os.path.getsize(file) == 0:
         df = pd.DataFrame(columns=cols)
         if file == USERS_FILE:
             df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
         df.to_csv(file, index=False)
         return df
-    df = pd.read_csv(file)
-    # Patch columns if missing
-    for col in cols:
-        if col not in df.columns:
-            df[col] = True if col == "approved" else ("user" if col == "role" else "")
     
-    # --- AUTO-SYNC LOGIC ---
-    # If this is the users file, check bookings for missing names
-    if file == USERS_FILE and os.path.exists(BOOKINGS_FILE):
-        bdf = pd.read_csv(BOOKINGS_FILE)
-        if "user" in bdf.columns:
-            existing_users = set(df["email"].astype(str).str.lower())
-            booking_names = set(bdf["user"].astype(str).str.lower())
-            missing = booking_names - existing_users
-            if missing:
-                for name in missing:
-                    if name != 'nan':
-                        new_row = pd.DataFrame([[name, "1234", "user", True]], columns=cols)
-                        df = pd.concat([df, new_row], ignore_index=True)
-                df.to_csv(file, index=False)
-    return df[cols]
+    try:
+        df = pd.read_csv(file)
+        # Repair missing columns without wiping users
+        for col in cols:
+            if col not in df.columns:
+                df[col] = True if col == "approved" else ("user" if col == "role" else "")
+        return df[cols]
+    except Exception:
+        # Fallback to prevent crash
+        df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
+        df.to_csv(file, index=False)
+        return df
 
 def save_data(df, file):
     df.to_csv(file, index=False)
@@ -106,7 +99,7 @@ def handle_booking(date_str, table, time_str, user_email, role):
     save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# LOGIN
+# LOGIN / SESSION
 # ===============================
 if "user" not in st.session_state:
     m = st.radio("M", ["Login", "Register"], horizontal=True, label_visibility="collapsed")
@@ -114,16 +107,17 @@ if "user" not in st.session_state:
         st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
         u, p = st.text_input("User").lower(), st.text_input("Password", type="password")
         if st.button("Log In", use_container_width=True):
+            udf = load_data(USERS_FILE, USER_COLS)
+            # Direct Admin check for emergency login
             if u == OWNER_EMAIL and str(p) == "1234":
                 st.session_state.user, st.session_state.role, st.session_state.name = u, "admin", "Admin"
                 st.rerun()
-            udf = load_data(USERS_FILE, USER_COLS)
             match = udf[(udf["email"].astype(str).str.lower() == u) & (udf["password"].astype(str) == str(p))]
             if not match.empty and match.iloc[0]["approved"]:
                 st.session_state.user, st.session_state.role = u, match.iloc[0]["role"]
                 st.session_state.name = u.split('@')[0].capitalize()
                 st.rerun()
-            else: st.error("Access denied.")
+            else: st.error("Login failed.")
     else:
         st.markdown("<h3 style='text-align:center;'>🎱 Register</h3>", unsafe_allow_html=True)
         ru, rp = st.text_input("New User").lower(), st.text_input("New Pass", type="password")
@@ -131,11 +125,11 @@ if "user" not in st.session_state:
             udf = load_data(USERS_FILE, USER_COLS)
             if ru not in udf["email"].values:
                 save_data(pd.concat([udf, pd.DataFrame([[ru, rp, "user", False]], columns=USER_COLS)]), USERS_FILE)
-                st.success("Wait for approval.")
+                st.success("Wait for Admin approval.")
     st.stop()
 
 # ===============================
-# APP
+# MAIN APP
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 udf = load_data(USERS_FILE, USER_COLS)
@@ -147,13 +141,13 @@ else:
 
 if t_admin:
     with t_admin:
-        st.subheader("Users")
-        edited = st.data_editor(udf, use_container_width=True, key="editor")
-        if st.button("Save Changes"):
-            save_data(edited, USERS_FILE); st.success("Saved!"); st.rerun()
+        st.subheader("User Database")
+        edited = st.data_editor(udf, use_container_width=True, key="db_edit")
+        if st.button("💾 Save All Changes"):
+            save_data(edited, USERS_FILE); st.success("Changes Permanent!"); st.rerun()
         st.divider()
         ulist = udf["email"].astype(str).tolist()
-        st.session_state.admin_target_user = st.selectbox("Book for:", ulist, index=ulist.index(st.session_state.user) if st.session_state.user in ulist else 0)
+        st.session_state.admin_target_user = st.selectbox("Book for specific user:", ulist, index=ulist.index(st.session_state.user) if st.session_state.user in ulist else 0)
 
 with t_book:
     st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
@@ -183,7 +177,7 @@ with t_book:
         for i, tab in enumerate(["T1", "T2", "T3"]):
             with rcols[i+1]:
                 m = day_b[(day_b["table"] == tab) & (day_b["time"] == t)]
-                k = f"btn_{st.session_state.sel_date}_{tab}_{t}"
+                k = f"b_{st.session_state.sel_date}_{tab}_{t}"
                 if not m.empty:
                     owner = str(m.iloc[0]["user"])
                     disp = owner.split('@')[0].capitalize()[:7] if '@' in owner else owner.capitalize()[:7]
