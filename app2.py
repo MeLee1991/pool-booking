@@ -1,150 +1,206 @@
-import os
 import streamlit as st
 import pandas as pd
+import os
 from datetime import datetime, timedelta
 
-# 1. SETUP
-st.set_page_config(page_title="Pool", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Poolhall", layout="centered", initial_sidebar_state="collapsed")
 
-# 2. DATA
+# ===============================
+# CONFIG & FILES
+# ===============================
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
+OWNER_EMAIL = "admin@gmail.com"
 
-def load_data(file, columns):
-    if os.path.exists(file): return pd.read_csv(file, dtype=str)
-    return pd.DataFrame(columns=columns)
-
-def save_data(df, file): df.to_csv(file, index=False)
-
-users = load_data(USERS_FILE, ["Email", "Name", "Password", "Role"])
-bookings = load_data(BOOKINGS_FILE, ["User", "Name", "Date", "Table", "Time"])
-
-# 3. SESSION STATE
-if "user" not in st.session_state: st.session_state.user = None
-if "sel_date" not in st.session_state: st.session_state.sel_date = str(datetime.now().date())
-if "confirm_delete" not in st.session_state: st.session_state.confirm_delete = None
-
-# 4. CSS (STRICT GRID & NO-STACK)
+# ===============================
+# THE REPAIRED CSS
+# ===============================
 st.markdown("""
 <style>
-/* 1. PREVENT MOBILE STACKING (The most important fix) */
-[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-}
+    .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
+    
+    /* =========================================
+       1. DATE ROWS - Wider (approx 1.5x of 55px)
+       ========================================= */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        padding-bottom: 8px !important;
+        gap: 6px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) > div {
+        min-width: 82px !important; /* 1.5x wider than before */
+        flex: 0 0 auto !important;
+    }
 
-/* 2. DATES GRID (7 Columns No-Stack) */
-.date-row [data-testid="column"] {
-    width: 45px !important;
-    flex: none !important;
-}
+    /* =========================================
+       2. MAIN TABLE ROWS - Fixed Grid
+       ========================================= */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 4px !important;
+        margin-bottom: 4px !important;
+        width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) > div {
+        min-width: 0 !important; 
+        width: 100% !important; 
+    }
 
-/* 3. TABLE GRID (Exact Widths) */
-.table-row [data-testid="column"]:nth-child(1) { width: 55px !important; flex: none !important; }
-.table-row [data-testid="column"]:nth-child(n+2) { width: 80px !important; flex: none !important; }
+    /* =========================================
+       3. BUTTON STYLING - Smaller Font (9px)
+       ========================================= */
+    .stButton > button {
+        width: 100% !important;
+        height: 44px !important; /* Fixed size matching headers */
+        border-radius: 6px !important;
+        padding: 0 2px !important;
+        border: 1px solid rgba(0,0,0,0.1) !important;
+    }
+    .stButton > button p {
+        font-size: 9px !important; /* 2px smaller than before */
+        font-weight: 800 !important;
+        margin: 0 !important;
+        white-space: pre-wrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-/* 4. ROW ALTERNATION (Every 2 rows = 1 hour) */
-.bg-even { background-color: #f0f2f6 !important; border-bottom: 1px solid #ddd; }
-.bg-odd { background-color: #ffffff !important; border-bottom: 1px solid #ddd; }
+    /* =========================================
+       4. COLORS & HEADERS
+       ========================================= */
+    /* Free Buttons (Green) */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] {
+        background-color: #28a745 !important; color: white !important; border: none !important;
+    }
+    /* Booked Buttons (Red) */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] {
+        background-color: #dc3545 !important; color: white !important; border: none !important;
+    }
+    
+    /* Date Selected - Blue */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) button[kind="primary"] {
+        background-color: #007bff !important; color: white !important;
+    }
 
-/* 5. BUTTON COLORS (Red & Green) */
-.stButton > button {
-    width: 100% !important; height: 32px !important;
-    padding: 0px !important; border-radius: 4px !important; font-weight: bold !important;
-}
-/* Free Slots (Secondary) -> Light Green */
-button[kind="secondary"] { background-color: #e6ffed !important; color: #1a7f37 !important; border: 1px solid #4AC26B !important; }
-/* Booked Slots (Primary/Disabled) -> Light Red */
-button[kind="primary"], .table-row button:disabled { 
-    background-color: #ffebe9 !important; color: #cf222e !important; 
-    border: 1px solid #FF8182 !important; opacity: 1 !important; 
-}
+    /* Table Headers */
+    .grid-header {
+        background-color: #111; color: #fff; text-align: center;
+        font-size: 11px; font-weight: bold; height: 44px; line-height: 44px;
+        border-radius: 6px; margin-bottom: 0 !important;
+    }
 
-.time-label { font-size: 11px; font-weight: bold; text-align: center; }
-.header-box { background: #000; color: #fff; text-align: center; font-size: 11px; height: 22px; line-height: 22px; }
-[data-testid="stAppViewBlockContainer"] { padding: 1rem 0.5rem !important; }
+    /* Time Column */
+    .time-label {
+        height: 44px; display: flex; align-items: center; justify-content: center;
+        font-size: 10px; font-weight: bold; border-radius: 6px; color: #222;
+        background-color: #f1f3f4;
+    }
+
+    [data-testid="stHeader"] {display: none;}
 </style>
 """, unsafe_allow_html=True)
 
-# 5. LOGIN
-if st.session_state.user is None:
-    st.title("🎱 RESERVE")
-    e = st.text_input("Email").lower().strip()
-    p = st.text_input("Password", type="password")
-    if st.button("Login"):
-        match = users[(users["Email"] == e) & (users["Password"] == p)]
-        if not match.empty:
-            st.session_state.user, st.session_state.name, st.session_state.role = e, match.iloc[0]["Name"], match.iloc[0]["Role"]
+# ===============================
+# DATA HELPERS & CALLBACKS
+# ===============================
+def load_data(file, cols):
+    if not os.path.exists(file): pd.DataFrame(columns=cols).to_csv(file, index=False)
+    try: return pd.read_csv(file)
+    except: return pd.DataFrame(columns=cols)
+
+def save_data(df, file): df.to_csv(file, index=False)
+
+def set_date(new_date):
+    st.session_state.sel_date = new_date
+
+def handle_booking(date_str, table, time_str, user_email, role):
+    df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+    mask = (df["date"] == date_str) & (df["table"] == table) & (df["time"] == time_str)
+    
+    if df[mask].empty:
+        new_row = pd.DataFrame([[user_email, date_str, table, time_str]], columns=df.columns)
+        df = pd.concat([df, new_row], ignore_index=True)
+    else:
+        owner = df[mask].iloc[0]["user"]
+        if owner == user_email or role == "admin":
+            df = df[~mask]
+            
+    save_data(df, BOOKINGS_FILE)
+
+# ===============================
+# LOGIN SYSTEM
+# ===============================
+if "user" not in st.session_state:
+    st.markdown("<h2 style='text-align:center;'>🎱 Pool Login</h2>", unsafe_allow_html=True)
+    email = st.text_input("Email").lower()
+    pw = st.text_input("Password", type="password")
+    if st.button("Continue", use_container_width=True):
+        if email and pw == "1234":
+            st.session_state.user = email
+            st.session_state.name = email.split('@')[0].capitalize()
+            st.session_state.role = "admin" if email == OWNER_EMAIL else "user"
             st.rerun()
     st.stop()
 
-# 6. DATES (Strictly 2 rows of 7)
-st.write("### 📅 Dates")
-today = datetime.now().date()
-for r in range(2):
-    st.markdown('<div class="date-row">', unsafe_allow_html=True)
-    cols = st.columns(7)
-    for i in range(7):
-        d = today + timedelta(days=i + (r * 7))
-        d_str = str(d)
-        with cols[i]:
-            is_active = (st.session_state.sel_date == d_str)
-            if st.button(f"{d.strftime('%a')}\n{d.day}", key=f"d_{d_str}", type="primary" if is_active else "secondary"):
-                st.session_state.sel_date = d_str; st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+# ===============================
+# UI START
+# ===============================
+if "sel_date" not in st.session_state: 
+    st.session_state.sel_date = datetime.now().date()
 
-# 7. ADMIN/USER CONFIRMATION DIALOG
-if st.session_state.confirm_delete:
-    idx_to_del, b_name = st.session_state.confirm_delete
-    st.warning(f"Confirm Cancellation for {b_name}?")
-    c1, c2 = st.columns([1,1])
-    if c1.button("Confirm Cancel", type="primary"):
-        bookings = bookings.drop(index=int(idx_to_del)); save_data(bookings, BOOKINGS_FILE)
-        st.session_state.confirm_delete = None; st.rerun()
-    if c2.button("Keep Booking"):
-        st.session_state.confirm_delete = None; st.rerun()
+st.markdown(f"**👤 {st.session_state.name}** &nbsp;|&nbsp; {st.session_state.sel_date}")
+
+# ===============================
+# 14-DAY SELECTOR (Slidable)
+# ===============================
+today = datetime.now().date()
+dates = [today + timedelta(days=i) for i in range(14)]
+
+# Rows of Dates (using 7 cols for the selector layout)
+for row_start in [0, 7]:
+    d_cols = st.columns(7)
+    for i in range(7):
+        d = dates[row_start + i]
+        lbl = f"TOD\n{d.day}" if d == today else f"TOM\n{d.day}" if d == today + timedelta(days=1) else f"{d.strftime('%a').upper()}\n{d.day}"
+        with d_cols[i]:
+            st.button(lbl, key=f"date_{d}", type="primary" if d == st.session_state.sel_date else "secondary", on_click=set_date, args=(d,))
 
 st.divider()
 
-# 8. BOOKING TABLE
-# Header
-st.markdown('<div class="table-row">', unsafe_allow_html=True)
+# ===============================
+# MAIN TABLE
+# ===============================
+times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
+tables = ["T1", "T2", "T3"]
+bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+date_str = str(st.session_state.sel_date)
+df_day = bookings[bookings["date"] == date_str]
+
+# TABLE HEADER
 h_cols = st.columns(4)
-with h_cols[1]: st.markdown('<div class="header-box">T1</div>', unsafe_allow_html=True)
-with h_cols[2]: st.markdown('<div class="header-box">T2</div>', unsafe_allow_html=True)
-with h_cols[3]: st.markdown('<div class="header-box">T3</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+for title in ["Time", "T1", "T2", "T3"]:
+    with h_cols[["Time", "T1", "T2", "T3"].index(title)]:
+        st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-# Schedule
-HOURS = [f"{h:02d}:{m}" for h in (list(range(8, 24)) + list(range(0, 3))) for m in ["00", "30"]]
-
-for idx, t in enumerate(HOURS):
-    row_color = "bg-even" if (idx // 2) % 2 == 0 else "bg-odd"
-    st.markdown(f'<div class="table-row {row_color}">', unsafe_allow_html=True)
+# TABLE DATA
+for t in times:
     r_cols = st.columns(4)
-    
-    with r_cols[0]: st.markdown(f'<div class="time-label">{t}</div>', unsafe_allow_html=True)
+    with r_cols[0]:
+        st.markdown(f"<div class='time-label'>{t}</div>", unsafe_allow_html=True)
         
-    for i in range(3):
-        t_n = f"Table {i+1}"
-        match = bookings[(bookings["Table"] == t_n) & (bookings["Time"] == t) & (bookings["Date"] == st.session_state.sel_date)]
+    for i, table in enumerate(tables):
         with r_cols[i+1]:
+            match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
+            btn_key = f"btn_{date_str}_{table}_{t}" 
+            
             if not match.empty:
-                b_user, b_name = match.iloc[0]["User"], match.iloc[0]["Name"]
-                
-                # Logic Fix: If it's yours, unbook instantly. If you're admin and it's someone else's, confirm.
-                if st.session_state.user == b_user:
-                    if st.button(f"❌ {b_name[:5]}", key=f"b_{t}_{i}", type="primary"):
-                        bookings = bookings.drop(match.index); save_data(bookings, BOOKINGS_FILE); st.rerun()
-                elif st.session_state.role == "admin":
-                    if st.button(f"🛡️ {b_name[:5]}", key=f"b_{t}_{i}", type="primary"):
-                        st.session_state.confirm_delete = (match.index[0], b_name); st.rerun()
-                else:
-                    st.button(f"🔒 {b_name[:5]}", key=f"b_{t}_{i}", disabled=True)
+                owner = match.iloc[0]["user"]
+                is_me_or_admin = (owner == st.session_state.user) or (st.session_state.role == "admin")
+                display_name = owner.split("@")[0].capitalize()[:6] if is_me_or_admin else ""
+                label = f"X {display_name}" if is_me_or_admin else "🔒"
+                st.button(label, key=btn_key, type="primary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
             else:
-                if st.button("Free", key=f"b_{t}_{i}", type="secondary"):
-                    new_b = pd.DataFrame([{"User":st.session_state.user, "Name":st.session_state.name, "Date":st.session_state.sel_date, "Table":t_n, "Time":t}])
-                    save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE); st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+                st.button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(date_str, table, t, st.session_state.user, st.session_state.role))
