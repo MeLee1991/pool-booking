@@ -13,13 +13,13 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE ORIGINAL DESIGN CSS
+# ORIGINAL DESIGN CSS (Green/Red)
 # ===============================
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
     
-    /* Grid Layout for Buttons */
+    /* Grid Layout: 4 Columns */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
         gap: 4px !important; margin-bottom: 4px !important;
@@ -43,7 +43,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# ROBUST DATA ENGINE
+# DATA ENGINE (STRICT STRING HANDLING)
 # ===============================
 USER_COLS = ["email", "password", "role", "approved", "info"]
 BOOK_COLS = ["user", "date", "table", "time"]
@@ -56,7 +56,7 @@ def load_data(file, cols):
         df.to_csv(file, index=False)
         return df
     try:
-        # We read as 'str' to ensure 1234 doesn't become 1234.0
+        # read as str to keep '1234' from becoming '1234.0'
         df = pd.read_csv(file, dtype=str).fillna("")
         for c in cols:
             if c not in df.columns: df[c] = ""
@@ -92,7 +92,8 @@ if "user" not in st.session_state:
             st.session_state.user = l_user
             st.session_state.role = match.iloc[0]["role"]
             st.rerun()
-        else: st.error("Invalid credentials.")
+        else:
+            st.error("Invalid credentials.")
     st.stop()
 
 # ===============================
@@ -100,22 +101,15 @@ if "user" not in st.session_state:
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 
-# Tab switching
-if st.session_state.role == "admin":
-    tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"])
-else:
-    tab_booking = st.tabs(["🎱 Bookings"])[0]
-    tab_admin = None
+tabs = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0]]
 
-with tab_booking:
+with tabs[0]:
     st.write(f"**{st.session_state.user} | {st.session_state.sel_date}**")
     
-    # Grid Headers
     h_cols = st.columns(4)
     for i, title in enumerate(["Time", "T1", "T2", "T3"]):
         with h_cols[i]: st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-    # Time Rows
     times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
     bookings = load_data(BOOKINGS_FILE, BOOK_COLS)
     df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
@@ -132,25 +126,28 @@ with tab_booking:
                 else:
                     st.button("➕", key=f"{table}{t}", type="secondary", on_click=handle_booking, args=(str(st.session_state.sel_date), table, t))
 
-if tab_admin:
-    with tab_admin:
+if st.session_state.role == "admin" and len(tabs) > 1:
+    with tabs[1]:
         u_df = load_data(USERS_FILE, USER_COLS)
-        st.subheader("👥 User Management")
+        st.subheader("👥 All Users Table")
         
-        # RESTORED SPREADSHEET TABLE
+        # SPREADSHEET TABLE RESTORED
         u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
         edited_df = st.data_editor(
             u_df, 
             num_rows="dynamic", 
             use_container_width=True, 
             key="user_edit_table",
-            column_config={"approved": st.column_config.CheckboxColumn("Approve")}
+            column_config={
+                "approved": st.column_config.CheckboxColumn("Approve"),
+                "info": st.column_config.TextColumn("Info/Photos")
+            }
         )
         
-        if st.button("💾 Save User Changes", use_container_width=True):
+        if st.button("💾 Save All User Data", use_container_width=True):
             save_data(edited_df, USERS_FILE)
-            st.success("Users Updated!")
+            st.success("Updated!")
             st.rerun()
 
         st.divider()
-        st.session_state.admin_target_user = st.selectbox("Book for user:", u_df["email"].tolist())
+        st.session_state.admin_target_user = st.selectbox("🎯 Book as:", u_df["email"].tolist())
