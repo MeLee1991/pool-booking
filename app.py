@@ -32,30 +32,63 @@ st.markdown("""
         flex: 0 0 auto !important;
     }
 
-    /* Smaller Font for Buttons */
+    /* ALL BUTTONS - Center Aligned */
     .stButton > button {
         height: 44px !important; 
         border-radius: 6px !important;
         padding: 0 2px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
     .stButton > button p {
         font-size: 11px !important; 
         font-weight: bold !important;
         margin: 0 !important;
+        text-align: center !important;
     }
 
-    /* Colors */
-    button[kind="secondary"] { background-color: #28a745 !important; color: white !important; } /* Free - Green */
-    button[kind="primary"] { background-color: #dc3545 !important; color: white !important; } /* Booked - Red */
+    /* MAIN TABLE BUTTONS - Light Green / Light Red */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] { 
+        background-color: #c8e6c9 !important; /* Light Green */
+        color: #000 !important; 
+        border: 1px solid #a5d6a7 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] { 
+        background-color: #ffcdd2 !important; /* Light Red */
+        color: #000 !important; 
+        border: 1px solid #ef9a9a !important;
+    }
+
+    /* DATE SELECTOR BUTTONS - Standard Colors */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) button[kind="secondary"] {
+        background-color: #f1f3f4 !important; color: #000 !important; border: 1px solid #ddd !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) button[kind="primary"] {
+        background-color: #007bff !important; color: white !important; border: none !important;
+    }
     
-    /* Table Headers & Time Column */
-    .grid-header, .time-label {
+    /* Table Headers */
+    .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; 
         margin-bottom: 4px !important;
+        background-color: #111; color: #fff;
     }
-    .grid-header { background-color: #111; color: #fff; }
-    .time-label { background-color: #f1f3f4; color: #222; }
+    
+    /* Time Column Base Styling */
+    .time-label {
+        text-align: center; font-size: 11px; font-weight: bold; 
+        height: 44px; line-height: 44px; border-radius: 6px; 
+        margin-bottom: 4px !important; color: #222;
+    }
+    
+    /* Time Column - 4 Hour Alternating Blocks */
+    .time-block-0 { background-color: #e3f2fd; } /* 06:00 - 09:30 (Light Blue) */
+    .time-block-1 { background-color: #fff3e0; } /* 10:00 - 13:30 (Light Orange) */
+    .time-block-2 { background-color: #e8f5e9; } /* 14:00 - 17:30 (Light Green) */
+    .time-block-3 { background-color: #f3e5f5; } /* 18:00 - 21:30 (Light Purple) */
+    .time-block-4 { background-color: #fce4ec; } /* 22:00 - 23:30 (Light Pink) */
     
     [data-testid="stHeader"] {display: none;}
 </style>
@@ -153,7 +186,6 @@ with tab_booking:
             d = dates[row_start + i]
             lbl = f"TOD\n{d.day}" if d == today else f"TOM\n{d.day}" if d == today + timedelta(days=1) else f"{d.strftime('%a').upper()}\n{d.day}"
             with d_cols[i]:
-                # use_container_width automatically fills the column!
                 st.button(lbl, key=f"date_{d}", type="primary" if d == st.session_state.sel_date else "secondary", on_click=set_date, args=(d,), use_container_width=True)
 
     st.divider()
@@ -176,8 +208,13 @@ with tab_booking:
     # TABLE DATA
     for t in times:
         r_cols = st.columns(4)
+        
+        # Calculate which 4-hour block this time belongs to
+        hour = int(t.split(":")[0])
+        block_idx = (hour - 6) // 4
+        
         with r_cols[0]:
-            st.markdown(f"<div class='time-label'>{t}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='time-label time-block-{block_idx}'>{t}</div>", unsafe_allow_html=True)
             
         for i, table in enumerate(tables):
             with r_cols[i+1]:
@@ -201,7 +238,6 @@ if tab_admin:
         st.subheader("Manage Users")
         users_df = load_data(USERS_FILE, ["email", "password", "role"])
         
-        # Data Editor allows Add, Edit, and Delete automatically!
         edited_users = st.data_editor(
             users_df, 
             num_rows="dynamic", 
