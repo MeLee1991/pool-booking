@@ -13,7 +13,7 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE REPAIRED CSS (STRICT GRID) - UNTOUCHED
+# THE REPAIRED CSS (STRICT GRID)
 # ===============================
 st.markdown("""
 <style>
@@ -66,7 +66,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA HELPERS - PREVENTS DATA LOSS
+# DATA HELPERS
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 
@@ -78,11 +78,11 @@ def load_data(file, cols):
         df.to_csv(file, index=False)
         return df
     df = pd.read_csv(file)
-    # Ensure columns match for smooth operation
-    for col in cols:
-        if col not in df.columns:
-            df[col] = True if col == "approved" else ""
-    return df[cols]
+    # Fix structure if broken
+    if list(df.columns) != cols:
+        df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
+        df.to_csv(file, index=False)
+    return df
 
 def save_data(df, file):
     df.to_csv(file, index=False)
@@ -111,6 +111,12 @@ if "user" not in st.session_state:
         l_user = st.text_input("User").lower()
         l_pw = st.text_input("Password", type="password")
         if st.button("Log In", use_container_width=True):
+            # Emergency Recovery for Admin
+            if l_user == OWNER_EMAIL and str(l_pw) == "1234":
+                st.session_state.user, st.session_state.role = OWNER_EMAIL, "admin"
+                st.session_state.name = "Admin"
+                st.rerun()
+                
             u_df = load_data(USERS_FILE, USER_COLS)
             match = u_df[(u_df["email"] == l_user) & (u_df["password"].astype(str) == str(l_pw))]
             if not match.empty:
@@ -118,26 +124,23 @@ if "user" not in st.session_state:
                     st.session_state.user, st.session_state.role = l_user, match.iloc[0]["role"]
                     st.session_state.name = l_user.split('@')[0].capitalize()
                     st.rerun()
-                else: st.warning("Pending Admin Approval.")
+                else: st.warning("Wait for Admin Approval.")
             else: st.error("Invalid credentials.")
     else:
-        st.markdown("<h3 style='text-align:center;'>🎱 Register New User</h3>", unsafe_allow_html=True)
-        r_user = st.text_input("New User (Email)").lower()
+        st.markdown("<h3 style='text-align:center;'>🎱 Register</h3>", unsafe_allow_html=True)
+        r_user = st.text_input("New User").lower()
         r_pw = st.text_input("New Password", type="password")
         if st.button("Register", use_container_width=True):
             u_df = load_data(USERS_FILE, USER_COLS)
-            if r_user in u_df["email"].values:
-                st.error("User already exists!")
+            if r_user in u_df["email"].values: st.error("Exists.")
             else:
-                # Add user and save the FULL list (not just one)
                 new_entry = pd.DataFrame([[r_user, r_pw, "user", False]], columns=USER_COLS)
-                full_list = pd.concat([u_df, new_entry], ignore_index=True)
-                save_data(full_list, USERS_FILE)
-                st.success("Registered! Ask Admin to approve you.")
+                save_data(pd.concat([u_df, new_entry], ignore_index=True), USERS_FILE)
+                st.success("Registered! Ask Admin to approve.")
     st.stop()
 
 # ===============================
-# MAIN UI - RETAINS YOUR LOOK
+# MAIN UI
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
@@ -188,14 +191,11 @@ with tab_booking:
 
 if tab_admin:
     with tab_admin:
-        st.subheader("👥 User List")
+        st.subheader("👥 User Management")
         u_df = load_data(USERS_FILE, USER_COLS)
         edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True,
-                               column_config={
-                                   "role": st.column_config.SelectboxColumn("Role", options=["user", "admin"]),
-                                   "approved": st.column_config.CheckboxColumn("Approved")
-                               })
+                               column_config={"role": st.column_config.SelectboxColumn("Role", options=["user", "admin"])})
         if st.button("💾 Save User Changes"):
             save_data(edited, USERS_FILE)
-            st.success("User file updated!")
+            st.success("Updated!")
             st.rerun()
