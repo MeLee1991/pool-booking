@@ -66,51 +66,46 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA ENGINES (SMART CLEANING)
+# DATA ENGINES (NO-CRASH VERSION)
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
+BOOK_COLS = ["user", "date", "table", "time"]
 
 def load_data(file, cols):
+    # Fix for EmptyDataError: Check if file exists and has content
     if not os.path.exists(file) or os.path.getsize(file) == 0:
         df = pd.DataFrame(columns=cols)
         if file == USERS_FILE:
-            df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
+            df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True"]], columns=cols)
         df.to_csv(file, index=False)
         return df
-    
     try:
-        # Load everything as strings to avoid the .0 decimal bug
         df = pd.read_csv(file, dtype=str).fillna("")
-        
-        # Ensure all columns exist
         for c in cols:
             if c not in df.columns:
-                df[c] = "True" if c == "approved" else ("user" if c == "role" else "")
-
-        # Clean strings: lowercase emails and strip spaces/decimals from passwords
-        df["email"] = df["email"].str.lower().str.strip()
-        df["password"] = df["password"].str.strip().str.replace(r'\.0$', '', regex=True)
-        
-        # Convert approved to real boolean for the editor
-        if "approved" in df.columns:
-            df["approved"] = df["approved"].astype(str).str.lower().isin(["true", "1", "t", "yes"])
-            
+                df[c] = "True" if c == "approved" else ""
+        if "email" in df.columns: df["email"] = df["email"].str.lower().str.strip()
+        if "password" in df.columns: df["password"] = df["password"].str.strip().str.replace(r'\.0$', '', regex=True)
         return df[cols]
-    except Exception:
-        return pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
+    except:
+        return pd.DataFrame(columns=cols)
 
 def save_data(df, file):
     df.to_csv(file, index=False)
 
 def set_date(new_date): st.session_state.sel_date = new_date
 
-def handle_booking(date_str, table, time_str, user_email, role):
+def handle_booking(date_str, table, time_str):
+    user_email = st.session_state.user
+    role = st.session_state.role
+    # Admin can book for someone else if selected, otherwise books as self
     target = st.session_state.get("admin_target_user", user_email) if role == "admin" else user_email
-    df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
-    mask = (df["date"] == date_str) & (df["table"] == table) & (df["time"] == time_str)
+    
+    df = load_data(BOOKINGS_FILE, BOOK_COLS)
+    mask = (df["date"] == str(date_str)) & (df["table"] == str(table)) & (df["time"] == str(time_str))
     
     if df[mask].empty:
-        new_row = pd.DataFrame([[target, date_str, table, time_str]], columns=df.columns)
+        new_row = pd.DataFrame([[target, date_str, table, time_str]], columns=BOOK_COLS)
         df = pd.concat([df, new_row], ignore_index=True)
     else:
         owner = str(df[mask].iloc[0]["user"])
@@ -119,74 +114,58 @@ def handle_booking(date_str, table, time_str, user_email, role):
     save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# LOGIN LOGIC
+# LOGIN / REGISTRATION
 # ===============================
 if "user" not in st.session_state:
     mode = st.radio("M", ["Login", "Register"], horizontal=True, label_visibility="collapsed")
-    
     if mode == "Login":
         st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
         l_user = st.text_input("User").lower().strip()
         l_pw = st.text_input("Password", type="password").strip()
-        
         if st.button("Log In", use_container_width=True):
-            # Hardcoded backdoor for admin
             if l_user == OWNER_EMAIL and l_pw == "1234":
-                st.session_state.user, st.session_state.role = OWNER_EMAIL, "admin"
-                st.session_state.name = "Admin"
+                st.session_state.user, st.session_state.role, st.session_state.name = OWNER_EMAIL, "admin", "Admin"
                 st.rerun()
-                
             u_df = load_data(USERS_FILE, USER_COLS)
-            # Find match using clean data
             match = u_df[(u_df["email"] == l_user) & (u_df["password"] == l_pw)]
-            
             if not match.empty:
-                if match.iloc[0]["approved"]:
+                if str(match.iloc[0]["approved"]).lower() in ["true", "1", "yes"]:
                     st.session_state.user = l_user
                     st.session_state.role = match.iloc[0]["role"]
                     st.session_state.name = l_user.split('@')[0].capitalize()
                     st.rerun()
-                else: 
-                    st.warning("Wait for Admin Approval.")
-            else: 
-                st.error("Invalid credentials.")
+                else: st.warning("Wait for Admin Approval.")
+            else: st.error("Invalid credentials.")
     else:
-        # Register logic (identical to before)
         st.markdown("<h3 style='text-align:center;'>🎱 Register</h3>", unsafe_allow_html=True)
         r_user = st.text_input("New User").lower().strip()
         r_pw = st.text_input("New Password", type="password").strip()
         if st.button("Register", use_container_width=True):
             if r_user and r_pw:
                 u_df = load_data(USERS_FILE, USER_COLS)
-                if r_user in u_df["email"].values: 
-                    st.error("User already exists.")
+                if r_user in u_df["email"].values: st.error("User exists.")
                 else:
-                    new_entry = pd.DataFrame([[r_user, r_pw, "user", False]], columns=USER_COLS)
+                    new_entry = pd.DataFrame([[r_user, r_pw, "user", "False"]], columns=USER_COLS)
                     save_data(pd.concat([u_df, new_entry], ignore_index=True), USERS_FILE)
-                    st.success("Registered! Ask Admin to approve you.")
+                    st.success("Ask Admin to approve you.")
     st.stop()
 
 # ===============================
-# MAIN UI (UNTOUCHED)
+# MAIN UI
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
 
-if st.session_state.role == "admin":
-    tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"])
-else:
-    tab_booking = st.tabs(["🎱 Bookings"])[0]
-    tab_admin = None
+tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else (st.tabs(["🎱 Bookings"])[0], None)
 
 with tab_booking:
     today = datetime.now().date()
     dates = [today + timedelta(days=i) for i in range(14)]
-    for row_start in [0, 7]:
-        d_cols = st.columns(7)
-        for i in range(7):
-            d = dates[row_start + i]
+    for row in [dates[:7], dates[7:]]:
+        cols = st.columns(7)
+        for i, d in enumerate(row):
             lbl = f"{d.strftime('%a').upper()}\n{d.day}"
-            with d_cols[i]:
+            with cols[i]:
                 st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary", 
                           on_click=set_date, args=(d,), use_container_width=True)
 
@@ -196,7 +175,7 @@ with tab_booking:
         with h_cols[i]: st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
     times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
-    bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+    bookings = load_data(BOOKINGS_FILE, BOOK_COLS)
     df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
 
     for t in times:
@@ -206,26 +185,31 @@ with tab_booking:
         for i, table in enumerate(["T1", "T2", "T3"]):
             with r_cols[i+1]:
                 match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
-                btn_key = f"btn_{st.session_state.sel_date}_{table}_{t}"
+                btn_key = f"b_{st.session_state.sel_date}_{table}_{t}"
                 if not match.empty:
-                    owner_email = str(match.iloc[0]["user"])
-                    display_name = owner_email.split('@')[0].capitalize()[:7]
-                    can_edit = owner_email.lower() == st.session_state.user.lower() or st.session_state.role == "admin"
-                    st.button(f"X {display_name}", key=btn_key, type="primary", 
-                              on_click=handle_booking if can_edit else None, 
-                              args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), 
-                              use_container_width=True)
+                    owner = str(match.iloc[0]["user"])
+                    # Safe name display even if owner isn't an email
+                    disp = (owner.split('@')[0] if '@' in owner else owner).capitalize()[:7]
+                    can_edit = owner.lower() == st.session_state.user.lower() or st.session_state.role == "admin"
+                    st.button(f"X {disp}", key=btn_key, type="primary", use_container_width=True,
+                              on_click=handle_booking if can_edit else None, args=(str(st.session_state.sel_date), table, t))
                 else:
-                    st.button("➕", key=btn_key, type="secondary", 
-                              on_click=handle_booking, 
-                              args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), 
-                              use_container_width=True)
+                    st.button("➕", key=btn_key, type="secondary", use_container_width=True,
+                              on_click=handle_booking, args=(str(st.session_state.sel_date), table, t))
 
 if tab_admin:
     with tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
+        # Convert 'approved' to real boolean for the editor
+        u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "t", "yes"])
         edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True)
         if st.button("💾 Save User Changes"):
             save_data(edited, USERS_FILE)
             st.success("Updated!")
             st.rerun()
+            
+        st.divider()
+        user_list = u_df["email"].tolist()
+        # Fix for crash: ensure admin_target_user exists in the current list
+        default_idx = user_list.index(st.session_state.user) if st.session_state.user in user_list else 0
+        st.session_state.admin_target_user = st.selectbox("Admin: Book for user:", user_list, index=default_idx)
