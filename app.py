@@ -116,7 +116,7 @@ def handle_booking(date_str, table, time_str, user_email, role):
 # ===============================
 if "user" not in st.session_state:
     st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
-    l_email = st.text_input("Email").lower()
+    l_email = st.text_input("User").lower()
     l_pw = st.text_input("Password", type="password")
     if st.button("Log In", use_container_width=True):
         u_df = load_data(USERS_FILE, ["email", "password", "role"])
