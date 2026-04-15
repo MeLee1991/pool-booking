@@ -13,7 +13,7 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE REPAIRED CSS (STRICT GRID) - UNTOUCHED
+# THE REPAIRED CSS (STRICT GRID)
 # ===============================
 st.markdown("""
 <style>
@@ -78,10 +78,11 @@ def load_data(file, cols):
         df.to_csv(file, index=False)
         return df
     df = pd.read_csv(file)
-    if list(df.columns) != cols:
-        df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
-        df.to_csv(file, index=False)
-    return df
+    # Ensure columns exist without wiping data
+    for col in cols:
+        if col not in df.columns:
+            df[col] = True if col == "approved" else ("user" if col == "role" else "")
+    return df[cols]
 
 def save_data(df, file):
     df.to_csv(file, index=False)
@@ -89,11 +90,9 @@ def save_data(df, file):
 def set_date(new_date): st.session_state.sel_date = new_date
 
 def handle_booking(date_str, table, time_str, user_email, role):
-    # Logic for Admin booking for others
-    target_user = user_email
-    if role == "admin" and "admin_book_for" in st.session_state:
-        target_user = st.session_state.admin_book_for
-
+    # Determine who is actually booking (Admin can switch target)
+    target_user = st.session_state.get("admin_target_user", user_email)
+    
     df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
     mask = (df["date"] == date_str) & (df["table"] == table) & (df["time"] == time_str)
     
@@ -102,6 +101,7 @@ def handle_booking(date_str, table, time_str, user_email, role):
         df = pd.concat([df, new_row], ignore_index=True)
     else:
         owner = df[mask].iloc[0]["user"]
+        # Allow owner or admin to delete
         if owner == user_email or role == "admin": 
             df = df[~mask]
     
@@ -122,11 +122,13 @@ if "user" not in st.session_state:
                 st.rerun()
             u_df = load_data(USERS_FILE, USER_COLS)
             match = u_df[(u_df["email"] == l_user) & (u_df["password"].astype(str) == str(l_pw))]
-            if not match.empty and match.iloc[0]["approved"]:
-                st.session_state.user, st.session_state.role = l_user, match.iloc[0]["role"]
-                st.session_state.name = l_user.split('@')[0].capitalize()
-                st.rerun()
-            else: st.error("Access denied or pending approval.")
+            if not match.empty:
+                if match.iloc[0]["approved"]:
+                    st.session_state.user, st.session_state.role = l_user, match.iloc[0]["role"]
+                    st.session_state.name = l_user.split('@')[0].capitalize()
+                    st.rerun()
+                else: st.warning("Pending approval.")
+            else: st.error("Invalid credentials.")
     else:
         st.markdown("<h3 style='text-align:center;'>🎱 Register</h3>", unsafe_allow_html=True)
         r_user, r_pw = st.text_input("New User").lower(), st.text_input("New Password", type="password")
@@ -141,24 +143,46 @@ if "user" not in st.session_state:
 # MAIN UI
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
-st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
 
 if st.session_state.role == "admin":
     tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"])
+else:
+    tab_booking = st.tabs(["🎱 Bookings"])[0]
+    tab_admin = None
+
+# --- ADMIN LOGIC ---
+if tab_admin:
     with tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         st.subheader("👥 User Management")
-        edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True)
-        if st.button("Save Changes"): save_data(edited, USERS_FILE); st.rerun()
-else:
-    tab_booking = st.tabs(["🎱 Bookings"])[0]
+        
+        # 1. Role dropdown and Approval checkbox in Data Editor
+        edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True, column_config={
+            "role": st.column_config.SelectboxColumn("Role", options=["user", "admin"], required=True),
+            "approved": st.column_config.CheckboxColumn("Approved")
+        })
+        
+        if st.button("💾 Save User Changes", use_container_width=True):
+            save_data(edited, USERS_FILE)
+            st.toast("Changes Saved Successfully!")
+            st.success("User file updated!")
+            st.rerun()
 
+        st.divider()
+        st.subheader("🛠️ Booking Mode")
+        # 2. Dropdown to select who you are booking for
+        user_list = u_df["email"].tolist()
+        st.session_state.admin_target_user = st.selectbox(
+            "Select User to book for (current mode):", 
+            user_list, 
+            index=user_list.index(st.session_state.user)
+        )
+        st.info(f"Currently booking as: **{st.session_state.admin_target_user}**")
+
+# --- BOOKINGS LOGIC ---
 with tab_booking:
-    # ADMIN ONLY: Toggle to book for someone else
-    if st.session_state.role == "admin":
-        user_list = load_data(USERS_FILE, USER_COLS)["email"].tolist()
-        st.session_state.admin_book_for = st.selectbox("Book for user:", user_list, index=user_list.index(st.session_state.user))
-
+    st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
+    
     today = datetime.now().date()
     dates = [today + timedelta(days=i) for i in range(14)]
     for row_start in [0, 7]:
