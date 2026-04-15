@@ -13,7 +13,7 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE REPAIRED CSS (UNTOUCHED)
+# MOBILE-OPTIMIZED CSS
 # ===============================
 st.markdown("""
 <style>
@@ -66,7 +66,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA ENGINES
+# DATA ENGINES (ANTI-CRASH)
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 BOOK_COLS = ["user", "date", "table", "time"]
@@ -186,7 +186,7 @@ with tab_booking:
                 btn_key = f"b_{st.session_state.sel_date}_{table}_{t}"
                 if not match.empty:
                     owner = str(match.iloc[0]["user"])
-                    # Removed "X " prefix from display
+                    # FIXED: Removed the "X" prefix
                     disp = (owner.split('@')[0] if '@' in owner else owner).capitalize()[:7]
                     can_edit = owner.lower() == st.session_state.user.lower() or st.session_state.role == "admin"
                     st.button(disp, key=btn_key, type="primary", use_container_width=True,
@@ -198,14 +198,43 @@ with tab_booking:
 if tab_admin:
     with tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
-        u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "t", "yes"])
-        edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True)
-        if st.button("💾 Save User Changes"):
-            save_data(edited, USERS_FILE)
-            st.success("Updated!")
-            st.rerun()
-            
+        st.subheader("👥 User Management")
+        
+        # MOBILE FRIENDLY LIST (NO SPREADSHEET)
+        for idx, row in u_df.iterrows():
+            email = row['email']
+            approved = str(row['approved']).lower() in ["true", "1", "yes"]
+            c1, c2, c3 = st.columns([3, 2, 1])
+            with c1: st.write(f"**{email}**")
+            with c2:
+                if not approved:
+                    if st.button("✅ Approve", key=f"ap_{email}"):
+                        u_df.at[idx, 'approved'] = "True"
+                        save_data(u_df, USERS_FILE)
+                        st.rerun()
+                else: st.write("Approved")
+            with c3:
+                if email != OWNER_EMAIL:
+                    if st.button("🗑️", key=f"dl_{email}"):
+                        u_df = u_df.drop(idx)
+                        save_data(u_df, USERS_FILE)
+                        st.rerun()
+        
         st.divider()
+        st.subheader("➕ Add User Manually")
+        new_e = st.text_input("Username").lower().strip()
+        new_p = st.text_input("Password", type="password").strip()
+        if st.button("Add Approved User", use_container_width=True):
+            if new_e and new_p:
+                if new_e not in u_df["email"].values:
+                    new_row = pd.DataFrame([[new_e, new_p, "user", "True"]], columns=USER_COLS)
+                    save_data(pd.concat([u_df, new_row], ignore_index=True), USERS_FILE)
+                    st.success(f"Added {new_e}")
+                    st.rerun()
+                else: st.error("User exists.")
+
+        st.divider()
+        st.subheader("🎯 Book For Someone Else")
         user_list = u_df["email"].tolist()
-        default_idx = user_list.index(st.session_state.user) if st.session_state.user in user_list else 0
-        st.session_state.admin_target_user = st.selectbox("Admin: Book for user:", user_list, index=default_idx)
+        def_idx = user_list.index(st.session_state.user) if st.session_state.user in user_list else 0
+        st.session_state.admin_target_user = st.selectbox("Assign bookings to:", user_list, index=def_idx)
