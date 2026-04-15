@@ -13,13 +13,11 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE REPAIRED CSS (STRICT GRID) - UNCHANGED
+# THE REPAIRED CSS (STRICT GRID) - NO CHANGES
 # ===============================
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
-    
-    /* 1. DATE SELECTOR */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
         display: flex !important; flex-wrap: nowrap !important;
         overflow-x: auto !important; gap: 6px !important;
@@ -27,8 +25,6 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) > div {
         min-width: 85px !important; flex: 0 0 auto !important;
     }
-
-    /* 2. MAIN TABLE - FORCE 4 COLUMNS */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
         gap: 4px !important; margin-bottom: 4px !important;
@@ -36,8 +32,6 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) > div {
         width: 100% !important; min-width: 0 !important;
     }
-
-    /* 3. BUTTON STYLING */
     .stButton > button {
         height: 44px !important; border-radius: 6px !important;
         display: flex !important; justify-content: center !important; align-items: center !important;
@@ -47,16 +41,12 @@ st.markdown("""
         font-size: 11px !important; font-weight: bold !important;
         text-align: center !important; margin: 0 !important;
     }
-
-    /* Main Table Colors */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] { 
         background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9 !important;
     }
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] { 
         background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2 !important;
     }
-
-    /* 4. HEADERS & LABELS */
     .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; 
@@ -66,38 +56,34 @@ st.markdown("""
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; color: #333;
     }
-    
     .time-block-0 { background-color: #fff9c4 !important; } 
     .time-block-1 { background-color: #ffe0b2 !important; } 
     .time-block-2 { background-color: #e3f2fd !important; } 
     .time-block-3 { background-color: #f1f8e9 !important; } 
     .time-block-4 { background-color: #efebe9 !important; } 
-    
     [data-testid="stHeader"] {display: none;}
 </style>
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA HELPERS
+# DATA HELPERS - AUTO-REPAIR
 # ===============================
-# Column names for internal use
-USER_COLS = ["email", "password", "role", "approved"]
-
 def load_data(file, cols):
     if not os.path.exists(file):
         df = pd.DataFrame(columns=cols)
         if file == USERS_FILE:
-            # Create default admin as approved
             df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
         df.to_csv(file, index=False)
         return df
     df = pd.read_csv(file)
-    # Ensure all columns exist (handling migration)
-    for col in cols:
-        if col not in df.columns:
-            if col == "approved": df[col] = True
-            else: df[col] = ""
-    return df[cols]
+    # FORCE REPAIR if columns are missing or wrong
+    if list(df.columns) != cols:
+        new_df = pd.DataFrame(columns=cols)
+        if file == USERS_FILE:
+            new_df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
+        new_df.to_csv(file, index=False)
+        return new_df
+    return df
 
 def save_data(df, file): df.to_csv(file, index=False)
 def set_date(new_date): st.session_state.sel_date = new_date
@@ -114,56 +100,40 @@ def handle_booking(date_str, table, time_str, user_email, role):
     save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# LOGIN / REGISTER SYSTEM
+# LOGIN SYSTEM
 # ===============================
 if "user" not in st.session_state:
-    mode = st.radio("Mode", ["Login", "Register"], horizontal=True, label_visibility="collapsed")
-    
-    if mode == "Login":
-        st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
-        l_user = st.text_input("User").lower() # Changed from Email to User
-        l_pw = st.text_input("Password", type="password")
-        if st.button("Log In", use_container_width=True):
-            u_df = load_data(USERS_FILE, USER_COLS)
-            match = u_df[(u_df["email"] == l_user) & (u_df["password"].astype(str) == str(l_pw))]
-            if not match.empty:
-                if match.iloc[0]["approved"]:
-                    st.session_state.user, st.session_state.role = l_user, match.iloc[0]["role"]
-                    st.session_state.name = l_user.split('@')[0].capitalize()
-                    st.rerun()
-                else: st.warning("Your account is pending admin approval.")
-            else: st.error("Invalid credentials.")
-    else:
-        st.markdown("<h3 style='text-align:center;'>🎱 Register</h3>", unsafe_allow_html=True)
-        r_user = st.text_input("User (Email)").lower()
-        r_pw = st.text_input("Password", type="password")
-        if st.button("Submit Registration", use_container_width=True):
-            u_df = load_data(USERS_FILE, USER_COLS)
-            if r_user in u_df["email"].values:
-                st.error("User already exists.")
-            else:
-                new_user = pd.DataFrame([[r_user, r_pw, "user", False]], columns=USER_COLS)
-                save_data(pd.concat([u_df, new_user], ignore_index=True), USERS_FILE)
-                st.success("Sent! Wait for admin to approve you.")
+    st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
+    l_user = st.text_input("User").lower() # Label changed to User
+    l_pw = st.text_input("Password", type="password")
+    if st.button("Log In", use_container_width=True):
+        u_df = load_data(USERS_FILE, ["email", "password", "role", "approved"])
+        match = u_df[(u_df["email"] == l_user) & (u_df["password"].astype(str) == str(l_pw))]
+        if not match.empty:
+            if match.iloc[0]["approved"]:
+                st.session_state.user, st.session_state.role = l_user, match.iloc[0]["role"]
+                st.session_state.name = l_user.split('@')[0].capitalize()
+                st.rerun()
+            else: st.error("Wait for admin approval.")
+        else: st.error("Invalid credentials.")
     st.stop()
 
 # ===============================
-# MAIN UI
+# MAIN UI - UNCHANGED OUTLOOK
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
 
-# Setup Tabs (Only Admin sees the second tab)
+# Setup Tabs - ONLY ADMIN SEES DASHBOARD
 if st.session_state.role == "admin":
-    tab_booking, tab_profile, tab_admin = st.tabs(["🎱 Bookings", "👤 Profile", "⚙️ Admin Dashboard"])
+    tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin Dashboard"])
 else:
-    tab_booking, tab_profile = st.tabs(["🎱 Bookings", "👤 Profile"])
+    tab_booking = st.tabs(["🎱 Bookings"])[0]
     tab_admin = None
 
 with tab_booking:
     today, tomorrow = datetime.now().date(), datetime.now().date() + timedelta(days=1)
     dates = [today + timedelta(days=i) for i in range(14)]
-    
     for row_start in [0, 7]:
         d_cols = st.columns(7)
         for i in range(7):
@@ -199,32 +169,19 @@ with tab_booking:
                     st.button("➕", key=btn_key, type="secondary", on_click=handle_booking, 
                               args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), use_container_width=True)
 
-with tab_profile:
-    st.subheader("Change Password")
-    new_pw = st.text_input("New Password", type="password")
-    if st.button("Save New Password"):
-        u_df = load_data(USERS_FILE, USER_COLS)
-        u_df.loc[u_df["email"] == st.session_state.user, "password"] = new_pw
-        save_data(u_df, USERS_FILE)
-        st.success("Password changed!")
-
+# ===============================
+# ADMIN DASHBOARD - USER MGMT ONLY
+# ===============================
 if tab_admin:
     with tab_admin:
         st.subheader("👥 User Management")
-        u_df = load_data(USERS_FILE, USER_COLS)
+        u_df = load_data(USERS_FILE, ["email", "password", "role", "approved"])
         edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True,
                                column_config={
                                    "role": st.column_config.SelectboxColumn("Role", options=["user", "admin"]),
                                    "approved": st.column_config.CheckboxColumn("Approved")
                                })
-        if st.button("💾 Save User Changes"):
+        if st.button("💾 Save User Changes", use_container_width=True):
             save_data(edited, USERS_FILE)
-            st.success("User list updated!")
+            st.success("Saved!")
             st.rerun()
-
-        st.divider()
-        st.subheader("📊 Statistics")
-        all_b = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
-        if not all_b.empty:
-            stats = all_b.groupby("user").size().reset_index(name="Bookings").sort_values("Bookings", ascending=False)
-            st.dataframe(stats, hide_index=True, use_container_width=True)
