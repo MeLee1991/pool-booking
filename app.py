@@ -13,24 +13,29 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# ORIGINAL DESIGN CSS (Green/Red)
+# THE ORIGINAL DESIGN CSS
 # ===============================
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
+    
+    /* Grid Layout for Buttons */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
         gap: 4px !important; margin-bottom: 4px !important;
     }
-    /* Light Green for Free Slots */
+
+    /* Free Slots: Light Green */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] { 
         background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9 !important;
     }
-    /* Light Red for Booked Slots */
+    
+    /* Booked Slots: Light Red */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] { 
         background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2 !important;
     }
-    .stButton > button { height: 44px !important; width: 100% !important; }
+
+    .stButton > button { height: 44px !important; width: 100% !important; font-size: 11px !important; font-weight: bold !important; }
     .grid-header { text-align: center; font-size: 11px; font-weight: bold; background-color: #333; color: white; border-radius: 6px; height: 44px; line-height: 44px; }
     .time-label { text-align: center; font-size: 11px; font-weight: bold; background-color: #f0f2f6; border-radius: 6px; height: 44px; line-height: 44px; }
     [data-testid="stHeader"] {display: none;}
@@ -38,9 +43,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA ENGINES (PROTECTED)
+# ROBUST DATA ENGINE
 # ===============================
 USER_COLS = ["email", "password", "role", "approved", "info"]
+BOOK_COLS = ["user", "date", "table", "time"]
 
 def load_data(file, cols):
     if not os.path.exists(file) or os.path.getsize(file) == 0:
@@ -50,24 +56,34 @@ def load_data(file, cols):
         df.to_csv(file, index=False)
         return df
     try:
+        # We read as 'str' to ensure 1234 doesn't become 1234.0
         df = pd.read_csv(file, dtype=str).fillna("")
-        # Ensure 'email' exists for everyone or the app crashes on Admin Tab
-        df = df[df['email'] != ""] 
         for c in cols:
             if c not in df.columns: df[c] = ""
         return df[cols]
-    except Exception:
+    except:
         return pd.DataFrame(columns=cols)
 
 def save_data(df, file):
-    df.to_csv(file, index=False)
+    df.astype(str).to_csv(file, index=False)
+
+def handle_booking(date_str, table, time_str):
+    target = st.session_state.get("admin_target_user", st.session_state.user)
+    df = load_data(BOOKINGS_FILE, BOOK_COLS)
+    mask = (df["date"] == str(date_str)) & (df["table"] == str(table)) & (df["time"] == str(time_str))
+    if df[mask].empty:
+        new_row = pd.DataFrame([[target, date_str, table, time_str]], columns=BOOK_COLS)
+        df = pd.concat([df, new_row], ignore_index=True)
+    else:
+        df = df[~mask]
+    save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# LOGIN
+# LOGIN SCREEN
 # ===============================
 if "user" not in st.session_state:
     st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
-    l_user = st.text_input("User").lower().strip()
+    l_user = st.text_input("User").strip().lower()
     l_pw = st.text_input("Password", type="password").strip()
     if st.button("Log In", use_container_width=True):
         u_df = load_data(USERS_FILE, USER_COLS)
@@ -80,43 +96,61 @@ if "user" not in st.session_state:
     st.stop()
 
 # ===============================
-# ADMIN TAB (PROTECTED)
+# MAIN APP
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
-tabs = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0]]
 
-with tabs[0]:
+# Tab switching
+if st.session_state.role == "admin":
+    tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"])
+else:
+    tab_booking = st.tabs(["🎱 Bookings"])[0]
+    tab_admin = None
+
+with tab_booking:
     st.write(f"**{st.session_state.user} | {st.session_state.sel_date}**")
-    # (Booking grid code same as before...)
+    
+    # Grid Headers
+    h_cols = st.columns(4)
+    for i, title in enumerate(["Time", "T1", "T2", "T3"]):
+        with h_cols[i]: st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-if st.session_state.role == "admin" and len(tabs) > 1:
-    with tabs[1]:
-        try:
-            u_df = load_data(USERS_FILE, USER_COLS)
-            st.subheader("👥 All Users Table")
-            
-            # Spreadsheet view (The "Better" version)
-            u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
-            edited_df = st.data_editor(
-                u_df, 
-                num_rows="dynamic", 
-                use_container_width=True, 
-                key="admin_table_v2",
-                column_config={
-                    "approved": st.column_config.CheckboxColumn("Approve"),
-                    "info": st.column_config.TextColumn("Info/Photos")
-                }
-            )
-            
-            if st.button("💾 Save All Changes", use_container_width=True):
-                save_data(edited_df, USERS_FILE)
-                st.success("Data Saved!")
-                st.rerun()
+    # Time Rows
+    times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
+    bookings = load_data(BOOKINGS_FILE, BOOK_COLS)
+    df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
 
-            st.divider()
-            # Safety check: ensure dropdown list isn't empty
-            emails = u_df["email"].tolist()
-            if emails:
-                st.session_state.admin_target_user = st.selectbox("🎯 Book on behalf of:", emails)
-        except Exception as e:
-            st.error("Data error detected in users.csv. Please delete any empty rows in the table above and Save.")
+    for t in times:
+        r_cols = st.columns(4)
+        with r_cols[0]: st.markdown(f"<div class='time-label'>{t}</div>", unsafe_allow_html=True)
+        for i, table in enumerate(["T1", "T2", "T3"]):
+            with r_cols[i+1]:
+                match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
+                if not match.empty:
+                    owner_label = match.iloc[0]["user"].split('@')[0]
+                    st.button(f"X {owner_label}", key=f"{table}{t}", type="primary", on_click=handle_booking, args=(str(st.session_state.sel_date), table, t))
+                else:
+                    st.button("➕", key=f"{table}{t}", type="secondary", on_click=handle_booking, args=(str(st.session_state.sel_date), table, t))
+
+if tab_admin:
+    with tab_admin:
+        u_df = load_data(USERS_FILE, USER_COLS)
+        st.subheader("👥 User Management")
+        
+        # RESTORED SPREADSHEET TABLE
+        u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
+        edited_df = st.data_editor(
+            u_df, 
+            num_rows="dynamic", 
+            use_container_width=True, 
+            key="user_edit_table",
+            column_config={"approved": st.column_config.CheckboxColumn("Approve")}
+        )
+        
+        if st.button("💾 Save User Changes", use_container_width=True):
+            save_data(edited_df, USERS_FILE)
+            st.success("Users Updated!")
+            st.rerun()
+
+        st.divider()
+        st.session_state.admin_target_user = st.selectbox("Book for user:", u_df["email"].tolist())
