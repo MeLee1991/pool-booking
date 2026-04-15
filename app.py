@@ -13,7 +13,7 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE REPAIRED CSS (STRICT GRID) - NO CHANGES
+# THE REPAIRED CSS (STRICT GRID) - UNTOUCHED
 # ===============================
 st.markdown("""
 <style>
@@ -66,8 +66,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA HELPERS - AUTO-REPAIR
+# DATA HELPERS - PREVENTS DATA LOSS
 # ===============================
+USER_COLS = ["email", "password", "role", "approved"]
+
 def load_data(file, cols):
     if not os.path.exists(file):
         df = pd.DataFrame(columns=cols)
@@ -76,16 +78,15 @@ def load_data(file, cols):
         df.to_csv(file, index=False)
         return df
     df = pd.read_csv(file)
-    # FORCE REPAIR if columns are missing or wrong
-    if list(df.columns) != cols:
-        new_df = pd.DataFrame(columns=cols)
-        if file == USERS_FILE:
-            new_df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", True]], columns=cols)
-        new_df.to_csv(file, index=False)
-        return new_df
-    return df
+    # Ensure columns match for smooth operation
+    for col in cols:
+        if col not in df.columns:
+            df[col] = True if col == "approved" else ""
+    return df[cols]
 
-def save_data(df, file): df.to_csv(file, index=False)
+def save_data(df, file):
+    df.to_csv(file, index=False)
+
 def set_date(new_date): st.session_state.sel_date = new_date
 
 def handle_booking(date_str, table, time_str, user_email, role):
@@ -100,33 +101,49 @@ def handle_booking(date_str, table, time_str, user_email, role):
     save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# LOGIN SYSTEM
+# LOGIN & REGISTRATION
 # ===============================
 if "user" not in st.session_state:
-    st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
-    l_user = st.text_input("User").lower() # Label changed to User
-    l_pw = st.text_input("Password", type="password")
-    if st.button("Log In", use_container_width=True):
-        u_df = load_data(USERS_FILE, ["email", "password", "role", "approved"])
-        match = u_df[(u_df["email"] == l_user) & (u_df["password"].astype(str) == str(l_pw))]
-        if not match.empty:
-            if match.iloc[0]["approved"]:
-                st.session_state.user, st.session_state.role = l_user, match.iloc[0]["role"]
-                st.session_state.name = l_user.split('@')[0].capitalize()
-                st.rerun()
-            else: st.error("Wait for admin approval.")
-        else: st.error("Invalid credentials.")
+    mode = st.radio("M", ["Login", "Register"], horizontal=True, label_visibility="collapsed")
+    
+    if mode == "Login":
+        st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
+        l_user = st.text_input("User").lower()
+        l_pw = st.text_input("Password", type="password")
+        if st.button("Log In", use_container_width=True):
+            u_df = load_data(USERS_FILE, USER_COLS)
+            match = u_df[(u_df["email"] == l_user) & (u_df["password"].astype(str) == str(l_pw))]
+            if not match.empty:
+                if match.iloc[0]["approved"]:
+                    st.session_state.user, st.session_state.role = l_user, match.iloc[0]["role"]
+                    st.session_state.name = l_user.split('@')[0].capitalize()
+                    st.rerun()
+                else: st.warning("Pending Admin Approval.")
+            else: st.error("Invalid credentials.")
+    else:
+        st.markdown("<h3 style='text-align:center;'>🎱 Register New User</h3>", unsafe_allow_html=True)
+        r_user = st.text_input("New User (Email)").lower()
+        r_pw = st.text_input("New Password", type="password")
+        if st.button("Register", use_container_width=True):
+            u_df = load_data(USERS_FILE, USER_COLS)
+            if r_user in u_df["email"].values:
+                st.error("User already exists!")
+            else:
+                # Add user and save the FULL list (not just one)
+                new_entry = pd.DataFrame([[r_user, r_pw, "user", False]], columns=USER_COLS)
+                full_list = pd.concat([u_df, new_entry], ignore_index=True)
+                save_data(full_list, USERS_FILE)
+                st.success("Registered! Ask Admin to approve you.")
     st.stop()
 
 # ===============================
-# MAIN UI - UNCHANGED OUTLOOK
+# MAIN UI - RETAINS YOUR LOOK
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
 
-# Setup Tabs - ONLY ADMIN SEES DASHBOARD
 if st.session_state.role == "admin":
-    tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin Dashboard"])
+    tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"])
 else:
     tab_booking = st.tabs(["🎱 Bookings"])[0]
     tab_admin = None
@@ -169,19 +186,16 @@ with tab_booking:
                     st.button("➕", key=btn_key, type="secondary", on_click=handle_booking, 
                               args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), use_container_width=True)
 
-# ===============================
-# ADMIN DASHBOARD - USER MGMT ONLY
-# ===============================
 if tab_admin:
     with tab_admin:
-        st.subheader("👥 User Management")
-        u_df = load_data(USERS_FILE, ["email", "password", "role", "approved"])
+        st.subheader("👥 User List")
+        u_df = load_data(USERS_FILE, USER_COLS)
         edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True,
                                column_config={
                                    "role": st.column_config.SelectboxColumn("Role", options=["user", "admin"]),
                                    "approved": st.column_config.CheckboxColumn("Approved")
                                })
-        if st.button("💾 Save User Changes", use_container_width=True):
+        if st.button("💾 Save User Changes"):
             save_data(edited, USERS_FILE)
-            st.success("Saved!")
+            st.success("User file updated!")
             st.rerun()
