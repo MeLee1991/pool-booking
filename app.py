@@ -13,19 +13,23 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE "STRICT GRID" CSS (RESTORED)
+# THE "STRICT GRID" CSS
 # ===============================
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
     
-    /* 1. DATE SELECTOR - Horizontal Scroll */
+    /* 1. DATE SELECTOR - NARROW BUTTONS */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
         display: flex !important; flex-wrap: nowrap !important;
-        overflow-x: auto !important; gap: 6px !important;
+        overflow-x: auto !important; gap: 4px !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) button {
+        max-width: 65px !important; min-width: 65px !important;
+        padding: 0px !important;
     }
 
-    /* 2. MAIN TABLE - THE 4-COLUMN FORCE */
+    /* 2. MAIN TABLE - FORCED 4 COLUMNS */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important;
         grid-template-columns: repeat(4, 1fr) !important;
@@ -133,7 +137,6 @@ tabs = st.tabs(t_names)
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 
 with tabs[0]:
-    # Date Selector
     today = datetime.now().date()
     tomorrow = today + timedelta(days=1)
     dates = [today + timedelta(days=i) for i in range(14)]
@@ -144,18 +147,16 @@ with tabs[0]:
             lbl = "TOD" if d == today else "TOM" if d == tomorrow else d.strftime('%a').upper()
             lbl += f"\n{d.day}"
             with d_cols[i]:
-                if st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary", use_container_width=True):
+                if st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary"):
                     st.session_state.sel_date = d
                     st.rerun()
 
     st.divider()
 
-    # Table Header (4 Columns Forced by CSS)
     h_cols = st.columns(4)
     for i, title in enumerate(["Time", "T1", "T2", "T3"]):
         with h_cols[i]: st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-    # Table Data
     bookings = load_data(BOOKINGS_FILE, BOOK_COLS)
     df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
     times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
@@ -171,13 +172,13 @@ with tabs[0]:
                 if not match.empty:
                     owner = match.iloc[0]["user"]
                     name = owner.split('@')[0].capitalize()[:7]
-                    if st.button(name, key=btn_key, type="primary", use_container_width=True):
+                    if st.button(name, key=btn_key, type="primary"):
                         if owner == st.session_state.user or st.session_state.role == "admin":
                             bookings = bookings[~((bookings["date"] == str(st.session_state.sel_date)) & (bookings["table"] == table) & (bookings["time"] == t))]
                             save_data(bookings, BOOKINGS_FILE)
                             st.rerun()
                 else:
-                    if st.button("➕", key=btn_key, type="secondary", use_container_width=True):
+                    if st.button("➕", key=btn_key, type="secondary"):
                         new_b = pd.DataFrame([[st.session_state.user, str(st.session_state.sel_date), table, t]], columns=BOOK_COLS)
                         save_data(pd.concat([bookings, new_b]), BOOKINGS_FILE)
                         st.rerun()
@@ -185,7 +186,7 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("Update Password")
     p1 = st.text_input("New Password", type="password")
-    if st.button("Save", use_container_width=True):
+    if st.button("Save Password", use_container_width=True):
         u_df = load_data(USERS_FILE, USER_COLS)
         u_df.loc[u_df["email"] == st.session_state.user, "password"] = p1
         save_data(u_df, USERS_FILE)
