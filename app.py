@@ -66,13 +66,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA ENGINES (NO-CRASH VERSION)
+# DATA ENGINES
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 BOOK_COLS = ["user", "date", "table", "time"]
 
 def load_data(file, cols):
-    # Fix for EmptyDataError: Check if file exists and has content
     if not os.path.exists(file) or os.path.getsize(file) == 0:
         df = pd.DataFrame(columns=cols)
         if file == USERS_FILE:
@@ -98,7 +97,6 @@ def set_date(new_date): st.session_state.sel_date = new_date
 def handle_booking(date_str, table, time_str):
     user_email = st.session_state.user
     role = st.session_state.role
-    # Admin can book for someone else if selected, otherwise books as self
     target = st.session_state.get("admin_target_user", user_email) if role == "admin" else user_email
     
     df = load_data(BOOKINGS_FILE, BOOK_COLS)
@@ -188,10 +186,10 @@ with tab_booking:
                 btn_key = f"b_{st.session_state.sel_date}_{table}_{t}"
                 if not match.empty:
                     owner = str(match.iloc[0]["user"])
-                    # Safe name display even if owner isn't an email
+                    # Removed "X " prefix from display
                     disp = (owner.split('@')[0] if '@' in owner else owner).capitalize()[:7]
                     can_edit = owner.lower() == st.session_state.user.lower() or st.session_state.role == "admin"
-                    st.button(f"X {disp}", key=btn_key, type="primary", use_container_width=True,
+                    st.button(disp, key=btn_key, type="primary", use_container_width=True,
                               on_click=handle_booking if can_edit else None, args=(str(st.session_state.sel_date), table, t))
                 else:
                     st.button("➕", key=btn_key, type="secondary", use_container_width=True,
@@ -200,7 +198,6 @@ with tab_booking:
 if tab_admin:
     with tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
-        # Convert 'approved' to real boolean for the editor
         u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "t", "yes"])
         edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True)
         if st.button("💾 Save User Changes"):
@@ -210,6 +207,5 @@ if tab_admin:
             
         st.divider()
         user_list = u_df["email"].tolist()
-        # Fix for crash: ensure admin_target_user exists in the current list
         default_idx = user_list.index(st.session_state.user) if st.session_state.user in user_list else 0
         st.session_state.admin_target_user = st.selectbox("Admin: Book for user:", user_list, index=default_idx)
