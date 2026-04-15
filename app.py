@@ -37,16 +37,7 @@ st.markdown("""
         display: flex !important; justify-content: center !important; align-items: center !important;
         width: 100% !important;
     }
-    .stButton > button p {
-        font-size: 11px !important; font-weight: bold !important;
-        text-align: center !important; margin: 0 !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] { 
-        background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9 !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] { 
-        background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2 !important;
-    }
+    .stButton > button p { font-size: 11px !important; font-weight: bold !important; }
     .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; 
@@ -66,16 +57,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA ENGINES (ANTI-CRASH)
+# DATA ENGINES (WITH INFO COL)
 # ===============================
-USER_COLS = ["email", "password", "role", "approved"]
+USER_COLS = ["email", "password", "role", "approved", "info"]
 BOOK_COLS = ["user", "date", "table", "time"]
 
 def load_data(file, cols):
     if not os.path.exists(file) or os.path.getsize(file) == 0:
         df = pd.DataFrame(columns=cols)
         if file == USERS_FILE:
-            df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True"]], columns=cols)
+            df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True", "Owner"]], columns=cols)
         df.to_csv(file, index=False)
         return df
     try:
@@ -83,8 +74,6 @@ def load_data(file, cols):
         for c in cols:
             if c not in df.columns:
                 df[c] = "True" if c == "approved" else ""
-        if "email" in df.columns: df["email"] = df["email"].str.lower().str.strip()
-        if "password" in df.columns: df["password"] = df["password"].str.strip().str.replace(r'\.0$', '', regex=True)
         return df[cols]
     except:
         return pd.DataFrame(columns=cols)
@@ -143,7 +132,7 @@ if "user" not in st.session_state:
                 u_df = load_data(USERS_FILE, USER_COLS)
                 if r_user in u_df["email"].values: st.error("User exists.")
                 else:
-                    new_entry = pd.DataFrame([[r_user, r_pw, "user", "False"]], columns=USER_COLS)
+                    new_entry = pd.DataFrame([[r_user, r_pw, "user", "False", ""]], columns=USER_COLS)
                     save_data(pd.concat([u_df, new_entry], ignore_index=True), USERS_FILE)
                     st.success("Ask Admin to approve you.")
     st.stop()
@@ -186,7 +175,6 @@ with tab_booking:
                 btn_key = f"b_{st.session_state.sel_date}_{table}_{t}"
                 if not match.empty:
                     owner = str(match.iloc[0]["user"])
-                    # FIXED: Removed the "X" prefix
                     disp = (owner.split('@')[0] if '@' in owner else owner).capitalize()[:7]
                     can_edit = owner.lower() == st.session_state.user.lower() or st.session_state.role == "admin"
                     st.button(disp, key=btn_key, type="primary", use_container_width=True,
@@ -198,43 +186,40 @@ with tab_booking:
 if tab_admin:
     with tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
-        st.subheader("👥 User Management")
+        st.subheader("👥 User Table")
         
-        # MOBILE FRIENDLY LIST (NO SPREADSHEET)
-        for idx, row in u_df.iterrows():
-            email = row['email']
-            approved = str(row['approved']).lower() in ["true", "1", "yes"]
-            c1, c2, c3 = st.columns([3, 2, 1])
-            with c1: st.write(f"**{email}**")
-            with c2:
-                if not approved:
-                    if st.button("✅ Approve", key=f"ap_{email}"):
-                        u_df.at[idx, 'approved'] = "True"
-                        save_data(u_df, USERS_FILE)
-                        st.rerun()
-                else: st.write("Approved")
-            with c3:
-                if email != OWNER_EMAIL:
-                    if st.button("🗑️", key=f"dl_{email}"):
-                        u_df = u_df.drop(idx)
-                        save_data(u_df, USERS_FILE)
-                        st.rerun()
+        # RESTORED TABLE + DYNAMIC ROWS
+        # Columns can be clicked to sort them automatically
+        u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
+        edited_df = st.data_editor(
+            u_df, 
+            num_rows="dynamic", 
+            use_container_width=True, 
+            key="admin_editor",
+            column_config={
+                "approved": st.column_config.CheckboxColumn("Approved"),
+                "info": st.column_config.TextColumn("Info/Notes", help="Add photos links or text here")
+            }
+        )
         
-        st.divider()
-        st.subheader("➕ Add User Manually")
-        new_e = st.text_input("Username").lower().strip()
-        new_p = st.text_input("Password", type="password").strip()
-        if st.button("Add Approved User", use_container_width=True):
-            if new_e and new_p:
-                if new_e not in u_df["email"].values:
-                    new_row = pd.DataFrame([[new_e, new_p, "user", "True"]], columns=USER_COLS)
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("💾 Save All Changes", use_container_width=True, type="primary"):
+                save_data(edited_df, USERS_FILE)
+                st.success("Saved!")
+                st.rerun()
+        with c2:
+            # BACKUP: If your phone won't let you type in the table, use this
+            with st.popover("➕ Fast Add User"):
+                fast_e = st.text_input("Email/Name")
+                fast_p = st.text_input("Pass")
+                if st.button("Add Now"):
+                    new_row = pd.DataFrame([[fast_e, fast_p, "user", "True", ""]], columns=USER_COLS)
                     save_data(pd.concat([u_df, new_row], ignore_index=True), USERS_FILE)
-                    st.success(f"Added {new_e}")
                     st.rerun()
-                else: st.error("User exists.")
 
         st.divider()
-        st.subheader("🎯 Book For Someone Else")
+        st.subheader("🎯 Book as User")
         user_list = u_df["email"].tolist()
         def_idx = user_list.index(st.session_state.user) if st.session_state.user in user_list else 0
         st.session_state.admin_target_user = st.selectbox("Assign bookings to:", user_list, index=def_idx)
