@@ -13,30 +13,31 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE "UNTOUCHABLE" DESIGN
+# THE PROTECTED DESIGN (CSS)
 # ===============================
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
     
-    /* Force 7 columns to stay horizontal on mobile for dates */
+    /* Narrow Date Row with Scroll */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-        gap: 4px !important; overflow-x: hidden !important;
+        display: flex !important; flex-wrap: nowrap !important;
+        overflow-x: auto !important; gap: 4px !important;
+        padding-bottom: 8px !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) [data-testid="column"] {
-        width: 14% !important; flex: 1 1 14% !important; min-width: 0 !important;
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) > div {
+        min-width: 60px !important; flex: 0 0 60px !important;
     }
 
-    /* Frozen Header Logic with extra spacing */
+    /* Frozen Header with Spacing */
     div[data-testid="stHorizontalBlock"]:has(.grid-header) {
         position: sticky !important; top: 0; z-index: 1000;
         background-color: white !important;
-        padding-bottom: 20px !important; /* Increased distance from data */
-        margin-bottom: 10px !important;
+        padding-bottom: 25px !important; /* Extra space from data */
+        margin-bottom: 5px !important;
     }
 
-    /* 4-Column Table Grid */
+    /* 4-Column Grid */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
         gap: 4px !important; margin-bottom: 4px !important;
@@ -77,7 +78,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# LOGIC & DATA
+# DATA HELPERS
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 
@@ -97,12 +98,15 @@ def handle_booking(date_str, table, time_str):
     mask = (df["date"] == str(date_str)) & (df["table"] == str(table)) & (df["time"] == str(time_str))
     
     if df[mask].empty:
-        # If Admin, they book under their name, but can change it later via the Admin Rename feature
+        # Book under current user's name
         new_row = pd.DataFrame([[st.session_state.user, date_str, table, time_str]], columns=df.columns)
         df = pd.concat([df, new_row], ignore_index=True)
     else:
+        # Admin can rename or delete, User can only delete own
         owner = df[mask].iloc[0]["user"]
-        if owner == st.session_state.user or st.session_state.role == "admin":
+        if st.session_state.role == "admin":
+            st.session_state.rename_mode = (date_str, table, time_str, owner)
+        elif owner == st.session_state.user:
             df = df[~mask]
     save_data(df, BOOKINGS_FILE)
 
@@ -122,11 +126,11 @@ if "user" not in st.session_state:
             st.session_state.role = str(match.iloc[0]["role"]).lower()
             st.session_state.name = l_user.split('@')[0].capitalize()
             st.rerun()
-        else: st.error("Denied.")
+        else: st.error("Access Denied.")
     if c2.button("Register", use_container_width=True):
         if l_user and l_pw:
             save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False"]], columns=USER_COLS)]), USERS_FILE)
-            st.success("Pending Approval.")
+            st.success("Awaiting Admin.")
     st.stop()
 
 # ===============================
@@ -136,33 +140,48 @@ if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now(
 tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0], None]
 
 with tab_booking:
-    st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
-    
-    # EXACT TWO ROWS OF SEVEN
+    # Admin Rename Tool (Appears if Admin clicks a booking)
+    if st.session_state.get("rename_mode"):
+        d, tb, tm, current = st.session_state.rename_mode
+        with st.expander(f"Edit Booking: {tm} {tb}", expanded=True):
+            new_name = st.text_input("Change name to:", value=current)
+            col_a, col_b = st.columns(2)
+            if col_a.button("Save Name"):
+                df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+                df.loc[(df["date"]==d) & (df["table"]==tb) & (df["time"]==tm), "user"] = new_name
+                save_data(df, BOOKINGS_FILE)
+                del st.session_state.rename_mode
+                st.rerun()
+            if col_b.button("Delete Booking", type="primary"):
+                df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+                df = df[~((df["date"]==d) & (df["table"]==tb) & (df["time"]==tm))]
+                save_data(df, BOOKINGS_FILE)
+                del st.session_state.rename_mode
+                st.rerun()
+
+    # DATE SELECTOR: 2 rows of 7
     today = datetime.now().date()
-    tomorrow = today + timedelta(days=1)
     dates = [today + timedelta(days=i) for i in range(14)]
-    
-    for row_idx in range(2):
+    for row in range(2):
         d_cols = st.columns(7)
         for i in range(7):
-            d = dates[row_idx * 7 + i]
+            d = dates[row * 7 + i]
             if d == today: lbl = f"TOD\n{d.day}"
-            elif d == tomorrow: lbl = f"TOM\n{d.day}"
+            elif d == today + timedelta(days=1): lbl = f"TOM\n{d.day}"
             else: lbl = f"{d.strftime('%a').upper()}\n{d.day}"
-            
             with d_cols[i]:
                 if st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary", use_container_width=True):
                     st.session_state.sel_date = d
                     st.rerun()
 
-    st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
 
-    # Table Grid
+    # FROZEN HEADER
     h_cols = st.columns(4)
     for i, title in enumerate(["Time", "T1", "T2", "T3"]):
         h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
+    # GRID
     times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
     bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
     df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
@@ -185,52 +204,39 @@ if tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
         
-        # 1. ADVANCED STATISTICS
-        st.subheader("📊 Performance Analytics")
-        date_range = st.date_input("Select Period", [today - timedelta(days=7), today + timedelta(days=7)])
-        
-        if len(date_range) == 2:
-            s_date, e_date = str(date_range[0]), str(date_range[1])
-            s_df = b_df[(b_df["date"] >= s_date) & (b_df["date"] <= e_date)].copy()
-            
+        # 1. ADVANCED STATS
+        st.subheader("📊 Analytics")
+        dr = st.date_input("Select Period", [today - timedelta(days=7), today])
+        if len(dr) == 2:
+            s_df = b_df[(b_df["date"] >= str(dr[0])) & (b_df["date"] <= str(dr[1]))].copy()
             if not s_df.empty:
-                # Calculate Peak Hour & Day
-                s_df['day_name'] = pd.to_datetime(s_df['date']).dt.day_name()
-                peak_hour = s_df['time'].value_counts().idxmax()
-                peak_day = s_df['day_name'].value_counts().idxmax()
-                top_player = s_df['user'].value_counts().idxmax()
-
+                s_df['day'] = pd.to_datetime(s_df['date']).dt.day_name()
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Top Player", top_player.split('@')[0].capitalize())
-                c2.metric("Peak Hour", peak_hour)
-                c3.metric("Busiest Day", peak_day)
-
-                # Hour Frequency Chart (simple dataframe view)
-                st.write("**Bookings per Hour:**")
+                c1.metric("Top Player", s_df['user'].value_counts().idxmax().split('@')[0].capitalize())
+                c2.metric("Peak Hour", s_df['time'].value_counts().idxmax())
+                c3.metric("Busiest Day", s_df['day'].value_counts().idxmax())
+                st.write("**Activity by Hour:**")
                 st.bar_chart(s_df['time'].value_counts())
-            else:
-                st.info("No data for this range.")
+            else: st.info("No data.")
 
-        # 2. USER MANAGEMENT
+        # 2. USER MANAGEMENT (Sortable Table)
         st.divider()
-        st.subheader("👥 User Management")
+        st.subheader("👥 User Management Table")
         u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
         edited = st.data_editor(u_df, use_container_width=True, num_rows="dynamic",
                                column_config={"approved": st.column_config.CheckboxColumn("Approve"),
                                               "role": st.column_config.SelectboxColumn("Role", options=["user", "admin"])})
-        
-        if st.button("💾 Save User Table"):
+        if st.button("💾 Save All Changes"):
             save_data(edited, USERS_FILE)
             st.rerun()
 
         # 3. BULK TOOLS
         with st.expander("🛠️ Admin Tools"):
-            if st.button("🔑 Reset All Passwords to '1234'"):
+            if st.button("🔑 Set All Passwords to '1234'"):
                 u_df["password"] = "1234"
                 save_data(u_df, USERS_FILE)
                 st.rerun()
-            
-            up = st.file_uploader("Import Users CSV")
+            up = st.file_uploader("📥 Import Users (CSV)")
             if up:
                 new_users = pd.read_csv(up)
                 save_data(pd.concat([u_df, new_users]).drop_duplicates(subset=['email']), USERS_FILE)
