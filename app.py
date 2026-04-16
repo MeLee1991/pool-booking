@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # ===============================
 # CONFIG & FILES
@@ -13,7 +13,7 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE DESIGN YOU TOLD ME NOT TO TOUCH
+# THE DESIGN YOU SPECIFIED
 # ===============================
 st.markdown("""
 <style>
@@ -25,10 +25,14 @@ st.markdown("""
         gap: 4px !important; margin-bottom: 4px !important;
     }
 
-    /* Buttons Style */
+    /* Fixed Width Buttons (Fixed the '+' button size issue) */
     .stButton > button {
-        height: 44px !important; width: 100% !important; 
-        border-radius: 6px !important; font-size: 11px !important; font-weight: bold !important;
+        height: 44px !important; 
+        width: 100% !important; 
+        display: block !important;
+        border-radius: 6px !important; 
+        font-size: 11px !important; 
+        font-weight: bold !important;
     }
 
     /* COLORS: Light Green (Free) & Light Red (Booked) */
@@ -43,19 +47,19 @@ st.markdown("""
     .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; 
         background-color: #333; color: white; border-radius: 6px; 
-        height: 44px; line-height: 44px;
+        height: 44px; line-height: 44px; width: 100%;
     }
     .time-label {
         text-align: center; font-size: 11px; font-weight: bold; 
         background-color: #f0f2f6; border-radius: 6px; 
-        height: 44px; line-height: 44px;
+        height: 44px; line-height: 44px; width: 100%;
     }
     [data-testid="stHeader"] {display: none;}
 </style>
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA ENGINES (PROTECTING PASSWORDS)
+# DATA ENGINES
 # ===============================
 USER_COLS = ["email", "password", "role", "approved", "info"]
 BOOK_COLS = ["user", "date", "table", "time"]
@@ -67,7 +71,6 @@ def load_data(file, cols):
             df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True", ""]], columns=cols)
         df.to_csv(file, index=False)
         return df
-    # read as str so 1234 stays 1234
     df = pd.read_csv(file, dtype=str).fillna("")
     return df[cols]
 
@@ -85,17 +88,20 @@ def handle_booking(date_str, table, time_str):
     save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# LOGIN
+# LOGIN (FIXED FOR NEW USERS)
 # ===============================
 if "user" not in st.session_state:
     st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
-    l_u = st.text_input("User").strip().lower()
+    l_u = st.text_input("User").strip()
     l_p = st.text_input("Password", type="password").strip()
     if st.button("Log In", use_container_width=True):
         u_df = load_data(USERS_FILE, USER_COLS)
+        # Fixed: Match username exactly as entered in the table (Case-sensitive check)
         match = u_df[(u_df["email"] == l_u) & (u_df["password"] == l_p)]
         if not match.empty:
-            st.session_state.user, st.session_state.role = l_u, match.iloc[0]["role"]
+            st.session_state.user = l_u
+            # Force role to lowercase for internal logic
+            st.session_state.role = str(match.iloc[0]["role"]).lower()
             st.rerun()
         else: st.error("Invalid credentials.")
     st.stop()
@@ -105,18 +111,14 @@ if "user" not in st.session_state:
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 
-# Tab switching
 tabs = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0]]
 
 with tabs[0]:
     st.write(f"**{st.session_state.user}** | {st.session_state.sel_date}")
-    
-    # Headers
     h_cols = st.columns(4)
     for i, title in enumerate(["Time", "T1", "T2", "T3"]):
         h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-    # Grid
     times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
     bookings = load_data(BOOKINGS_FILE, BOOK_COLS)
     df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
@@ -130,21 +132,17 @@ with tabs[0]:
                 name = match.iloc[0]["user"].split('@')[0]
                 r_cols[i+1].button(name, key=f"{table}{t}", type="primary", on_click=handle_booking, args=(str(st.session_state.sel_date), table, t))
             else:
-                r_cols[i+1].button("＋", key=f"{table}{t}", type="secondary", on_click=handle_booking, args=(str(st.session_state.sel_date), table, t))
+                r_cols[i+1].button("+", key=f"{table}{t}", type="secondary", on_click=handle_booking, args=(str(st.session_state.sel_date), table, t))
 
 if st.session_state.role == "admin":
     with tabs[1]:
         u_df = load_data(USERS_FILE, USER_COLS)
         st.subheader("👥 User Management Table")
-        
-        # Spreadsheet Table
         u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
         edited_df = st.data_editor(u_df, num_rows="dynamic", use_container_width=True, key="adm_editor",
                                    column_config={"approved": st.column_config.CheckboxColumn("Approve")})
-        
         if st.button("💾 Save All Changes"):
             save_data(edited_df, USERS_FILE)
             st.success("Updated!")
             st.rerun()
-            
         st.session_state.admin_target_user = st.selectbox("Book for user:", u_df["email"].tolist())
