@@ -13,37 +13,43 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE "UNTOUCHED" DESIGN
+# THE "UNTOUCHABLE" DESIGN
 # ===============================
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
     
-    /* Frozen Header Logic */
-    div[data-testid="stHorizontalBlock"]:has(.grid-header) {
-        position: sticky !important;
-        top: 0;
-        z-index: 1000;
-        background-color: white !important;
-        padding-bottom: 10px !important;
-        margin-bottom: 5px !important;
+    /* Force 7 columns to stay horizontal on mobile for dates */
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
+        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
+        gap: 4px !important; overflow-x: hidden !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) [data-testid="column"] {
+        width: 14% !important; flex: 1 1 14% !important; min-width: 0 !important;
     }
 
-    /* 4-Column Grid */
+    /* Frozen Header Logic with extra spacing */
+    div[data-testid="stHorizontalBlock"]:has(.grid-header) {
+        position: sticky !important; top: 0; z-index: 1000;
+        background-color: white !important;
+        padding-bottom: 20px !important; /* Increased distance from data */
+        margin-bottom: 10px !important;
+    }
+
+    /* 4-Column Table Grid */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
         gap: 4px !important; margin-bottom: 4px !important;
     }
     
-    /* Buttons */
     .stButton > button {
         height: 44px !important; border-radius: 6px !important;
         display: flex !important; justify-content: center !important; align-items: center !important;
         width: 100% !important;
     }
     .stButton > button p {
-        font-size: 11px !important; font-weight: bold !important;
-        text-align: center !important; margin: 0 !important;
+        font-size: 10px !important; font-weight: bold !important;
+        text-align: center !important; margin: 0 !important; white-space: pre-line !important;
     }
 
     /* Colors */
@@ -71,7 +77,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA HELPERS
+# LOGIC & DATA
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 
@@ -89,10 +95,10 @@ def save_data(df, file):
 def handle_booking(date_str, table, time_str):
     df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
     mask = (df["date"] == str(date_str)) & (df["table"] == str(table)) & (df["time"] == str(time_str))
-    active_user = st.session_state.get("admin_book_for", st.session_state.user)
-
+    
     if df[mask].empty:
-        new_row = pd.DataFrame([[active_user, date_str, table, time_str]], columns=df.columns)
+        # If Admin, they book under their name, but can change it later via the Admin Rename feature
+        new_row = pd.DataFrame([[st.session_state.user, date_str, table, time_str]], columns=df.columns)
         df = pd.concat([df, new_row], ignore_index=True)
     else:
         owner = df[mask].iloc[0]["user"]
@@ -101,30 +107,30 @@ def handle_booking(date_str, table, time_str):
     save_data(df, BOOKINGS_FILE)
 
 # ===============================
-# AUTHENTICATION
+# AUTH
 # ===============================
 if "user" not in st.session_state:
-    st.markdown("<h3 style='text-align:center;'>🎱 Poolhall Login</h3>", unsafe_allow_html=True)
-    l_user = st.text_input("Username").strip().lower()
-    l_pw = st.text_input("Password", type="password").strip()
+    st.markdown("<h2 style='text-align:center;'>🎱 Poolhall</h2>", unsafe_allow_html=True)
+    l_user = st.text_input("User").strip().lower()
+    l_pw = st.text_input("Pass", type="password").strip()
     c1, c2 = st.columns(2)
+    u_df = load_data(USERS_FILE, USER_COLS)
     if c1.button("Login", use_container_width=True):
-        u_df = load_data(USERS_FILE, USER_COLS)
         match = u_df[(u_df["email"].str.lower() == l_user) & (u_df["password"].astype(str) == str(l_pw))]
         if not match.empty and str(match.iloc[0]["approved"]).lower() == "true":
-            st.session_state.user, st.session_state.role = l_user, str(match.iloc[0]["role"]).lower()
+            st.session_state.user = l_user
+            st.session_state.role = str(match.iloc[0]["role"]).lower()
             st.session_state.name = l_user.split('@')[0].capitalize()
             st.rerun()
-        else: st.error("Access Denied.")
+        else: st.error("Denied.")
     if c2.button("Register", use_container_width=True):
-        u_df = load_data(USERS_FILE, USER_COLS)
         if l_user and l_pw:
             save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False"]], columns=USER_COLS)]), USERS_FILE)
-            st.success("Registered! Wait for Admin.")
+            st.success("Pending Approval.")
     st.stop()
 
 # ===============================
-# MAIN UI
+# MAIN TABS
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0], None]
@@ -132,22 +138,27 @@ tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.sessio
 with tab_booking:
     st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
     
-    # TWO ROWS OF DATES (7 columns each)
+    # EXACT TWO ROWS OF SEVEN
     today = datetime.now().date()
+    tomorrow = today + timedelta(days=1)
     dates = [today + timedelta(days=i) for i in range(14)]
     
-    for row in range(2):
-        cols = st.columns(7)
+    for row_idx in range(2):
+        d_cols = st.columns(7)
         for i in range(7):
-            d = dates[row * 7 + i]
-            lbl = f"{d.strftime('%a')}\n{d.day}"
-            if cols[i].button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary", use_container_width=True):
-                st.session_state.sel_date = d
-                st.rerun()
+            d = dates[row_idx * 7 + i]
+            if d == today: lbl = f"TOD\n{d.day}"
+            elif d == tomorrow: lbl = f"TOM\n{d.day}"
+            else: lbl = f"{d.strftime('%a').upper()}\n{d.day}"
+            
+            with d_cols[i]:
+                if st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary", use_container_width=True):
+                    st.session_state.sel_date = d
+                    st.rerun()
 
-    st.divider()
+    st.markdown("<div style='margin-bottom:15px;'></div>", unsafe_allow_html=True)
 
-    # Grid Header (Frozen via CSS)
+    # Table Grid
     h_cols = st.columns(4)
     for i, title in enumerate(["Time", "T1", "T2", "T3"]):
         h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
@@ -174,53 +185,53 @@ if tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
         
-        # --- NEW STATISTICS SECTION ---
-        st.subheader("📊 Analytics")
-        date_range = st.date_input("Select Period for Stats", [today - timedelta(days=7), today + timedelta(days=7)])
+        # 1. ADVANCED STATISTICS
+        st.subheader("📊 Performance Analytics")
+        date_range = st.date_input("Select Period", [today - timedelta(days=7), today + timedelta(days=7)])
         
         if len(date_range) == 2:
-            start_date, end_date = str(date_range[0]), str(date_range[1])
-            mask = (b_df["date"] >= start_date) & (b_df["date"] <= end_date)
-            stats_df = b_df[mask].copy()
+            s_date, e_date = str(date_range[0]), str(date_range[1])
+            s_df = b_df[(b_df["date"] >= s_date) & (b_df["date"] <= e_date)].copy()
             
-            if not stats_df.empty:
+            if not s_df.empty:
+                # Calculate Peak Hour & Day
+                s_df['day_name'] = pd.to_datetime(s_df['date']).dt.day_name()
+                peak_hour = s_df['time'].value_counts().idxmax()
+                peak_day = s_df['day_name'].value_counts().idxmax()
+                top_player = s_df['user'].value_counts().idxmax()
+
                 c1, c2, c3 = st.columns(3)
-                # 1. Top Players
-                top_player = stats_df['user'].value_counts().idxmax().split('@')[0].capitalize()
-                c1.metric("Top Player", top_player)
-                
-                # 2. Peak Hour
-                peak_hour = stats_df['time'].value_counts().idxmax()
+                c1.metric("Top Player", top_player.split('@')[0].capitalize())
                 c2.metric("Peak Hour", peak_hour)
-                
-                # 3. Best Day
-                stats_df['day_name'] = pd.to_datetime(stats_df['date']).dt.day_name()
-                peak_day = stats_df['day_name'].value_counts().idxmax()
                 c3.metric("Busiest Day", peak_day)
-                
-                # Detailed breakdown
-                with st.expander("Show detailed play counts"):
-                    st.write(stats_df['user'].value_counts())
+
+                # Hour Frequency Chart (simple dataframe view)
+                st.write("**Bookings per Hour:**")
+                st.bar_chart(s_df['time'].value_counts())
             else:
-                st.info("No bookings found in this range.")
+                st.info("No data for this range.")
 
-        # Admin Booking Choice
+        # 2. USER MANAGEMENT
         st.divider()
-        st.subheader("🎯 Admin Booking Control")
-        user_list = u_df["email"].tolist()
-        st.session_state.admin_book_for = st.selectbox("Book for specific user:", user_list, index=user_list.index(st.session_state.user))
-
-        # User Table (Sortable)
         st.subheader("👥 User Management")
         u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
         edited = st.data_editor(u_df, use_container_width=True, num_rows="dynamic",
                                column_config={"approved": st.column_config.CheckboxColumn("Approve"),
                                               "role": st.column_config.SelectboxColumn("Role", options=["user", "admin"])})
+        
         if st.button("💾 Save User Table"):
             save_data(edited, USERS_FILE)
             st.rerun()
 
-        if st.button("🔑 Set All Passwords to '1234'"):
-            u_df["password"] = "1234"
-            save_data(u_df, USERS_FILE)
-            st.rerun()
+        # 3. BULK TOOLS
+        with st.expander("🛠️ Admin Tools"):
+            if st.button("🔑 Reset All Passwords to '1234'"):
+                u_df["password"] = "1234"
+                save_data(u_df, USERS_FILE)
+                st.rerun()
+            
+            up = st.file_uploader("Import Users CSV")
+            if up:
+                new_users = pd.read_csv(up)
+                save_data(pd.concat([u_df, new_users]).drop_duplicates(subset=['email']), USERS_FILE)
+                st.success("Imported!")
