@@ -13,13 +13,11 @@ BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
 
 # ===============================
-# THE REPAIRED CSS (STRICT GRID)
+# THE REPAIRED CSS (STRICT GRID - EXACTLY AS YOU SENT)
 # ===============================
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
-    
-    /* Date Selector Row */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
         display: flex !important; flex-wrap: nowrap !important;
         overflow-x: auto !important; gap: 6px !important;
@@ -27,8 +25,6 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) > div {
         min-width: 85px !important; flex: 0 0 auto !important;
     }
-
-    /* Main Booking Grid: 4 Columns */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) {
         display: grid !important; grid-template-columns: repeat(4, 1fr) !important;
         gap: 4px !important; margin-bottom: 4px !important;
@@ -36,41 +32,29 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) > div {
         width: 100% !important; min-width: 0 !important;
     }
-
-    /* FIX: Force ALL buttons to be identical width and center content */
     .stButton > button {
-        height: 44px !important; 
-        width: 100% !important; 
-        min-width: 100% !important;
-        display: flex !important; 
-        justify-content: center !important; 
-        align-items: center !important;
-        border-radius: 6px !important;
+        height: 44px !important; border-radius: 6px !important;
+        display: flex !important; justify-content: center !important; align-items: center !important;
+        width: 100% !important;
     }
-    
     .stButton > button p {
         font-size: 11px !important; font-weight: bold !important;
         text-align: center !important; margin: 0 !important;
-        width: 100% !important;
     }
-
-    /* Colors */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="secondary"] { 
         background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9 !important;
     }
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4):last-child) button[kind="primary"] { 
         background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2 !important;
     }
-
-    /* Headers & Labels */
     .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; 
-        background-color: #6c757d; color: white; width: 100%;
+        background-color: #6c757d; color: white;
     }
     .time-label {
         text-align: center; font-size: 11px; font-weight: bold; 
-        height: 44px; line-height: 44px; border-radius: 6px; color: #333; width: 100%;
+        height: 44px; line-height: 44px; border-radius: 6px; color: #333;
     }
     .time-block-0 { background-color: #fff9c4 !important; } 
     .time-block-1 { background-color: #ffe0b2 !important; } 
@@ -82,7 +66,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA HELPERS (FIXED FOR LOGIN)
+# DATA HELPERS (UPDATED LOGIC ONLY)
 # ===============================
 USER_COLS = ["email", "password", "role", "approved"]
 
@@ -93,12 +77,13 @@ def load_data(file, cols):
             df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True"]], columns=cols)
         df.to_csv(file, index=False)
         return df
-    # Ensure strings to keep passwords like 1234 correct
-    df = pd.read_csv(file, dtype=str).fillna("")
-    return df
+    # Use dtype=str to keep passwords like 1234 from breaking
+    return pd.read_csv(file, dtype=str).fillna("")
 
 def save_data(df, file):
     df.astype(str).to_csv(file, index=False)
+
+def set_date(new_date): st.session_state.sel_date = new_date
 
 def handle_booking(date_str, table, time_str, user_email, role):
     df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
@@ -116,13 +101,14 @@ def handle_booking(date_str, table, time_str, user_email, role):
 # ===============================
 if "user" not in st.session_state:
     mode = st.radio("M", ["Login", "Register"], horizontal=True, label_visibility="collapsed")
+    
     if mode == "Login":
         st.markdown("<h3 style='text-align:center;'>🎱 Pool Login</h3>", unsafe_allow_html=True)
         l_user = st.text_input("User").strip().lower()
         l_pw = st.text_input("Password", type="password").strip()
         if st.button("Log In", use_container_width=True):
             u_df = load_data(USERS_FILE, USER_COLS)
-            # Logic fixed for new users like BlazK
+            # LOGIC FIX: Compare passwords as strings for new users
             match = u_df[(u_df["email"].str.lower() == l_user) & (u_df["password"].astype(str) == str(l_pw))]
             if not match.empty:
                 if str(match.iloc[0]["approved"]).lower() in ["true", "1", "yes"]:
@@ -146,12 +132,16 @@ if "user" not in st.session_state:
     st.stop()
 
 # ===============================
-# MAIN UI
+# MAIN UI (RETAINED YOUR LAYOUT)
 # ===============================
 if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
 st.write(f"**👤 {st.session_state.name}** | {st.session_state.sel_date}")
 
-tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0], None]
+if st.session_state.role == "admin":
+    tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"])
+else:
+    tab_booking = st.tabs(["🎱 Bookings"])[0]
+    tab_admin = None
 
 with tab_booking:
     today = datetime.now().date()
@@ -162,14 +152,13 @@ with tab_booking:
             d = dates[row_start + i]
             lbl = f"{'TOD' if d == today else d.strftime('%a').upper()}\n{d.day}"
             with d_cols[i]:
-                if st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary", use_container_width=True):
-                    st.session_state.sel_date = d
-                    st.rerun()
+                st.button(lbl, key=f"d_{d}", type="primary" if d == st.session_state.sel_date else "secondary", 
+                          on_click=set_date, args=(d,), use_container_width=True)
 
     st.divider()
     h_cols = st.columns(4)
     for i, title in enumerate(["Time", "T1", "T2", "T3"]):
-        h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
+        with h_cols[i]: st.markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
     times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
     bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
@@ -178,24 +167,26 @@ with tab_booking:
     for t in times:
         r_cols = st.columns(4)
         block_idx = (int(t.split(":")[0]) - 6) // 4
-        r_cols[0].markdown(f"<div class='time-label time-block-{block_idx}'>{t}</div>", unsafe_allow_html=True)
+        with r_cols[0]: st.markdown(f"<div class='time-label time-block-{block_idx}'>{t}</div>", unsafe_allow_html=True)
         for i, table in enumerate(["T1", "T2", "T3"]):
-            match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
-            btn_key = f"btn_{st.session_state.sel_date}_{table}_{t}"
-            if not match.empty:
-                display_name = match.iloc[0]["user"].split('@')[0].capitalize()[:7]
-                r_cols[i+1].button(display_name, key=btn_key, type="primary", on_click=handle_booking, 
-                                  args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), use_container_width=True)
-            else:
-                r_cols[i+1].button("➕", key=btn_key, type="secondary", on_click=handle_booking, 
-                                  args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), use_container_width=True)
+            with r_cols[i+1]:
+                match = df_day[(df_day["table"] == table) & (df_day["time"] == t)]
+                btn_key = f"btn_{st.session_state.sel_date}_{table}_{t}"
+                if not match.empty:
+                    display_name = match.iloc[0]["user"].split('@')[0].capitalize()[:7]
+                    st.button(display_name, key=btn_key, type="primary", on_click=handle_booking, 
+                              args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), use_container_width=True)
+                else:
+                    st.button("➕", key=btn_key, type="secondary", on_click=handle_booking, 
+                              args=(str(st.session_state.sel_date), table, t, st.session_state.user, st.session_state.role), use_container_width=True)
 
 if tab_admin:
     with tab_admin:
+        st.subheader("👥 User Management Table")
         u_df = load_data(USERS_FILE, USER_COLS)
         u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
-        edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True, key="admin_edit",
+        edited = st.data_editor(u_df, num_rows="dynamic", use_container_width=True,
                                column_config={"approved": st.column_config.CheckboxColumn("Approved")})
-        if st.button("💾 Save User Changes"):
+        if st.button("💾 Save Changes"):
             save_data(edited, USERS_FILE)
             st.rerun()
