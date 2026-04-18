@@ -92,16 +92,17 @@ def get_db_connection():
 def load_data(worksheet_name, cols):
     try:
         conn = get_db_connection()
-        # ttl=0 ensures Streamlit doesn't cache old data, keeping the app live!
+        # ttl=0 ensures Streamlit doesn't cache old data
         df = conn.read(worksheet=worksheet_name, ttl=0)
         
         if df is None or df.empty:
             return pd.DataFrame(columns=cols)
             
-        # Convert all to string so passwords like '1234' aren't treated as numbers
-        df = df.astype(str).replace("nan", "")
+        # Fix the decimal issue: convert to string, remove "nan", and strip ".0" from the end
+        for col in df.columns:
+            df[col] = df[col].astype(str).replace("nan", "").str.replace(r'\.0$', '', regex=True)
         
-        # Ensure all columns exist
+        # Ensure all required columns exist
         for col in cols:
             if col not in df.columns:
                 df[col] = ""
