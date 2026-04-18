@@ -18,7 +18,8 @@ BACKUP_DIR = "backups"
 # ===============================
 st.markdown("""
 <style>
-    .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
+    /* ADDED SAFETY PADDING AT TOP: 3.5rem to push app below Streamlit's native header */
+    .block-container { padding: 3.5rem 5px 1rem 5px !important; max-width: 100% !important; }
     
     /* Narrow Date Row with Scroll */
     div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7):last-child) {
@@ -30,9 +31,9 @@ st.markdown("""
         min-width: 60px !important; flex: 0 0 60px !important;
     }
 
-    /* Frozen Header with Spacing */
+    /* Frozen Header with Spacing (LOWERED to 3.5rem so it doesn't cover menus) */
     div[data-testid="stHorizontalBlock"]:has(.grid-header) {
-        position: sticky !important; top: 0; z-index: 1000;
+        position: sticky !important; top: 3.5rem !important; z-index: 1000;
         background-color: var(--background-color) !important; 
         padding-bottom: 25px !important;
         margin-bottom: 5px !important;
@@ -178,7 +179,7 @@ with st.sidebar:
     st.info("To switch between Dark/Light Mode, click the ⋮ menu in the top right, select Settings, and change your Theme.")
 
 # ===============================
-# MAIN TABS & ROUTING (FIXED AND BULLETPROOF)
+# MAIN TABS & ROUTING
 # ===============================
 if "sel_date" not in st.session_state: 
     st.session_state.sel_date = datetime.now().date()
