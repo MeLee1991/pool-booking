@@ -103,14 +103,16 @@ def save_data(df, file):
     # 1. Save the main working file
     df.astype(str).to_csv(file, index=False)
     
-    # 2. Automatic Daily Backup
+    # 2. Automatic Daily Backup (Creates a copy for the current day)
     try:
         os.makedirs(BACKUP_DIR, exist_ok=True)
         today_str = datetime.now().strftime('%Y-%m-%d')
-        backup_filename = os.path.join(BACKUP_DIR, f"{today_str}_{file}")
+        # Extract filename (e.g., "users.csv" from paths if they exist)
+        base_name = os.path.basename(file)
+        backup_filename = os.path.join(BACKUP_DIR, f"{today_str}_{base_name}")
         df.astype(str).to_csv(backup_filename, index=False)
-    except Exception as e:
-        pass # Fail silently so the app doesn't crash if folder permissions are strict
+    except Exception:
+        pass # Fail silently if file permissions prevent folder creation
 
 def handle_booking(date_str, table, time_str):
     df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
@@ -145,11 +147,15 @@ if "user" not in st.session_state:
             st.session_state.role = str(match.iloc[0]["role"]).lower()
             st.session_state.name = l_user.split('@')[0].capitalize()
             st.rerun()
-        else: st.error("Access Denied.")
+        else: st.error("Access Denied. Check credentials or wait for approval.")
     if c2.button("Register", use_container_width=True):
         if l_user and l_pw:
-            save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False"]], columns=USER_COLS)]), USERS_FILE)
-            st.success("Awaiting Admin.")
+            # Check if user already exists
+            if not u_df[u_df["email"].str.lower() == l_user].empty:
+                st.warning("User already exists.")
+            else:
+                save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False"]], columns=USER_COLS)]), USERS_FILE)
+                st.success("Awaiting Admin Approval.")
     st.stop()
 
 # ===============================
@@ -223,38 +229,53 @@ if tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
         
-        # 1. ADVANCED STATS (Global Data)
+        # 1. ADVANCED STATS (Thorough & Nice)
         st.subheader("📊 Global Analytics")
-        dr = st.date_input("Select Period", [today - timedelta(days=7), today])
+        dr = st.date_input("Select Period", [today - timedelta(days=30), today])
+        
         if len(dr) == 2:
             s_df = b_df[(b_df["date"] >= str(dr[0])) & (b_df["date"] <= str(dr[1]))].copy()
             if not s_df.empty:
                 s_df['day'] = pd.to_datetime(s_df['date']).dt.day_name()
+                s_df['clean_user'] = s_df['user'].apply(lambda x: x.split('@')[0].capitalize())
                 
-                # Top Metrics
-                c1, c2, c3, c4 = st.columns(4)
+                # --- TOP ROW METRICS ---
+                c1, c2, c3, c4, c5 = st.columns(5)
                 c1.metric("Total Bookings", len(s_df))
-                c2.metric("Top Player", s_df['user'].value_counts().idxmax().split('@')[0].capitalize())
-                c3.metric("Peak Hour", s_df['time'].value_counts().idxmax())
-                c4.metric("Top Table", s_df['table'].value_counts().idxmax())
+                c2.metric("Unique Players", s_df['user'].nunique())
+                c3.metric("Top Table", s_df['table'].value_counts().idxmax())
+                c4.metric("Peak Hour", s_df['time'].value_counts().idxmax())
+                c5.metric("Busiest Day", s_df['day'].value_counts().idxmax())
                 
-                st.markdown("---")
+                st.markdown("<br>", unsafe_allow_html=True)
                 
-                # Leaderboards and Charts
-                colA, colB = st.columns(2)
+                # --- MIDDLE ROW CHARTS ---
+                colA, colB = st.columns([2, 1])
                 with colA:
-                    st.write("**🏆 User Leaderboard**")
-                    # Calculate bookings per user for the period
-                    user_counts = s_df['user'].value_counts().reset_index()
-                    user_counts.columns = ['Player', 'Bookings']
-                    user_counts['Player'] = user_counts['Player'].apply(lambda x: x.split('@')[0].capitalize())
-                    st.dataframe(user_counts, use_container_width=True, hide_index=True)
-                    
+                    st.write("**📈 Bookings Timeline**")
+                    timeline = s_df.groupby('date').size().reset_index(name='Count').set_index('date')
+                    st.area_chart(timeline)
                 with colB:
-                    st.write("**📈 Activity by Hour**")
-                    st.bar_chart(s_df['time'].value_counts())
+                    st.write("**🎱 Table Utilization**")
+                    table_dist = s_df['table'].value_counts()
+                    st.bar_chart(table_dist)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # --- BOTTOM ROW: LEADERBOARD & TIME ---
+                colC, colD = st.columns(2)
+                with colC:
+                    st.write("**🏆 Player Leaderboard**")
+                    leaderboard = s_df['clean_user'].value_counts().reset_index()
+                    leaderboard.columns = ['Player Name', 'Total Sessions']
+                    st.dataframe(leaderboard, use_container_width=True, hide_index=True)
+                with colD:
+                    st.write("**🕒 Activity by Hour**")
+                    time_dist = s_df['time'].value_counts().sort_index()
+                    st.bar_chart(time_dist)
+                    
             else: 
-                st.info("No data for this time period.")
+                st.info("No data available for this time period.")
 
         # 2. USER MANAGEMENT (Sortable Table)
         st.divider()
@@ -269,19 +290,23 @@ if tab_admin:
 
         # 3. BULK TOOLS & MANUAL BACKUPS
         with st.expander("🛠️ Admin Tools & Manual Backups"):
-            col1, col2 = st.columns(2)
+            st.write("Automatic backups are saved daily to the `backups/` folder on the server. You can also download manual copies here:")
+            col1, col2, col3 = st.columns(3)
             with col1:
-                if st.button("🔑 Set All Passwords to '1234'"):
+                st.download_button("💾 Download Users", u_df.to_csv(index=False), "users_backup.csv", "text/csv", use_container_width=True)
+            with col2:
+                st.download_button("💾 Download Bookings", b_df.to_csv(index=False), "bookings_backup.csv", "text/csv", use_container_width=True)
+            with col3:
+                if st.button("🔑 Reset Passwords to '1234'", use_container_width=True):
                     u_df["password"] = "1234"
                     save_data(u_df, USERS_FILE)
                     st.success("Passwords reset!")
                     st.rerun()
-            with col2:
-                st.download_button("💾 Download Users CSV", u_df.to_csv(index=False), "users_backup.csv", "text/csv")
-                st.download_button("💾 Download Bookings CSV", b_df.to_csv(index=False), "bookings_backup.csv", "text/csv")
                 
-            up = st.file_uploader("📥 Import Users (CSV)")
+            st.divider()
+            up = st.file_uploader("📥 Import Users (CSV) - Merges with existing")
             if up:
                 new_users = pd.read_csv(up)
-                save_data(pd.concat([u_df, new_users]).drop_duplicates(subset=['email']), USERS_FILE)
-                st.success("Imported!")
+                save_data(pd.concat([u_df, new_users]).drop_duplicates(subset=['email'], keep='last'), USERS_FILE)
+                st.success("Imported successfully!")
+                st.rerun()
