@@ -1,24 +1,25 @@
 import streamlit as st
 import pandas as pd
-import os
 from datetime import datetime, timedelta
+# IMPORT THE NEW GOOGLE SHEETS CONNECTION
+from streamlit_gsheets import GSheetsConnection
 
 # ===============================
 # CONFIG & FILES
 # ===============================
 st.set_page_config(page_title="Poolhall", layout="centered", initial_sidebar_state="collapsed")
 
-USERS_FILE = "users.csv"
-BOOKINGS_FILE = "bookings.csv"
+# Changed from filenames to Google Sheet Tab Names
+WS_USERS = "Users"
+WS_BOOKINGS = "Bookings"
 OWNER_EMAIL = "admin@gmail.com"
-BACKUP_DIR = "backups"
 
 # ===============================
 # THE PROTECTED DESIGN (CSS)
 # ===============================
 st.markdown("""
 <style>
-    /* ADDED SAFETY PADDING AT TOP: 3.5rem to push app below Streamlit's native header */
+    /* Safety padding to push app below Streamlit's native header */
     .block-container { padding: 3.5rem 5px 1rem 5px !important; max-width: 100% !important; }
     
     /* Narrow Date Row with Scroll */
@@ -31,7 +32,7 @@ st.markdown("""
         min-width: 60px !important; flex: 0 0 60px !important;
     }
 
-    /* Frozen Header with Spacing (LOWERED to 3.5rem so it doesn't cover menus) */
+    /* Frozen Header with Spacing */
     div[data-testid="stHorizontalBlock"]:has(.grid-header) {
         position: sticky !important; top: 3.5rem !important; z-index: 1000;
         background-color: var(--background-color) !important; 
@@ -81,44 +82,48 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===============================
-# DATA HELPERS
+# DATA HELPERS (NOW USING GOOGLE SHEETS)
 # ===============================
 USER_COLS = ["email", "password", "role", "approved", "Notes"]
 
-def load_data(file, cols):
-    if not os.path.exists(file):
-        df = pd.DataFrame(columns=cols)
-        if file == USERS_FILE:
-            df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True", ""]], columns=cols)
-        df.to_csv(file, index=False)
-        return df
-    
+def get_db_connection():
+    return st.connection("gsheets", type=GSheetsConnection)
+
+def load_data(worksheet_name, cols):
     try:
-        df = pd.read_csv(file, dtype=str)
-        if df.empty:
+        conn = get_db_connection()
+        # ttl=0 ensures Streamlit doesn't cache old data, keeping the app live!
+        df = conn.read(worksheet=worksheet_name, ttl=0)
+        
+        if df is None or df.empty:
             return pd.DataFrame(columns=cols)
             
+        # Convert all to string so passwords like '1234' aren't treated as numbers
+        df = df.astype(str).replace("nan", "")
+        
+        # Ensure all columns exist
         for col in cols:
             if col not in df.columns:
                 df[col] = ""
                 
         return df.fillna("")[cols]
-    except Exception:
+    except Exception as e:
+        st.error(f"⚠️ Database Error: Could not load {worksheet_name}. Check your secrets!")
         return pd.DataFrame(columns=cols)
 
-def save_data(df, file):
-    df.astype(str).to_csv(file, index=False)
+def save_data(df, worksheet_name):
     try:
-        os.makedirs(BACKUP_DIR, exist_ok=True)
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        base_name = os.path.basename(file)
-        backup_filename = os.path.join(BACKUP_DIR, f"{today_str}_{base_name}")
-        df.astype(str).to_csv(backup_filename, index=False)
-    except Exception:
-        pass 
+        conn = get_db_connection()
+        # Ensure all data is string before sending to Google
+        df = df.astype(str)
+        conn.update(worksheet=worksheet_name, data=df)
+        # Clear cache to force next load to be fresh
+        st.cache_data.clear()
+    except Exception as e:
+        st.error(f"⚠️ Database Error: Could not save to {worksheet_name}. {e}")
 
 def handle_booking(date_str, table, time_str):
-    df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+    df = load_data(WS_BOOKINGS, ["user", "date", "table", "time"])
     mask = (df["date"] == str(date_str)) & (df["table"] == str(table)) & (df["time"] == str(time_str))
     
     if df[mask].empty:
@@ -130,7 +135,7 @@ def handle_booking(date_str, table, time_str):
             st.session_state.rename_mode = (date_str, table, time_str, owner)
         elif owner == st.session_state.user:
             df = df[~mask]
-    save_data(df, BOOKINGS_FILE)
+    save_data(df, WS_BOOKINGS)
 
 # ===============================
 # AUTH
@@ -140,7 +145,14 @@ if "user" not in st.session_state:
     l_user = st.text_input("User").strip().lower()
     l_pw = st.text_input("Pass", type="password").strip()
     c1, c2 = st.columns(2)
-    u_df = load_data(USERS_FILE, USER_COLS)
+    
+    u_df = load_data(WS_USERS, USER_COLS)
+    
+    # If the sheet is completely empty, inject the default admin
+    if u_df.empty:
+        admin_df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True", "Original Admin"]], columns=USER_COLS)
+        save_data(admin_df, WS_USERS)
+        u_df = admin_df
     
     if c1.button("Login", use_container_width=True):
         match = u_df[(u_df["email"].str.lower() == l_user) & (u_df["password"].astype(str) == str(l_pw))]
@@ -152,7 +164,7 @@ if "user" not in st.session_state:
                 st.session_state.name = l_user.split('@')[0].capitalize()
                 st.rerun()
             else: 
-                st.error("Access Denied. Check credentials or wait for approval.")
+                st.error("Access Denied. Wait for admin approval.")
         else:
             st.error("Invalid user or password.")
             
@@ -161,12 +173,13 @@ if "user" not in st.session_state:
             if not u_df[u_df["email"].str.lower() == l_user].empty:
                 st.warning("User already exists.")
             else:
-                save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False", ""]], columns=USER_COLS)]), USERS_FILE)
+                new_user = pd.DataFrame([[l_user, l_pw, "user", "False", ""]], columns=USER_COLS)
+                save_data(pd.concat([u_df, new_user]), WS_USERS)
                 st.success("Awaiting Admin Approval.")
     st.stop()
 
 # ===============================
-# SIDEBAR (SETTINGS & THEME)
+# SIDEBAR
 # ===============================
 with st.sidebar:
     st.markdown(f"👤 **Logged in as:** {st.session_state.name}")
@@ -184,7 +197,6 @@ with st.sidebar:
 if "sel_date" not in st.session_state: 
     st.session_state.sel_date = datetime.now().date()
 
-# Setup Layout Tabs Based on Role strictly
 if st.session_state.role == "admin":
     tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"])
 else:
@@ -202,15 +214,15 @@ with tab_booking:
                 new_name = st.text_input("Change name to:", value=current)
                 col_a, col_b = st.columns(2)
                 if col_a.button("Save Name"):
-                    df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+                    df = load_data(WS_BOOKINGS, ["user", "date", "table", "time"])
                     df.loc[(df["date"]==d) & (df["table"]==tb) & (df["time"]==tm), "user"] = new_name
-                    save_data(df, BOOKINGS_FILE)
+                    save_data(df, WS_BOOKINGS)
                     del st.session_state.rename_mode
                     st.rerun()
                 if col_b.button("Delete Booking", type="primary"):
-                    df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+                    df = load_data(WS_BOOKINGS, ["user", "date", "table", "time"])
                     df = df[~((df["date"]==d) & (df["table"]==tb) & (df["time"]==tm))]
-                    save_data(df, BOOKINGS_FILE)
+                    save_data(df, WS_BOOKINGS)
                     del st.session_state.rename_mode
                     st.rerun()
 
@@ -235,7 +247,7 @@ with tab_booking:
             h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
         times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
-        bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+        bookings = load_data(WS_BOOKINGS, ["user", "date", "table", "time"])
         df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
 
         for t in times:
@@ -259,8 +271,8 @@ with tab_booking:
 if st.session_state.role == "admin" and tab_admin is not None:
     with tab_admin:
         try:
-            u_df = load_data(USERS_FILE, USER_COLS)
-            b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
+            u_df = load_data(WS_USERS, USER_COLS)
+            b_df = load_data(WS_BOOKINGS, ["user", "date", "table", "time"])
             
             st.subheader("📊 Global Analytics")
             today_for_stats = datetime.now().date()
@@ -308,17 +320,17 @@ if st.session_state.role == "admin" and tab_admin is not None:
                     st.info("No data available for this time period.")
 
             st.divider()
-            st.subheader("👥 User Management Table")
+            st.subheader("👥 User Management Table (Google Sheets)")
             u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
             edited = st.data_editor(u_df, use_container_width=True, num_rows="dynamic",
                                    column_config={"approved": st.column_config.CheckboxColumn("Approve"),
                                                   "role": st.column_config.SelectboxColumn("Role", options=["user", "admin"])})
-            if st.button("💾 Save All Changes"):
-                save_data(edited, USERS_FILE)
+            if st.button("💾 Save All Changes to Database"):
+                save_data(edited, WS_USERS)
                 st.rerun()
 
             with st.expander("🛠️ Admin Tools & Manual Backups"):
-                st.write("Automatic backups are saved daily to the `backups/` folder on the server. You can also download manual copies here:")
+                st.write("Your data is safely stored in Google Sheets! You can download manual CSV copies here:")
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.download_button("💾 Download Users", u_df.to_csv(index=False), "users_backup.csv", "text/csv", use_container_width=True)
@@ -327,10 +339,10 @@ if st.session_state.role == "admin" and tab_admin is not None:
                 with col3:
                     if st.button("🔑 Reset Passwords to '1234'", use_container_width=True):
                         u_df["password"] = "1234"
-                        save_data(u_df, USERS_FILE)
+                        save_data(u_df, WS_USERS)
                         st.success("Passwords reset!")
                         st.rerun()
-                    
+                
                 st.divider()
                 
                 with st.form("import_users_form", clear_on_submit=True):
@@ -339,13 +351,12 @@ if st.session_state.role == "admin" and tab_admin is not None:
                     
                     if submitted and up is not None:
                         new_users = pd.read_csv(up, dtype=str)
-                        
                         for col in USER_COLS:
                             if col not in new_users.columns:
                                 new_users[col] = ""
                         
                         merged = pd.concat([u_df, new_users[USER_COLS]]).drop_duplicates(subset=['email'], keep='last')
-                        save_data(merged, USERS_FILE)
+                        save_data(merged, WS_USERS)
                         
                         st.success("Imported successfully! Your data is saved.")
                         st.rerun()
