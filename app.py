@@ -304,9 +304,24 @@ if tab_admin:
                     st.rerun()
                 
             st.divider()
-            up = st.file_uploader("📥 Import Users (CSV) - Merges with existing")
-            if up:
-                new_users = pd.read_csv(up)
-                save_data(pd.concat([u_df, new_users]).drop_duplicates(subset=['email'], keep='last'), USERS_FILE)
-                st.success("Imported successfully!")
-                st.rerun()
+            
+            # --- THE FIX: Wrapped uploader in a form so it doesn't trigger endless reruns ---
+            with st.form("import_users_form", clear_on_submit=True):
+                up = st.file_uploader("📥 Import Users CSV (Merges with existing)", type=["csv"])
+                submitted = st.form_submit_button("Upload and Import")
+                
+                if submitted and up is not None:
+                    # dtype=str prevents passwords like "1234" from becoming integers
+                    new_users = pd.read_csv(up, dtype=str)
+                    
+                    # Ensure all required columns exist to prevent crashes
+                    for col in USER_COLS:
+                        if col not in new_users.columns:
+                            new_users[col] = ""
+                    
+                    # Merge data and drop duplicates based on email
+                    merged = pd.concat([u_df, new_users[USER_COLS]]).drop_duplicates(subset=['email'], keep='last')
+                    save_data(merged, USERS_FILE)
+                    
+                    st.success("Imported successfully! Your data is saved.")
+                    st.rerun()
