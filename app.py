@@ -16,6 +16,7 @@ BACKUP_DIR = "backups"
 # ===============================
 # THE PROTECTED DESIGN (CSS)
 # ===============================
+# Fixed hardcoded colors to use Streamlit's native theme variables
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
@@ -30,10 +31,10 @@ st.markdown("""
         min-width: 60px !important; flex: 0 0 60px !important;
     }
 
-    /* Frozen Header with Spacing */
+    /* Frozen Header with Spacing (FIXED: Adapts to Dark/Light Theme) */
     div[data-testid="stHorizontalBlock"]:has(.grid-header) {
         position: sticky !important; top: 0; z-index: 1000;
-        background-color: white !important;
+        background-color: var(--background-color) !important; 
         padding-bottom: 25px !important; /* Extra space from data */
         margin-bottom: 5px !important;
     }
@@ -58,14 +59,17 @@ st.markdown("""
     button[kind="secondary"] { background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9 !important; }
     button[kind="primary"] { background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2 !important; }
 
+    /* Grid Headers (FIXED: Adapts to Dark/Light Theme) */
     .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; 
-        background-color: #343a40; color: white;
+        background-color: var(--secondary-background-color); 
+        color: var(--text-color);
     }
     .time-label {
         text-align: center; font-size: 11px; font-weight: bold; 
-        height: 44px; line-height: 44px; border-radius: 6px; color: #333;
+        height: 44px; line-height: 44px; border-radius: 6px; 
+        color: #222 !important; /* Kept dark so it stays readable against the bright pastel backgrounds */
     }
 
     .time-block-0 { background-color: #fff9c4 !important; } 
@@ -73,22 +77,20 @@ st.markdown("""
     .time-block-2 { background-color: #e3f2fd !important; } 
     .time-block-3 { background-color: #f1f8e9 !important; } 
     .time-block-4 { background-color: #efebe9 !important; } 
-
-    [data-testid="stHeader"] {display: none;}
+    
+    /* REMOVED the rule hiding the top header so users can access the Theme Switcher menu */
 </style>
 """, unsafe_allow_html=True)
 
 # ===============================
 # DATA HELPERS
 # ===============================
-# ADDED "Notes" AS THE 5TH COLUMN
 USER_COLS = ["email", "password", "role", "approved", "Notes"]
 
 def load_data(file, cols):
     if not os.path.exists(file):
         df = pd.DataFrame(columns=cols)
         if file == USERS_FILE:
-            # Added empty string for the Notes column for the default admin
             df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True", ""]], columns=cols)
         df.to_csv(file, index=False)
         return df
@@ -98,21 +100,16 @@ def load_data(file, cols):
         if df.empty:
             return pd.DataFrame(columns=cols)
             
-        # BACKWARD COMPATIBILITY: If old CSV doesn't have "Notes", add it silently
         for col in cols:
             if col not in df.columns:
                 df[col] = ""
                 
-        # Return dataframe with columns in the exact order specified
         return df.fillna("")[cols]
     except Exception:
         return pd.DataFrame(columns=cols)
 
 def save_data(df, file):
-    # 1. Save the main working file
     df.astype(str).to_csv(file, index=False)
-    
-    # 2. Automatic Daily Backup (Creates a copy for the current day)
     try:
         os.makedirs(BACKUP_DIR, exist_ok=True)
         today_str = datetime.now().strftime('%Y-%m-%d')
@@ -127,11 +124,9 @@ def handle_booking(date_str, table, time_str):
     mask = (df["date"] == str(date_str)) & (df["table"] == str(table)) & (df["time"] == str(time_str))
     
     if df[mask].empty:
-        # Book under current user's name
         new_row = pd.DataFrame([[st.session_state.user, date_str, table, time_str]], columns=df.columns)
         df = pd.concat([df, new_row], ignore_index=True)
     else:
-        # Admin can rename or delete, User can only delete own
         owner = df[mask].iloc[0]["user"]
         if st.session_state.role == "admin":
             st.session_state.rename_mode = (date_str, table, time_str, owner)
@@ -148,6 +143,7 @@ if "user" not in st.session_state:
     l_pw = st.text_input("Pass", type="password").strip()
     c1, c2 = st.columns(2)
     u_df = load_data(USERS_FILE, USER_COLS)
+    
     if c1.button("Login", use_container_width=True):
         match = u_df[(u_df["email"].str.lower() == l_user) & (u_df["password"].astype(str) == str(l_pw))]
         if not match.empty and str(match.iloc[0]["approved"]).lower() == "true":
@@ -156,16 +152,28 @@ if "user" not in st.session_state:
             st.session_state.name = l_user.split('@')[0].capitalize()
             st.rerun()
         else: st.error("Access Denied. Check credentials or wait for approval.")
+        
     if c2.button("Register", use_container_width=True):
         if l_user and l_pw:
-            # Check if user already exists
             if not u_df[u_df["email"].str.lower() == l_user].empty:
                 st.warning("User already exists.")
             else:
-                # Added empty string for the Notes column upon new registration
                 save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False", ""]], columns=USER_COLS)]), USERS_FILE)
                 st.success("Awaiting Admin Approval.")
     st.stop()
+
+# ===============================
+# SIDEBAR (SETTINGS & THEME)
+# ===============================
+with st.sidebar:
+    st.markdown(f"👤 **Logged in as:** {st.session_state.name}")
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+    
+    st.divider()
+    st.markdown("### 🎨 Appearance")
+    st.info("To switch between **Dark Mode** and **Light Mode**, click the **⋮** menu in the top right corner of the screen, select **Settings**, and change your **Theme**.")
 
 # ===============================
 # MAIN TABS
@@ -174,7 +182,6 @@ if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now(
 tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0], None]
 
 with tab_booking:
-    # Admin Rename Tool
     if st.session_state.get("rename_mode"):
         d, tb, tm, current = st.session_state.rename_mode
         with st.expander(f"Edit Booking: {tm} {tb}", expanded=True):
@@ -193,7 +200,6 @@ with tab_booking:
                 del st.session_state.rename_mode
                 st.rerun()
 
-    # DATE SELECTOR: 2 rows of 7
     today = datetime.now().date()
     dates = [today + timedelta(days=i) for i in range(14)]
     for row in range(2):
@@ -210,12 +216,10 @@ with tab_booking:
 
     st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
 
-    # FROZEN HEADER
     h_cols = st.columns(4)
     for i, title in enumerate(["Time", "T1", "T2", "T3"]):
         h_cols[i].markdown(f"<div class='grid-header'>{title}</div>", unsafe_allow_html=True)
 
-    # GRID
     times = [f"{h:02d}:{m}" for h in range(6, 24) for m in ("00","30")]
     bookings = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
     df_day = bookings[bookings["date"] == str(st.session_state.sel_date)]
@@ -238,7 +242,6 @@ if tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
         
-        # 1. ADVANCED STATS 
         st.subheader("📊 Global Analytics")
         dr = st.date_input("Select Period", [today - timedelta(days=30), today])
         
@@ -248,7 +251,6 @@ if tab_admin:
                 s_df['day'] = pd.to_datetime(s_df['date']).dt.day_name()
                 s_df['clean_user'] = s_df['user'].apply(lambda x: x.split('@')[0].capitalize())
                 
-                # --- TOP ROW METRICS ---
                 c1, c2, c3, c4, c5 = st.columns(5)
                 c1.metric("Total Bookings", len(s_df))
                 c2.metric("Unique Players", s_df['user'].nunique())
@@ -258,7 +260,6 @@ if tab_admin:
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # --- MIDDLE ROW CHARTS ---
                 colA, colB = st.columns([2, 1])
                 with colA:
                     st.write("**📈 Bookings Timeline**")
@@ -271,7 +272,6 @@ if tab_admin:
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # --- BOTTOM ROW: LEADERBOARD & TIME ---
                 colC, colD = st.columns(2)
                 with colC:
                     st.write("**🏆 Player Leaderboard**")
@@ -286,7 +286,6 @@ if tab_admin:
             else: 
                 st.info("No data available for this time period.")
 
-        # 2. USER MANAGEMENT (Sortable Table)
         st.divider()
         st.subheader("👥 User Management Table")
         u_df["approved"] = u_df["approved"].astype(str).str.lower().isin(["true", "1", "yes"])
@@ -297,7 +296,6 @@ if tab_admin:
             save_data(edited, USERS_FILE)
             st.rerun()
 
-        # 3. BULK TOOLS & MANUAL BACKUPS
         with st.expander("🛠️ Admin Tools & Manual Backups"):
             st.write("Automatic backups are saved daily to the `backups/` folder on the server. You can also download manual copies here:")
             col1, col2, col3 = st.columns(3)
