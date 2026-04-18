@@ -88,18 +88,19 @@ USER_COLS = ["email", "password", "role", "approved", "Notes"]
 
 def get_db_connection():
     return st.connection("gsheets", type=GSheetsConnection)
-
+# ===============================
+# DATA HELPERS (NOW WITH EMERGENCY BRAKES)
+# ===============================
 def load_data(worksheet_name, cols):
     try:
         conn = get_db_connection()
-        # CHANGED: ttl=60 caches the data for 60 seconds. 
-        # This stops the app from spamming Google on every single button click.
+        # ttl=60 caches the data for 60 seconds to prevent rate limits
         df = conn.read(worksheet=worksheet_name, ttl=60)
         
         if df is None or df.empty:
             return pd.DataFrame(columns=cols)
             
-        # Fix the decimal issue: convert to string, remove "nan", and strip ".0" from the end
+        # Fix the decimal issue
         for col in df.columns:
             df[col] = df[col].astype(str).replace("nan", "").str.replace(r'\.0$', '', regex=True)
         
@@ -110,19 +111,20 @@ def load_data(worksheet_name, cols):
                 
         return df.fillna("")[cols]
     except Exception as e:
-        st.error(f"⚠️ Database Error: Could not load {worksheet_name}. Check your secrets!")
-        return pd.DataFrame(columns=cols)
+        # THE SAFETY LOCK: If Google fails, freeze the app. Do NOT return an empty table.
+        st.error(f"🚨 CRITICAL ERROR: Could not load {worksheet_name}. Google API limit reached or connection failed. App halted to prevent data loss.")
+        st.stop() 
 
 def save_data(df, worksheet_name):
     try:
         conn = get_db_connection()
-        # Ensure all data is string before sending to Google
         df = df.astype(str)
         conn.update(worksheet=worksheet_name, data=df)
-        # Clear cache to force next load to be fresh
         st.cache_data.clear()
     except Exception as e:
-        st.error(f"⚠️ Database Error: Could not save to {worksheet_name}. {e}")
+        # THE SAFETY LOCK: If saving fails, freeze the app.
+        st.error(f"🚨 CRITICAL ERROR: Could not save to {worksheet_name}. {e}")
+        st.stop()
 
 def handle_booking(date_str, table, time_str):
     df = load_data(WS_BOOKINGS, ["user", "date", "table", "time"])
