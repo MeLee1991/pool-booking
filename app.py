@@ -92,8 +92,9 @@ def get_db_connection():
 def load_data(worksheet_name, cols):
     try:
         conn = get_db_connection()
-        # ttl=0 ensures Streamlit doesn't cache old data
-        df = conn.read(worksheet=worksheet_name, ttl=0)
+        # CHANGED: ttl=60 caches the data for 60 seconds. 
+        # This stops the app from spamming Google on every single button click.
+        df = conn.read(worksheet=worksheet_name, ttl=60)
         
         if df is None or df.empty:
             return pd.DataFrame(columns=cols)
