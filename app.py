@@ -16,7 +16,6 @@ BACKUP_DIR = "backups"
 # ===============================
 # THE PROTECTED DESIGN (CSS)
 # ===============================
-# Fixed hardcoded colors to use Streamlit's native theme variables
 st.markdown("""
 <style>
     .block-container { padding: 1rem 5px !important; max-width: 100% !important; }
@@ -31,11 +30,11 @@ st.markdown("""
         min-width: 60px !important; flex: 0 0 60px !important;
     }
 
-    /* Frozen Header with Spacing (FIXED: Adapts to Dark/Light Theme) */
+    /* Frozen Header with Spacing (Adapts to Dark/Light Theme) */
     div[data-testid="stHorizontalBlock"]:has(.grid-header) {
         position: sticky !important; top: 0; z-index: 1000;
         background-color: var(--background-color) !important; 
-        padding-bottom: 25px !important; /* Extra space from data */
+        padding-bottom: 25px !important;
         margin-bottom: 5px !important;
     }
 
@@ -59,7 +58,7 @@ st.markdown("""
     button[kind="secondary"] { background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9 !important; }
     button[kind="primary"] { background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2 !important; }
 
-    /* Grid Headers (FIXED: Adapts to Dark/Light Theme) */
+    /* Grid Headers (Adapts to Dark/Light Theme) */
     .grid-header {
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; 
@@ -69,7 +68,7 @@ st.markdown("""
     .time-label {
         text-align: center; font-size: 11px; font-weight: bold; 
         height: 44px; line-height: 44px; border-radius: 6px; 
-        color: #222 !important; /* Kept dark so it stays readable against the bright pastel backgrounds */
+        color: #222 !important; 
     }
 
     .time-block-0 { background-color: #fff9c4 !important; } 
@@ -77,8 +76,6 @@ st.markdown("""
     .time-block-2 { background-color: #e3f2fd !important; } 
     .time-block-3 { background-color: #f1f8e9 !important; } 
     .time-block-4 { background-color: #efebe9 !important; } 
-    
-    /* REMOVED the rule hiding the top header so users can access the Theme Switcher menu */
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,11 +173,24 @@ with st.sidebar:
     st.info("To switch between **Dark Mode** and **Light Mode**, click the **⋮** menu in the top right corner of the screen, select **Settings**, and change your **Theme**.")
 
 # ===============================
-# MAIN TABS
+# MAIN TABS & ROUTING
 # ===============================
-if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now().date()
-tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0], None]
+if "sel_date" not in st.session_state: 
+    st.session_state.sel_date = datetime.now().date()
 
+# Safely setup tabs based on exact role instead of relying on DeltaGenerators
+if st.session_state.role == "admin":
+    tabs = st.tabs(["🎱 Bookings", "⚙️ Admin"])
+    tab_booking = tabs[0]
+    tab_admin = tabs[1]
+else:
+    tabs = st.tabs(["🎱 Bookings"])
+    tab_booking = tabs[0]
+    tab_admin = None
+
+# ===============================
+# TAB 1: BOOKINGS
+# ===============================
 with tab_booking:
     if st.session_state.get("rename_mode"):
         d, tb, tm, current = st.session_state.rename_mode
@@ -237,13 +247,16 @@ with tab_booking:
             else:
                 r_cols[i+1].button("➕", key=btn_key, type="secondary", on_click=handle_booking, args=(str(st.session_state.sel_date), table, t), use_container_width=True)
 
-if tab_admin:
+# ===============================
+# TAB 2: ADMIN PANEL
+# ===============================
+if st.session_state.role == "admin":
     with tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
         
         st.subheader("📊 Global Analytics")
-        dr = st.date_input("Select Period", [today - timedelta(days=30), today])
+        dr = st.date_input("Select Period", [datetime.now().date() - timedelta(days=30), datetime.now().date()])
         
         if len(dr) == 2:
             s_df = b_df[(b_df["date"] >= str(dr[0])) & (b_df["date"] <= str(dr[1]))].copy()
