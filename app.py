@@ -81,13 +81,15 @@ st.markdown("""
 # ===============================
 # DATA HELPERS
 # ===============================
-USER_COLS = ["email", "password", "role", "approved"]
+# ADDED "Notes" AS THE 5TH COLUMN
+USER_COLS = ["email", "password", "role", "approved", "Notes"]
 
 def load_data(file, cols):
     if not os.path.exists(file):
         df = pd.DataFrame(columns=cols)
         if file == USERS_FILE:
-            df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True"]], columns=cols)
+            # Added empty string for the Notes column for the default admin
+            df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True", ""]], columns=cols)
         df.to_csv(file, index=False)
         return df
     
@@ -95,7 +97,14 @@ def load_data(file, cols):
         df = pd.read_csv(file, dtype=str)
         if df.empty:
             return pd.DataFrame(columns=cols)
-        return df.fillna("")
+            
+        # BACKWARD COMPATIBILITY: If old CSV doesn't have "Notes", add it silently
+        for col in cols:
+            if col not in df.columns:
+                df[col] = ""
+                
+        # Return dataframe with columns in the exact order specified
+        return df.fillna("")[cols]
     except Exception:
         return pd.DataFrame(columns=cols)
 
@@ -107,12 +116,11 @@ def save_data(df, file):
     try:
         os.makedirs(BACKUP_DIR, exist_ok=True)
         today_str = datetime.now().strftime('%Y-%m-%d')
-        # Extract filename (e.g., "users.csv" from paths if they exist)
         base_name = os.path.basename(file)
         backup_filename = os.path.join(BACKUP_DIR, f"{today_str}_{base_name}")
         df.astype(str).to_csv(backup_filename, index=False)
     except Exception:
-        pass # Fail silently if file permissions prevent folder creation
+        pass 
 
 def handle_booking(date_str, table, time_str):
     df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
@@ -154,7 +162,8 @@ if "user" not in st.session_state:
             if not u_df[u_df["email"].str.lower() == l_user].empty:
                 st.warning("User already exists.")
             else:
-                save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False"]], columns=USER_COLS)]), USERS_FILE)
+                # Added empty string for the Notes column upon new registration
+                save_data(pd.concat([u_df, pd.DataFrame([[l_user, l_pw, "user", "False", ""]], columns=USER_COLS)]), USERS_FILE)
                 st.success("Awaiting Admin Approval.")
     st.stop()
 
@@ -229,7 +238,7 @@ if tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
         
-        # 1. ADVANCED STATS (Thorough & Nice)
+        # 1. ADVANCED STATS 
         st.subheader("📊 Global Analytics")
         dr = st.date_input("Select Period", [today - timedelta(days=30), today])
         
@@ -305,21 +314,17 @@ if tab_admin:
                 
             st.divider()
             
-            # --- THE FIX: Wrapped uploader in a form so it doesn't trigger endless reruns ---
             with st.form("import_users_form", clear_on_submit=True):
                 up = st.file_uploader("📥 Import Users CSV (Merges with existing)", type=["csv"])
                 submitted = st.form_submit_button("Upload and Import")
                 
                 if submitted and up is not None:
-                    # dtype=str prevents passwords like "1234" from becoming integers
                     new_users = pd.read_csv(up, dtype=str)
                     
-                    # Ensure all required columns exist to prevent crashes
                     for col in USER_COLS:
                         if col not in new_users.columns:
                             new_users[col] = ""
                     
-                    # Merge data and drop duplicates based on email
                     merged = pd.concat([u_df, new_users[USER_COLS]]).drop_duplicates(subset=['email'], keep='last')
                     save_data(merged, USERS_FILE)
                     
