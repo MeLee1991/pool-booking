@@ -11,6 +11,7 @@ st.set_page_config(page_title="Poolhall", layout="centered", initial_sidebar_sta
 USERS_FILE = "users.csv"
 BOOKINGS_FILE = "bookings.csv"
 OWNER_EMAIL = "admin@gmail.com"
+BACKUP_DIR = "backups"
 
 # ===============================
 # THE PROTECTED DESIGN (CSS)
@@ -88,10 +89,28 @@ def load_data(file, cols):
         if file == USERS_FILE:
             df = pd.DataFrame([[OWNER_EMAIL, "1234", "admin", "True"]], columns=cols)
         df.to_csv(file, index=False)
-    return pd.read_csv(file, dtype=str).fillna("")
+        return df
+    
+    try:
+        df = pd.read_csv(file, dtype=str)
+        if df.empty:
+            return pd.DataFrame(columns=cols)
+        return df.fillna("")
+    except Exception:
+        return pd.DataFrame(columns=cols)
 
 def save_data(df, file):
+    # 1. Save the main working file
     df.astype(str).to_csv(file, index=False)
+    
+    # 2. Automatic Daily Backup
+    try:
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        backup_filename = os.path.join(BACKUP_DIR, f"{today_str}_{file}")
+        df.astype(str).to_csv(backup_filename, index=False)
+    except Exception as e:
+        pass # Fail silently so the app doesn't crash if folder permissions are strict
 
 def handle_booking(date_str, table, time_str):
     df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
@@ -140,7 +159,7 @@ if "sel_date" not in st.session_state: st.session_state.sel_date = datetime.now(
 tab_booking, tab_admin = st.tabs(["🎱 Bookings", "⚙️ Admin"]) if st.session_state.role == "admin" else [st.tabs(["🎱 Bookings"])[0], None]
 
 with tab_booking:
-    # Admin Rename Tool (Appears if Admin clicks a booking)
+    # Admin Rename Tool
     if st.session_state.get("rename_mode"):
         d, tb, tm, current = st.session_state.rename_mode
         with st.expander(f"Edit Booking: {tm} {tb}", expanded=True):
@@ -204,20 +223,38 @@ if tab_admin:
         u_df = load_data(USERS_FILE, USER_COLS)
         b_df = load_data(BOOKINGS_FILE, ["user", "date", "table", "time"])
         
-        # 1. ADVANCED STATS
-        st.subheader("📊 Analytics")
+        # 1. ADVANCED STATS (Global Data)
+        st.subheader("📊 Global Analytics")
         dr = st.date_input("Select Period", [today - timedelta(days=7), today])
         if len(dr) == 2:
             s_df = b_df[(b_df["date"] >= str(dr[0])) & (b_df["date"] <= str(dr[1]))].copy()
             if not s_df.empty:
                 s_df['day'] = pd.to_datetime(s_df['date']).dt.day_name()
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Top Player", s_df['user'].value_counts().idxmax().split('@')[0].capitalize())
-                c2.metric("Peak Hour", s_df['time'].value_counts().idxmax())
-                c3.metric("Busiest Day", s_df['day'].value_counts().idxmax())
-                st.write("**Activity by Hour:**")
-                st.bar_chart(s_df['time'].value_counts())
-            else: st.info("No data.")
+                
+                # Top Metrics
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Total Bookings", len(s_df))
+                c2.metric("Top Player", s_df['user'].value_counts().idxmax().split('@')[0].capitalize())
+                c3.metric("Peak Hour", s_df['time'].value_counts().idxmax())
+                c4.metric("Top Table", s_df['table'].value_counts().idxmax())
+                
+                st.markdown("---")
+                
+                # Leaderboards and Charts
+                colA, colB = st.columns(2)
+                with colA:
+                    st.write("**🏆 User Leaderboard**")
+                    # Calculate bookings per user for the period
+                    user_counts = s_df['user'].value_counts().reset_index()
+                    user_counts.columns = ['Player', 'Bookings']
+                    user_counts['Player'] = user_counts['Player'].apply(lambda x: x.split('@')[0].capitalize())
+                    st.dataframe(user_counts, use_container_width=True, hide_index=True)
+                    
+                with colB:
+                    st.write("**📈 Activity by Hour**")
+                    st.bar_chart(s_df['time'].value_counts())
+            else: 
+                st.info("No data for this time period.")
 
         # 2. USER MANAGEMENT (Sortable Table)
         st.divider()
@@ -230,12 +267,19 @@ if tab_admin:
             save_data(edited, USERS_FILE)
             st.rerun()
 
-        # 3. BULK TOOLS
-        with st.expander("🛠️ Admin Tools"):
-            if st.button("🔑 Set All Passwords to '1234'"):
-                u_df["password"] = "1234"
-                save_data(u_df, USERS_FILE)
-                st.rerun()
+        # 3. BULK TOOLS & MANUAL BACKUPS
+        with st.expander("🛠️ Admin Tools & Manual Backups"):
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔑 Set All Passwords to '1234'"):
+                    u_df["password"] = "1234"
+                    save_data(u_df, USERS_FILE)
+                    st.success("Passwords reset!")
+                    st.rerun()
+            with col2:
+                st.download_button("💾 Download Users CSV", u_df.to_csv(index=False), "users_backup.csv", "text/csv")
+                st.download_button("💾 Download Bookings CSV", b_df.to_csv(index=False), "bookings_backup.csv", "text/csv")
+                
             up = st.file_uploader("📥 Import Users (CSV)")
             if up:
                 new_users = pd.read_csv(up)
